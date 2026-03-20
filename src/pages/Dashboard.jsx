@@ -1,39 +1,28 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import axios from "axios";
+import api from "../api";
 
 function Dashboard() {
-  const [totalCustomers, setTotalCustomers] = useState(0);
-  const [totalPackages, setTotalPackages] = useState(0);
-  const [readyPackages, setReadyPackages] = useState(0);
-  const [paidInvoicesTotal, setPaidInvoicesTotal] = useState(0);
+  const [customers, setCustomers] = useState([]);
+  const [packages, setPackages] = useState([]);
+  const [invoices, setInvoices] = useState([]);
   const [chartData, setChartData] = useState([]);
+  const [dateFilter, setDateFilter] = useState("today");
+  const [locationFilter, setLocationFilter] = useState("All Locations");
 
   const fetchDashboardData = async () => {
     try {
       const [customersRes, packagesRes, invoicesRes, chartRes] = await Promise.all([
-        axios.get("http://localhost:5000/api/customers"),
-        axios.get("http://localhost:5000/api/packages"),
-        axios.get("http://localhost:5000/api/invoices"),
-        axios.get("http://localhost:5000/api/finance/monthly-chart"),
+        api.get("/api/customers"),
+        api.get("/api/packages"),
+        api.get("/api/invoices"),
+        api.get("/api/finance/monthly-chart"),
       ]);
 
-      const packages = packagesRes.data.data || [];
-      const invoices = invoicesRes.data.data || [];
-      const monthlyChart = chartRes.data.data || [];
-
-      setTotalCustomers(customersRes.data.totalCustomers || 0);
-      setTotalPackages(packages.length);
-      setReadyPackages(
-        packages.filter((pkg) => pkg.status === "Ready for Pickup").length
-      );
-
-      const paidTotal = invoices
-        .filter((inv) => inv.status === "Paid")
-        .reduce((sum, inv) => sum + Number(inv.finalTotal || 0), 0);
-
-      setPaidInvoicesTotal(paidTotal);
-      setChartData(monthlyChart);
+      setCustomers(customersRes.data.data || []);
+      setPackages(packagesRes.data.data || []);
+      setInvoices(invoicesRes.data.data || []);
+      setChartData(chartRes.data.data || []);
     } catch (error) {
       console.error("Error loading dashboard data:", error);
     }
@@ -43,13 +32,121 @@ function Dashboard() {
     fetchDashboardData();
   }, []);
 
-  const cardStyle = {
-    backgroundColor: "white",
-    borderRadius: "10px",
-    padding: "24px",
-    border: "1px solid #e5e7eb",
-    minHeight: "160px",
+  const parseDate = (value) => {
+    if (!value) return null;
+
+    if (typeof value === "string") {
+      const short = value.slice(0, 10);
+
+      if (/^\d{4}-\d{2}-\d{2}$/.test(short)) {
+        return new Date(`${short}T00:00:00`);
+      }
+
+      if (/^\d{2}\/\d{2}\/\d{4}$/.test(value)) {
+        const [day, month, year] = value.split("/");
+        return new Date(`${year}-${month}-${day}T00:00:00`);
+      }
+
+      const parsed = new Date(value);
+      return Number.isNaN(parsed.getTime()) ? null : parsed;
+    }
+
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
   };
+
+  const startOfToday = () => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  };
+
+  const endOfToday = () => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+  };
+
+  const startOfWeek = () => {
+    const now = new Date();
+    const day = now.getDay();
+    const diff = day === 0 ? 6 : day - 1;
+    const start = new Date(now);
+    start.setDate(now.getDate() - diff);
+    start.setHours(0, 0, 0, 0);
+    return start;
+  };
+
+  const startOfMonth = () => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), 1);
+  };
+
+  const isWithinSelectedRange = (dateValue) => {
+    const date = parseDate(dateValue);
+    if (!date) return false;
+
+    const now = new Date();
+
+    if (dateFilter === "today") {
+      return date >= startOfToday() && date <= endOfToday();
+    }
+
+    if (dateFilter === "week") {
+      return date >= startOfWeek() && date <= now;
+    }
+
+    if (dateFilter === "month") {
+      return date >= startOfMonth() && date <= now;
+    }
+
+    return true;
+  };
+
+  const matchesLocation = (item) => {
+    if (locationFilter === "All Locations") return true;
+
+    return (
+      item.branch === locationFilter ||
+      item.location === locationFilter ||
+      item.pickupBranch === locationFilter ||
+      item.warehouseLocation === locationFilter
+    );
+  };
+
+  const filteredCustomers = useMemo(() => {
+    return customers.filter(
+      (customer) =>
+        matchesLocation(customer) &&
+        isWithinSelectedRange(customer.signUpDate || customer.createdAt)
+    );
+  }, [customers, dateFilter, locationFilter]);
+
+  const filteredPackages = useMemo(() => {
+    return packages.filter(
+      (pkg) =>
+        matchesLocation(pkg) &&
+        isWithinSelectedRange(pkg.dateReceived || pkg.createdAt)
+    );
+  }, [packages, dateFilter, locationFilter]);
+
+  const filteredInvoices = useMemo(() => {
+    return invoices.filter(
+      (inv) =>
+        matchesLocation(inv) &&
+        isWithinSelectedRange(inv.paidDate || inv.createdAt)
+    );
+  }, [invoices, dateFilter, locationFilter]);
+
+  const newSignupsCount = filteredCustomers.length;
+
+  const packagesReadyCount = filteredPackages.filter(
+    (pkg) => pkg.status === "Ready for Pickup" || pkg.readyForPickup === true
+  ).length;
+
+  const totalPackagesCount = filteredPackages.length;
+
+  const paidInvoicesTotal = filteredInvoices
+    .filter((inv) => inv.status === "Paid")
+    .reduce((sum, inv) => sum + Number(inv.finalTotal || 0), 0);
 
   const maxChartValue =
     chartData.length > 0
@@ -62,6 +159,23 @@ function Dashboard() {
         )
       : 1;
 
+  const filterLabel =
+    dateFilter === "today"
+      ? "Today"
+      : dateFilter === "week"
+      ? "This Week"
+      : dateFilter === "month"
+      ? "This Month"
+      : "All Time";
+
+  const cardStyle = {
+    backgroundColor: "white",
+    borderRadius: "10px",
+    padding: "24px",
+    border: "1px solid #e5e7eb",
+    minHeight: "160px",
+  };
+
   return (
     <div>
       <div
@@ -70,9 +184,12 @@ function Dashboard() {
           justifyContent: "flex-end",
           gap: "15px",
           marginBottom: "25px",
+          flexWrap: "wrap",
         }}
       >
-        <button
+        <select
+          value={dateFilter}
+          onChange={(e) => setDateFilter(e.target.value)}
           style={{
             backgroundColor: "#1D9BF0",
             color: "white",
@@ -83,10 +200,15 @@ function Dashboard() {
             fontWeight: "bold",
           }}
         >
-          FILTER DATE
-        </button>
+          <option value="today" style={{ color: "black" }}>Today</option>
+          <option value="week" style={{ color: "black" }}>This Week</option>
+          <option value="month" style={{ color: "black" }}>This Month</option>
+          <option value="all" style={{ color: "black" }}>All Time</option>
+        </select>
 
         <select
+          value={locationFilter}
+          onChange={(e) => setLocationFilter(e.target.value)}
           style={{
             padding: "12px 16px",
             borderRadius: "6px",
@@ -125,30 +247,30 @@ function Dashboard() {
       >
         <div style={cardStyle}>
           <h3 style={{ marginTop: 0, fontSize: "28px", color: "#1f3552" }}>
-            {totalCustomers}
+            {newSignupsCount}
           </h3>
           <p style={{ fontSize: "18px", fontWeight: "bold", color: "#334155" }}>
-            New Sign Ups - Today
+            New Sign Ups - {filterLabel}
           </p>
           <Link to="/customers">View Customers</Link>
         </div>
 
         <div style={cardStyle}>
           <h3 style={{ marginTop: 0, fontSize: "28px", color: "#1f3552" }}>
-            {readyPackages}
+            {packagesReadyCount}
           </h3>
           <p style={{ fontSize: "18px", fontWeight: "bold", color: "#334155" }}>
-            Packages Ready - Today
+            Packages Ready - {filterLabel}
           </p>
           <Link to="/packages">View Packages</Link>
         </div>
 
         <div style={cardStyle}>
           <h3 style={{ marginTop: 0, fontSize: "28px", color: "#1f3552" }}>
-            {totalPackages}
+            {totalPackagesCount}
           </h3>
           <p style={{ fontSize: "18px", fontWeight: "bold", color: "#334155" }}>
-            Total Packages
+            Total Packages - {filterLabel}
           </p>
           <Link to="/packages">View Packages</Link>
         </div>
@@ -158,7 +280,7 @@ function Dashboard() {
             JMD {paidInvoicesTotal.toLocaleString()}
           </h3>
           <p style={{ fontSize: "18px", fontWeight: "bold", color: "#334155" }}>
-            Total Paid Invoices - Today
+            Paid Invoices - {filterLabel}
           </p>
           <Link to="/invoices">View Invoices</Link>
         </div>
