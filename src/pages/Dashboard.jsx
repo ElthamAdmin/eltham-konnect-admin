@@ -81,6 +81,8 @@ function Dashboard() {
   };
 
   const isWithinSelectedRange = (dateValue) => {
+    if (dateFilter === "all") return true;
+
     const date = parseDate(dateValue);
     if (!date) return false;
 
@@ -128,9 +130,10 @@ function Dashboard() {
     );
   }, [packages, dateFilter, locationFilter]);
 
-  const filteredInvoices = useMemo(() => {
+  const filteredPaidInvoices = useMemo(() => {
     return invoices.filter(
       (inv) =>
+        inv.status === "Paid" &&
         matchesLocation(inv) &&
         isWithinSelectedRange(inv.paidDate || inv.createdAt)
     );
@@ -144,9 +147,10 @@ function Dashboard() {
 
   const totalPackagesCount = filteredPackages.length;
 
-  const paidInvoicesTotal = filteredInvoices
-    .filter((inv) => inv.status === "Paid")
-    .reduce((sum, inv) => sum + Number(inv.finalTotal || 0), 0);
+  const paidInvoicesTotal = filteredPaidInvoices.reduce(
+    (sum, inv) => sum + Number(inv.finalTotal || 0),
+    0
+  );
 
   const maxChartValue =
     chartData.length > 0
@@ -200,10 +204,18 @@ function Dashboard() {
             fontWeight: "bold",
           }}
         >
-          <option value="today" style={{ color: "black" }}>Today</option>
-          <option value="week" style={{ color: "black" }}>This Week</option>
-          <option value="month" style={{ color: "black" }}>This Month</option>
-          <option value="all" style={{ color: "black" }}>All Time</option>
+          <option value="today" style={{ color: "black" }}>
+            Today
+          </option>
+          <option value="week" style={{ color: "black" }}>
+            This Week
+          </option>
+          <option value="month" style={{ color: "black" }}>
+            This Month
+          </option>
+          <option value="all" style={{ color: "black" }}>
+            All Time
+          </option>
         </select>
 
         <select
