@@ -34,7 +34,7 @@ function SystemUsers() {
 
   const fetchUsers = async () => {
     try {
-      const res = await axios.get("http://localhost:5000/api/system-users");
+      const res = await axios.get("https://eltham-konnect-backend-c2sf.onrender.com/api/system-users");
       setUsers(res.data.data || []);
     } catch (error) {
       console.error("Error loading system users:", error);
@@ -116,7 +116,7 @@ function SystemUsers() {
       };
 
       const res = await axios.post(
-        "http://localhost:5000/api/system-users",
+        "https://eltham-konnect-backend-c2sf.onrender.com/api/system-users",
         payload
       );
 
@@ -144,7 +144,7 @@ function SystemUsers() {
   const updateStatus = async (userId, status) => {
     try {
       const res = await axios.put(
-        `http://localhost:5000/api/system-users/${userId}/status`,
+        `https://eltham-konnect-backend-c2sf.onrender.com/api/system-users/${userId}/status`,
         { status }
       );
 
@@ -166,7 +166,7 @@ function SystemUsers() {
 
     try {
       const res = await axios.put(
-        `http://localhost:5000/api/system-users/${user.userId}/role`,
+        `https://eltham-konnect-backend-c2sf.onrender.com/api/system-users/${user.userId}/role`,
         { role: newRole }
       );
 
@@ -200,7 +200,7 @@ function SystemUsers() {
 
     try {
       const res = await axios.put(
-        `http://localhost:5000/api/system-users/${user.userId}/permissions`,
+        `https://eltham-konnect-backend-c2sf.onrender.com/api/system-users/${user.userId}/permissions`,
         { permissions }
       );
 
@@ -222,7 +222,7 @@ function SystemUsers() {
 
     try {
       const res = await axios.put(
-        `http://localhost:5000/api/system-users/${user.userId}/reset-password`,
+        `https://eltham-konnect-backend-c2sf.onrender.com/api/system-users/${user.userId}/reset-password`,
         { password: newPassword }
       );
 

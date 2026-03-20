@@ -13,7 +13,7 @@ function POS() {
 
   const loadRates = async () => {
     try {
-      const res = await axios.get("http://localhost:5000/api/shipping-rates");
+      const res = await axios.get("https://eltham-konnect-backend-c2sf.onrender.com/api/shipping-rates");
       const rates = res.data.data || [];
       const mapped = {};
 
@@ -31,7 +31,7 @@ function POS() {
 
   const loadAccounts = async () => {
     try {
-      const res = await axios.get("http://localhost:5000/api/financial-accounts");
+      const res = await axios.get("https://eltham-konnect-backend-c2sf.onrender.com/api/financial-accounts");
       setAccounts(res.data.data || []);
     } catch (error) {
       console.error("Error loading accounts:", error);
@@ -46,8 +46,8 @@ function POS() {
   const loadCustomerPackages = async () => {
     try {
       const [customersRes, packagesRes] = await Promise.all([
-        axios.get("http://localhost:5000/api/customers"),
-        axios.get("http://localhost:5000/api/packages"),
+        axios.get("https://eltham-konnect-backend-c2sf.onrender.com/api/customers"),
+        axios.get("https://eltham-konnect-backend-c2sf.onrender.com/api/packages"),
       ]);
 
       const freshRateMap = await loadRates();
@@ -95,7 +95,7 @@ function POS() {
 
   const createPosInvoice = async () => {
     try {
-      const res = await axios.post("http://localhost:5000/api/invoices", {
+      const res = await axios.post("https://eltham-konnect-backend-c2sf.onrender.com/api/invoices", {
         customerEkonId: ekonId,
         pointsToRedeem: Number(pointsToRedeem) || 0,
       });
@@ -121,7 +121,7 @@ function POS() {
 
     try {
       const res = await axios.put(
-        `http://localhost:5000/api/invoices/pay/${invoice.invoiceNumber}`,
+        `https://eltham-konnect-backend-c2sf.onrender.com/api/invoices/pay/${invoice.invoiceNumber}`,
         { receivingAccountNumber }
       );
 

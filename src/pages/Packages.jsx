@@ -22,7 +22,7 @@ function Packages() {
 
   const fetchPackages = async () => {
     try {
-      const res = await axios.get("http://localhost:5000/api/packages");
+      const res = await axios.get("https://eltham-konnect-backend-c2sf.onrender.com/api/packages");
       setPackages(res.data.data || []);
     } catch (error) {
       console.error("Error loading packages:", error);
@@ -31,7 +31,7 @@ function Packages() {
 
   const fetchRates = async () => {
     try {
-      const res = await axios.get("http://localhost:5000/api/shipping-rates");
+      const res = await axios.get("https://eltham-konnect-backend-c2sf.onrender.com/api/shipping-rates");
       const rates = res.data.data || [];
       const mapped = {};
 
@@ -73,7 +73,7 @@ function Packages() {
   const savePackage = async () => {
     try {
       const res = await axios.post(
-        "http://localhost:5000/api/packages",
+        "https://eltham-konnect-backend-c2sf.onrender.com/api/packages",
         formData
       );
 
@@ -111,7 +111,7 @@ function Packages() {
     if (pointsInput === null) return;
 
     try {
-      const res = await axios.post("http://localhost:5000/api/invoices", {
+      const res = await axios.post("https://eltham-konnect-backend-c2sf.onrender.com/api/invoices", {
         customerEkonId,
         pointsToRedeem: Number(pointsInput) || 0,
       });
@@ -129,7 +129,7 @@ function Packages() {
   const updateStatus = async (trackingNumber, newStatus) => {
     try {
       const res = await axios.put(
-        `http://localhost:5000/api/packages/${trackingNumber}/status`,
+        `https://eltham-konnect-backend-c2sf.onrender.com/api/packages/${trackingNumber}/status`,
         { status: newStatus }
       );
 

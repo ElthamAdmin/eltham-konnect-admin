@@ -7,7 +7,7 @@ function Manifests() {
 
   const fetchManifests = async () => {
     try {
-      const res = await axios.get("http://localhost:5000/api/manifests");
+      const res = await axios.get("https://eltham-konnect-backend-c2sf.onrender.com/api/manifests");
       setManifests(res.data.data || []);
     } catch (error) {
       console.error("Error loading manifests:", error);
@@ -20,7 +20,7 @@ function Manifests() {
 
   const createManifest = async () => {
     try {
-      const res = await axios.post("http://localhost:5000/api/manifests", {
+      const res = await axios.post("https://eltham-konnect-backend-c2sf.onrender.com/api/manifests", {
         origin,
       });
 
@@ -36,7 +36,7 @@ function Manifests() {
   const departManifest = async (manifestNumber) => {
     try {
       const res = await axios.put(
-        `http://localhost:5000/api/manifests/${manifestNumber}/depart`
+        `https://eltham-konnect-backend-c2sf.onrender.com/api/manifests/${manifestNumber}/depart`
       );
 
       alert(res.data.message || "Manifest departed successfully.");
@@ -50,7 +50,7 @@ function Manifests() {
   const arriveManifest = async (manifestNumber) => {
     try {
       const res = await axios.put(
-        `http://localhost:5000/api/manifests/${manifestNumber}/arrive`
+        `https://eltham-konnect-backend-c2sf.onrender.com/api/manifests/${manifestNumber}/arrive`
       );
 
       alert(res.data.message || "Manifest arrived successfully.");
@@ -68,7 +68,7 @@ function Manifests() {
 
     try {
       const res = await axios.post(
-        `http://localhost:5000/api/manifests/${manifestNumber}/add-package`,
+        `https://eltham-konnect-backend-c2sf.onrender.com/api/manifests/${manifestNumber}/add-package`,
         { trackingNumber: tracking }
       );
 

@@ -17,7 +17,7 @@ const formData=new FormData()
 formData.append("file",customerFile)
 
 const res=await axios.post(
-"http://localhost:5000/api/import/customers",
+"https://eltham-konnect-backend-c2sf.onrender.com/api/import/customers",
 formData
 )
 
@@ -36,7 +36,7 @@ const formData=new FormData()
 formData.append("file",rateFile)
 
 const res=await axios.post(
-"http://localhost:5000/api/import/rates",
+"https://eltham-konnect-backend-c2sf.onrender.com/api/import/rates",
 formData
 )
 

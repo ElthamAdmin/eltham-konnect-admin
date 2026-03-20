@@ -19,7 +19,7 @@ function MarketingInfo() {
 
   const fetchCampaigns = async () => {
     try {
-      const res = await axios.get("http://localhost:5000/api/marketing");
+      const res = await axios.get("https://eltham-konnect-backend-c2sf.onrender.com/api/marketing");
       setCampaigns(res.data.data || []);
     } catch (error) {
       console.error("Error loading campaigns:", error);
@@ -63,12 +63,12 @@ function MarketingInfo() {
 
       if (editingCampaign) {
         await axios.put(
-          `http://localhost:5000/api/marketing/${editingCampaign.campaignNumber}`,
+          `https://eltham-konnect-backend-c2sf.onrender.com/api/marketing/${editingCampaign.campaignNumber}`,
           formData
         );
         alert("Campaign updated successfully.");
       } else {
-        await axios.post("http://localhost:5000/api/marketing", formData);
+        await axios.post("https://eltham-konnect-backend-c2sf.onrender.com/api/marketing", formData);
         alert("Campaign created successfully.");
       }
 

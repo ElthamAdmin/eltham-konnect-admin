@@ -6,7 +6,7 @@ function WarehouseManagement() {
 
   const fetchPackages = async () => {
     try {
-      const res = await axios.get("http://localhost:5000/api/packages");
+      const res = await axios.get("https://eltham-konnect-backend-c2sf.onrender.com/api/packages");
       setPackages(res.data.data || []);
     } catch (error) {
       console.error("Error loading warehouse packages:", error);
@@ -20,7 +20,7 @@ function WarehouseManagement() {
   const updateStatus = async (trackingNumber, newStatus) => {
     try {
       const res = await axios.put(
-        `http://localhost:5000/api/packages/${trackingNumber}/status`,
+        `https://eltham-konnect-backend-c2sf.onrender.com/api/packages/${trackingNumber}/status`,
         { status: newStatus }
       );
 

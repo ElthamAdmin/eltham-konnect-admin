@@ -13,7 +13,7 @@ function Communication() {
 
   const fetchLogs = async () => {
     try {
-      const res = await axios.get("http://localhost:5000/api/communication");
+      const res = await axios.get("https://eltham-konnect-backend-c2sf.onrender.com/api/communication");
       setLogs(res.data.data || []);
     } catch (error) {
       console.error("Error loading communication logs:", error);
@@ -22,7 +22,7 @@ function Communication() {
 
   const fetchCustomers = async () => {
     try {
-      const res = await axios.get("http://localhost:5000/api/customers");
+      const res = await axios.get("https://eltham-konnect-backend-c2sf.onrender.com/api/customers");
       setCustomers(res.data.data || []);
     } catch (error) {
       console.error("Error loading customers:", error);
@@ -54,7 +54,7 @@ function Communication() {
       }
 
       const res = await axios.post(
-        "http://localhost:5000/api/communication",
+        "https://eltham-konnect-backend-c2sf.onrender.com/api/communication",
         formData
       );
 

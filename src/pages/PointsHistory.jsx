@@ -7,7 +7,7 @@ function PointsHistory() {
   useEffect(() => {
     const fetchHistory = async () => {
       try {
-        const res = await axios.get("http://localhost:5000/api/customers/points-history");
+        const res = await axios.get("https://eltham-konnect-backend-c2sf.onrender.com/api/customers/points-history");
         setHistory(res.data.data);
       } catch (error) {
         console.error("Error loading points history:", error);

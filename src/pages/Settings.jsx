@@ -45,7 +45,7 @@ function Settings() {
 
   const fetchSettings = async () => {
     try {
-      const res = await axios.get("http://localhost:5000/api/settings");
+      const res = await axios.get("https://eltham-konnect-backend-c2sf.onrender.com/api/settings");
       setSettings(res.data.data);
     } catch (error) {
       console.error("Error loading settings:", error);
@@ -54,7 +54,7 @@ function Settings() {
 
   const fetchDocuments = async () => {
     try {
-      const res = await axios.get("http://localhost:5000/api/settings/documents");
+      const res = await axios.get("https://eltham-konnect-backend-c2sf.onrender.com/api/settings/documents");
       setDocuments(res.data.data || []);
     } catch (error) {
       console.error("Error loading company documents:", error);
@@ -108,7 +108,7 @@ function Settings() {
 
   const saveSettings = async () => {
     try {
-      const res = await axios.put("http://localhost:5000/api/settings", settings);
+      const res = await axios.put("https://eltham-konnect-backend-c2sf.onrender.com/api/settings", settings);
       alert(res.data.message);
       setSettings(res.data.data);
     } catch (error) {
@@ -128,7 +128,7 @@ function Settings() {
       formData.append("logo", primaryLogoFile);
 
       const res = await axios.post(
-        "http://localhost:5000/api/settings/upload-primary-logo",
+        "https://eltham-konnect-backend-c2sf.onrender.com/api/settings/upload-primary-logo",
         formData,
         {
           headers: { "Content-Type": "multipart/form-data" },
@@ -155,7 +155,7 @@ function Settings() {
       formData.append("logo", invoiceLogoFile);
 
       const res = await axios.post(
-        "http://localhost:5000/api/settings/upload-invoice-logo",
+        "https://eltham-konnect-backend-c2sf.onrender.com/api/settings/upload-invoice-logo",
         formData,
         {
           headers: { "Content-Type": "multipart/form-data" },
@@ -185,7 +185,7 @@ function Settings() {
       formData.append("document", documentFile);
 
       const res = await axios.post(
-        "http://localhost:5000/api/settings/documents/upload",
+        "https://eltham-konnect-backend-c2sf.onrender.com/api/settings/documents/upload",
         formData,
         {
           headers: { "Content-Type": "multipart/form-data" },
@@ -290,7 +290,7 @@ function Settings() {
             <h3>Primary Logo</h3>
             {settings.branding?.primaryLogoPath ? (
               <img
-                src={`http://localhost:5000${settings.branding.primaryLogoPath}`}
+                src={`https://eltham-konnect-backend-c2sf.onrender.com${settings.branding.primaryLogoPath}`}
                 alt="Primary Logo"
                 style={{ maxWidth: "180px", maxHeight: "100px", display: "block", marginBottom: "10px" }}
               />
@@ -319,7 +319,7 @@ function Settings() {
             <h3>Invoice Logo</h3>
             {settings.branding?.invoiceLogoPath ? (
               <img
-                src={`http://localhost:5000${settings.branding.invoiceLogoPath}`}
+                src={`https://eltham-konnect-backend-c2sf.onrender.com${settings.branding.invoiceLogoPath}`}
                 alt="Invoice Logo"
                 style={{ maxWidth: "180px", maxHeight: "100px", display: "block", marginBottom: "10px" }}
               />
@@ -626,7 +626,7 @@ function Settings() {
                   <td>{doc.status}</td>
                   <td>
                     <a
-                      href={`http://localhost:5000${doc.filePath}`}
+                      href={`https://eltham-konnect-backend-c2sf.onrender.com${doc.filePath}`}
                       target="_blank"
                       rel="noreferrer"
                     >

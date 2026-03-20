@@ -63,13 +63,13 @@ function Finance() {
         accountsRes,
         transactionsRes,
       ] = await Promise.all([
-        axios.get("http://localhost:5000/api/invoices"),
-        axios.get("http://localhost:5000/api/finance/expenses"),
-        axios.get("http://localhost:5000/api/finance/payroll"),
-        axios.get("http://localhost:5000/api/finance/summary"),
-        axios.get("http://localhost:5000/api/finance/reports"),
-        axios.get("http://localhost:5000/api/financial-accounts"),
-        axios.get("http://localhost:5000/api/account-transactions"),
+        axios.get("https://eltham-konnect-backend-c2sf.onrender.com/api/invoices"),
+        axios.get("https://eltham-konnect-backend-c2sf.onrender.com/api/finance/expenses"),
+        axios.get("https://eltham-konnect-backend-c2sf.onrender.com/api/finance/payroll"),
+        axios.get("https://eltham-konnect-backend-c2sf.onrender.com/api/finance/summary"),
+        axios.get("https://eltham-konnect-backend-c2sf.onrender.com/api/finance/reports"),
+        axios.get("https://eltham-konnect-backend-c2sf.onrender.com/api/financial-accounts"),
+        axios.get("https://eltham-konnect-backend-c2sf.onrender.com/api/account-transactions"),
       ]);
 
       setInvoices(invoicesRes.data.data || []);
@@ -164,7 +164,7 @@ function Finance() {
       }
 
       const res = await axios.post(
-        "http://localhost:5000/api/finance/expenses",
+        "https://eltham-konnect-backend-c2sf.onrender.com/api/finance/expenses",
         expenseForm
       );
 
@@ -206,7 +206,7 @@ function Finance() {
       }
 
       const res = await axios.post(
-        "http://localhost:5000/api/finance/payroll",
+        "https://eltham-konnect-backend-c2sf.onrender.com/api/finance/payroll",
         payrollForm
       );
 
@@ -248,7 +248,7 @@ function Finance() {
       };
 
       const res = await axios.post(
-        "http://localhost:5000/api/financial-accounts",
+        "https://eltham-konnect-backend-c2sf.onrender.com/api/financial-accounts",
         payload
       );
 
@@ -292,7 +292,7 @@ function Finance() {
       };
 
       const res = await axios.post(
-        "http://localhost:5000/api/account-transactions",
+        "https://eltham-konnect-backend-c2sf.onrender.com/api/account-transactions",
         payload
       );
 
@@ -337,7 +337,7 @@ function Finance() {
       };
 
       const res = await axios.post(
-        "http://localhost:5000/api/account-transactions/transfer",
+        "https://eltham-konnect-backend-c2sf.onrender.com/api/account-transactions/transfer",
         payload
       );
 
