@@ -145,6 +145,7 @@ function Packages() {
     if (currentStatus === "At Warehouse") return "In Transit";
     if (currentStatus === "In Transit") return "Cleared Customs";
     if (currentStatus === "Cleared Customs") return "Ready for Pickup";
+    if (currentStatus === "In Transit to Branch") return "Ready for Pickup";
     if (currentStatus === "Ready for Pickup") return "Delivered";
     return null;
   };
@@ -155,7 +156,17 @@ function Packages() {
     if (status === "Delivered") return "#475569";
     if (status === "In Transit") return "#0ea5e9";
     if (status === "Cleared Customs") return "#7c3aed";
+    if (status === "In Transit to Branch") return "#64748b";
     return "gray";
+  };
+
+  const formatDate = (value) => {
+    if (!value) return "";
+    try {
+      return String(value).slice(0, 10);
+    } catch {
+      return value;
+    }
   };
 
   return (
@@ -366,7 +377,7 @@ function Packages() {
                 <td>{pkg.warehouseLocation}</td>
                 <td>{pkg.invoiceStatus}</td>
                 <td>{pkg.readyForPickup ? "Yes" : "No"}</td>
-                <td>{pkg.dateReceived}</td>
+                <td>{formatDate(pkg.dateReceived)}</td>
                 <td>
                   <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
                     {getNextStatus(pkg.status) && (
