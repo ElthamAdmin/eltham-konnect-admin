@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import axios from "axios";
+import api from "../api";
 
 function Finance() {
   const [activeTab, setActiveTab] = useState("dashboard");
@@ -64,13 +64,13 @@ function Finance() {
         accountsRes,
         transactionsRes,
       ] = await Promise.all([
-        axios.get("https://eltham-konnect-backend-c2sf.onrender.com/api/invoices"),
-        axios.get("https://eltham-konnect-backend-c2sf.onrender.com/api/finance/expenses"),
-        axios.get("https://eltham-konnect-backend-c2sf.onrender.com/api/finance/payroll"),
-        axios.get("https://eltham-konnect-backend-c2sf.onrender.com/api/finance/summary"),
-        axios.get("https://eltham-konnect-backend-c2sf.onrender.com/api/finance/reports"),
-        axios.get("https://eltham-konnect-backend-c2sf.onrender.com/api/financial-accounts"),
-        axios.get("https://eltham-konnect-backend-c2sf.onrender.com/api/account-transactions"),
+        api.get("/api/invoices"),
+        api.get("/api/finance/expenses"),
+        api.get("/api/finance/payroll"),
+        api.get("/api/finance/summary"),
+        api.get("/api/finance/reports"),
+        api.get("/api/financial-accounts"),
+        api.get("/api/account-transactions"),
       ]);
 
       setInvoices(invoicesRes.data.data || []);
@@ -82,6 +82,11 @@ function Finance() {
       setTransactions(transactionsRes.data.data || []);
     } catch (error) {
       console.error("Error loading finance data:", error);
+      alert(
+        error?.response?.data?.message ||
+          error?.message ||
+          "Could not load finance data."
+      );
     }
   };
 
@@ -176,15 +181,11 @@ function Finance() {
         payload.append("receipt", expenseReceipt);
       }
 
-      const res = await axios.post(
-        "https://eltham-konnect-backend-c2sf.onrender.com/api/finance/expenses",
-        payload,
-        {
-          headers: {
-            "Content-Type": "multipart/form-data",
-          },
-        }
-      );
+      const res = await api.post("/api/finance/expenses", payload, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
 
       alert(res.data.message);
 
@@ -228,10 +229,7 @@ function Finance() {
         return;
       }
 
-      const res = await axios.post(
-        "https://eltham-konnect-backend-c2sf.onrender.com/api/finance/payroll",
-        payrollForm
-      );
+      const res = await api.post("/api/finance/payroll", payrollForm);
 
       alert(res.data.message);
 
@@ -270,10 +268,7 @@ function Finance() {
         openingBalance: Number(accountForm.openingBalance || 0),
       };
 
-      const res = await axios.post(
-        "https://eltham-konnect-backend-c2sf.onrender.com/api/financial-accounts",
-        payload
-      );
+      const res = await api.post("/api/financial-accounts", payload);
 
       alert(res.data.message);
 
@@ -314,10 +309,7 @@ function Finance() {
         amount: Number(transactionForm.amount || 0),
       };
 
-      const res = await axios.post(
-        "https://eltham-konnect-backend-c2sf.onrender.com/api/account-transactions",
-        payload
-      );
+      const res = await api.post("/api/account-transactions", payload);
 
       alert(res.data.message);
 
@@ -359,10 +351,7 @@ function Finance() {
         amount: Number(transferForm.amount || 0),
       };
 
-      const res = await axios.post(
-        "https://eltham-konnect-backend-c2sf.onrender.com/api/account-transactions/transfer",
-        payload
-      );
+      const res = await api.post("/api/account-transactions/transfer", payload);
 
       alert(res.data.message);
 
@@ -592,7 +581,7 @@ function Finance() {
                       <td>
                         {expense.receiptUrl ? (
                           <a
-                            href={`https://eltham-konnect-backend-c2sf.onrender.com${expense.receiptUrl}`}
+                            href={`${api.defaults.baseURL}${expense.receiptUrl}`}
                             target="_blank"
                             rel="noopener noreferrer"
                           >
