@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 
 function Packages() {
@@ -6,6 +6,8 @@ function Packages() {
   const [showForm, setShowForm] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [rateMap, setRateMap] = useState({});
+  const [selectedPackages, setSelectedPackages] = useState([]);
+  const [bulkStatus, setBulkStatus] = useState("");
 
   const [formData, setFormData] = useState({
     trackingNumber: "",
@@ -22,7 +24,9 @@ function Packages() {
 
   const fetchPackages = async () => {
     try {
-      const res = await axios.get("https://eltham-konnect-backend-c2sf.onrender.com/api/packages");
+      const res = await axios.get(
+        "https://eltham-konnect-backend-c2sf.onrender.com/api/packages"
+      );
       setPackages(res.data.data || []);
     } catch (error) {
       console.error("Error loading packages:", error);
@@ -31,7 +35,9 @@ function Packages() {
 
   const fetchRates = async () => {
     try {
-      const res = await axios.get("https://eltham-konnect-backend-c2sf.onrender.com/api/shipping-rates");
+      const res = await axios.get(
+        "https://eltham-konnect-backend-c2sf.onrender.com/api/shipping-rates"
+      );
       const rates = res.data.data || [];
       const mapped = {};
 
@@ -50,11 +56,21 @@ function Packages() {
     fetchRates();
   }, []);
 
-  const filteredPackages = packages.filter((pkg) =>
-    `${pkg.trackingNumber} ${pkg.customerEkonId} ${pkg.customerName}`
-      .toLowerCase()
-      .includes(searchTerm.toLowerCase())
-  );
+  const filteredPackages = useMemo(() => {
+    return packages.filter((pkg) =>
+      `${pkg.trackingNumber} ${pkg.customerEkonId} ${pkg.customerName}`
+        .toLowerCase()
+        .includes(searchTerm.toLowerCase())
+    );
+  }, [packages, searchTerm]);
+
+  const filteredTrackingNumbers = filteredPackages.map((pkg) => pkg.trackingNumber);
+
+  const allFilteredSelected =
+    filteredTrackingNumbers.length > 0 &&
+    filteredTrackingNumbers.every((trackingNumber) =>
+      selectedPackages.includes(trackingNumber)
+    );
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -111,10 +127,13 @@ function Packages() {
     if (pointsInput === null) return;
 
     try {
-      const res = await axios.post("https://eltham-konnect-backend-c2sf.onrender.com/api/invoices", {
-        customerEkonId,
-        pointsToRedeem: Number(pointsInput) || 0,
-      });
+      const res = await axios.post(
+        "https://eltham-konnect-backend-c2sf.onrender.com/api/invoices",
+        {
+          customerEkonId,
+          pointsToRedeem: Number(pointsInput) || 0,
+        }
+      );
 
       alert(res.data.message);
       await fetchPackages();
@@ -137,7 +156,72 @@ function Packages() {
       await fetchPackages();
     } catch (error) {
       console.error("Error updating package status:", error);
-      alert(error?.response?.data?.message || "Could not update package status.");
+      alert(
+        error?.response?.data?.message || "Could not update package status."
+      );
+    }
+  };
+
+  const applyBulkStatus = async () => {
+    try {
+      if (selectedPackages.length === 0) {
+        alert("Please select at least one package.");
+        return;
+      }
+
+      if (!bulkStatus) {
+        alert("Please select a status to apply.");
+        return;
+      }
+
+      const confirmAction = window.confirm(
+        `Apply status "${bulkStatus}" to ${selectedPackages.length} selected package(s)?`
+      );
+
+      if (!confirmAction) return;
+
+      const res = await axios.put(
+        "https://eltham-konnect-backend-c2sf.onrender.com/api/packages/bulk-status",
+        {
+          trackingNumbers: selectedPackages,
+          status: bulkStatus,
+        }
+      );
+
+      alert(
+        res.data.message ||
+          `Status updated for ${selectedPackages.length} packages.`
+      );
+
+      setSelectedPackages([]);
+      setBulkStatus("");
+      await fetchPackages();
+    } catch (error) {
+      console.error("Error bulk updating package status:", error);
+      alert(
+        error?.response?.data?.message ||
+          "Could not bulk update package statuses."
+      );
+    }
+  };
+
+  const togglePackageSelection = (trackingNumber) => {
+    setSelectedPackages((prev) =>
+      prev.includes(trackingNumber)
+        ? prev.filter((item) => item !== trackingNumber)
+        : [...prev, trackingNumber]
+    );
+  };
+
+  const toggleSelectAllFiltered = () => {
+    if (allFilteredSelected) {
+      setSelectedPackages((prev) =>
+        prev.filter((trackingNumber) => !filteredTrackingNumbers.includes(trackingNumber))
+      );
+    } else {
+      setSelectedPackages((prev) => [
+        ...new Set([...prev, ...filteredTrackingNumbers]),
+      ]);
     }
   };
 
@@ -177,6 +261,8 @@ function Packages() {
           justifyContent: "space-between",
           alignItems: "center",
           marginBottom: "20px",
+          gap: "12px",
+          flexWrap: "wrap",
         }}
       >
         <h1>Packages</h1>
@@ -289,7 +375,8 @@ function Packages() {
                 fontWeight: "bold",
               }}
             >
-              Estimated Charge: JMD {getChargeByWeight(formData.weight).toLocaleString()}
+              Estimated Charge: JMD{" "}
+              {getChargeByWeight(formData.weight).toLocaleString()}
             </div>
 
             <label style={{ display: "flex", alignItems: "center", gap: "10px" }}>
@@ -334,10 +421,79 @@ function Packages() {
         }}
       />
 
+      <div
+        style={{
+          backgroundColor: "white",
+          border: "1px solid #ddd",
+          borderRadius: "8px",
+          padding: "15px",
+          marginBottom: "15px",
+          display: "flex",
+          gap: "12px",
+          flexWrap: "wrap",
+          alignItems: "center",
+        }}
+      >
+        <strong>{selectedPackages.length} selected</strong>
+
+        <select
+          value={bulkStatus}
+          onChange={(e) => setBulkStatus(e.target.value)}
+          style={{
+            padding: "10px",
+            borderRadius: "6px",
+            border: "1px solid #ccc",
+            minWidth: "220px",
+          }}
+        >
+          <option value="">Select bulk status</option>
+          <option value="At Warehouse">At Warehouse</option>
+          <option value="In Transit">In Transit</option>
+          <option value="Cleared Customs">Cleared Customs</option>
+          <option value="Ready for Pickup">Ready for Pickup</option>
+          <option value="Delivered">Delivered</option>
+        </select>
+
+        <button
+          onClick={applyBulkStatus}
+          style={{
+            backgroundColor: "#0B3D91",
+            color: "white",
+            border: "none",
+            padding: "10px 16px",
+            borderRadius: "6px",
+            cursor: "pointer",
+          }}
+        >
+          Apply to Selected
+        </button>
+
+        <button
+          onClick={() => setSelectedPackages([])}
+          style={{
+            backgroundColor: "#64748b",
+            color: "white",
+            border: "none",
+            padding: "10px 16px",
+            borderRadius: "6px",
+            cursor: "pointer",
+          }}
+        >
+          Clear Selection
+        </button>
+      </div>
+
       <div style={{ overflowX: "auto" }}>
-        <table border="1" cellPadding="10" style={{ minWidth: "1500px", width: "100%" }}>
+        <table border="1" cellPadding="10" style={{ minWidth: "1600px", width: "100%" }}>
           <thead>
             <tr>
+              <th>
+                <input
+                  type="checkbox"
+                  checked={allFilteredSelected}
+                  onChange={toggleSelectAllFiltered}
+                />
+              </th>
               <th>Tracking Number</th>
               <th>Customer EKON ID</th>
               <th>Customer Name</th>
@@ -356,6 +512,13 @@ function Packages() {
           <tbody>
             {filteredPackages.map((pkg, index) => (
               <tr key={pkg._id || index}>
+                <td>
+                  <input
+                    type="checkbox"
+                    checked={selectedPackages.includes(pkg.trackingNumber)}
+                    onChange={() => togglePackageSelection(pkg.trackingNumber)}
+                  />
+                </td>
                 <td>{pkg.trackingNumber}</td>
                 <td>{pkg.customerEkonId}</td>
                 <td>{pkg.customerName}</td>
@@ -425,7 +588,7 @@ function Packages() {
 
             {filteredPackages.length === 0 && (
               <tr>
-                <td colSpan="12">No packages found.</td>
+                <td colSpan="13">No packages found.</td>
               </tr>
             )}
           </tbody>
