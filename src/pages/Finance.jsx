@@ -10,6 +10,7 @@ function Finance() {
   const [reports, setReports] = useState(null);
   const [accounts, setAccounts] = useState([]);
   const [transactions, setTransactions] = useState([]);
+  const [expenseReceipt, setExpenseReceipt] = useState(null);
 
   const [expenseForm, setExpenseForm] = useState({
     date: "",
@@ -163,9 +164,26 @@ function Finance() {
         return;
       }
 
+      const payload = new FormData();
+      payload.append("date", expenseForm.date);
+      payload.append("category", expenseForm.category);
+      payload.append("description", expenseForm.description);
+      payload.append("amount", expenseForm.amount);
+      payload.append("status", expenseForm.status);
+      payload.append("paidFromAccountNumber", expenseForm.paidFromAccountNumber);
+
+      if (expenseReceipt) {
+        payload.append("receipt", expenseReceipt);
+      }
+
       const res = await axios.post(
         "https://eltham-konnect-backend-c2sf.onrender.com/api/finance/expenses",
-        expenseForm
+        payload,
+        {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+        }
       );
 
       alert(res.data.message);
@@ -178,6 +196,11 @@ function Finance() {
         status: "Paid",
         paidFromAccountNumber: "",
       });
+
+      setExpenseReceipt(null);
+
+      const fileInput = document.getElementById("expense-receipt-input");
+      if (fileInput) fileInput.value = "";
 
       await fetchFinanceData();
     } catch (error) {
@@ -515,6 +538,14 @@ function Finance() {
                 <option value="Paid">Paid</option>
                 <option value="Pending">Pending</option>
               </select>
+
+              <input
+                id="expense-receipt-input"
+                type="file"
+                accept=".jpg,.jpeg,.png,.webp,.pdf"
+                onChange={(e) => setExpenseReceipt(e.target.files[0] || null)}
+                style={{ padding: "10px", gridColumn: "span 2" }}
+              />
             </div>
             <button
               onClick={addExpense}
@@ -544,6 +575,7 @@ function Finance() {
                   <th>Amount</th>
                   <th>Paid From Account</th>
                   <th>Status</th>
+                  <th>Receipt</th>
                 </tr>
               </thead>
               <tbody>
@@ -557,11 +589,24 @@ function Finance() {
                       <td>{formatCurrency(expense.amount)}</td>
                       <td>{expense.paidFromAccountName || ""}</td>
                       <td>{statusBadge(expense.status)}</td>
+                      <td>
+                        {expense.receiptUrl ? (
+                          <a
+                            href={`https://eltham-konnect-backend-c2sf.onrender.com${expense.receiptUrl}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            View Receipt
+                          </a>
+                        ) : (
+                          "No File"
+                        )}
+                      </td>
                     </tr>
                   ))
                 ) : (
                   <tr>
-                    <td colSpan="7">No expense records found.</td>
+                    <td colSpan="8">No expense records found.</td>
                   </tr>
                 )}
               </tbody>
