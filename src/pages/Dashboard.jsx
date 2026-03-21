@@ -130,6 +130,22 @@ function Dashboard() {
     );
   }, [packages, dateFilter, locationFilter]);
 
+  const filteredReadyPackages = useMemo(() => {
+    return packages.filter((pkg) => {
+      const isReady = pkg.status === "Ready for Pickup" || pkg.readyForPickup === true;
+
+      if (!isReady) return false;
+      if (!matchesLocation(pkg)) return false;
+
+      return isWithinSelectedRange(
+        pkg.readyForPickupDate ||
+          pkg.statusUpdatedAt ||
+          pkg.dateReceived ||
+          pkg.createdAt
+      );
+    });
+  }, [packages, dateFilter, locationFilter]);
+
   const filteredPaidInvoices = useMemo(() => {
     return invoices.filter(
       (inv) =>
@@ -140,11 +156,7 @@ function Dashboard() {
   }, [invoices, dateFilter, locationFilter]);
 
   const newSignupsCount = filteredCustomers.length;
-
-  const packagesReadyCount = filteredPackages.filter(
-    (pkg) => pkg.status === "Ready for Pickup" || pkg.readyForPickup === true
-  ).length;
-
+  const packagesReadyCount = filteredReadyPackages.length;
   const totalPackagesCount = filteredPackages.length;
 
   const paidInvoicesTotal = filteredPaidInvoices.reduce(
