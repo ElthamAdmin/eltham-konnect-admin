@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
-import axios from "axios";
+import api from "../api";
 
 function Communication() {
   const [logs, setLogs] = useState([]);
   const [customers, setCustomers] = useState([]);
+  const [loadingLogs, setLoadingLogs] = useState(true);
+  const [loadingCustomers, setLoadingCustomers] = useState(true);
   const [formData, setFormData] = useState({
     customerEkonId: "",
     channel: "Email",
@@ -13,25 +15,46 @@ function Communication() {
 
   const fetchLogs = async () => {
     try {
-      const res = await axios.get("https://eltham-konnect-backend-c2sf.onrender.com/api/communication");
+      setLoadingLogs(true);
+      const res = await api.get("/api/communication");
       setLogs(res.data.data || []);
     } catch (error) {
       console.error("Error loading communication logs:", error);
+      alert(
+        error?.response?.data?.message ||
+          error?.message ||
+          "Could not load communication logs."
+      );
+      setLogs([]);
+    } finally {
+      setLoadingLogs(false);
     }
   };
 
   const fetchCustomers = async () => {
     try {
-      const res = await axios.get("https://eltham-konnect-backend-c2sf.onrender.com/api/customers");
+      setLoadingCustomers(true);
+      const res = await api.get("/api/customers");
       setCustomers(res.data.data || []);
     } catch (error) {
       console.error("Error loading customers:", error);
+      alert(
+        error?.response?.data?.message ||
+          error?.message ||
+          "Could not load customers."
+      );
+      setCustomers([]);
+    } finally {
+      setLoadingCustomers(false);
     }
   };
 
+  const fetchPageData = async () => {
+    await Promise.all([fetchLogs(), fetchCustomers()]);
+  };
+
   useEffect(() => {
-    fetchLogs();
-    fetchCustomers();
+    fetchPageData();
   }, []);
 
   const handleChange = (e) => {
@@ -53,12 +76,9 @@ function Communication() {
         return;
       }
 
-      const res = await axios.post(
-        "https://eltham-konnect-backend-c2sf.onrender.com/api/communication",
-        formData
-      );
+      const res = await api.post("/api/communication", formData);
 
-      alert(res.data.message);
+      alert(res.data.message || "Communication saved successfully.");
 
       setFormData({
         customerEkonId: "",
@@ -70,7 +90,11 @@ function Communication() {
       await fetchLogs();
     } catch (error) {
       console.error("Error saving communication:", error);
-      alert(error?.response?.data?.message || "Could not save communication.");
+      alert(
+        error?.response?.data?.message ||
+          error?.message ||
+          "Could not save communication."
+      );
     }
   };
 
@@ -81,19 +105,53 @@ function Communication() {
     return "#475569";
   };
 
+  const formatDate = (value) => {
+    if (!value) return "";
+    try {
+      return String(value).slice(0, 10);
+    } catch {
+      return value;
+    }
+  };
+
+  const cardStyle = {
+    backgroundColor: "white",
+    padding: "20px",
+    borderRadius: "10px",
+    border: "1px solid #e5e7eb",
+  };
+
   return (
     <div>
-      <h1>Communication Center</h1>
-
       <div
         style={{
-          backgroundColor: "white",
-          padding: "20px",
-          borderRadius: "10px",
-          border: "1px solid #e5e7eb",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          gap: "12px",
+          flexWrap: "wrap",
           marginBottom: "20px",
         }}
       >
+        <h1 style={{ margin: 0 }}>Communication Center</h1>
+
+        <button
+          onClick={fetchPageData}
+          style={{
+            backgroundColor: "#16a34a",
+            color: "white",
+            border: "none",
+            padding: "10px 16px",
+            borderRadius: "6px",
+            cursor: "pointer",
+            fontWeight: "bold",
+          }}
+        >
+          Refresh
+        </button>
+      </div>
+
+      <div style={{ ...cardStyle, marginBottom: "20px" }}>
         <h2>New Communication</h2>
 
         <div
@@ -108,8 +166,11 @@ function Communication() {
             value={formData.customerEkonId}
             onChange={handleChange}
             style={{ padding: "10px" }}
+            disabled={loadingCustomers}
           >
-            <option value="">Select Customer</option>
+            <option value="">
+              {loadingCustomers ? "Loading customers..." : "Select Customer"}
+            </option>
             {customers.map((customer) => (
               <option key={customer._id} value={customer.ekonId}>
                 {customer.ekonId} - {customer.name}
@@ -166,62 +227,61 @@ function Communication() {
         </button>
       </div>
 
-      <div
-        style={{
-          backgroundColor: "white",
-          padding: "20px",
-          borderRadius: "10px",
-          border: "1px solid #e5e7eb",
-        }}
-      >
+      <div style={cardStyle}>
         <h2>Communication History</h2>
 
-        <table border="1" cellPadding="10" style={{ width: "100%" }}>
-          <thead>
-            <tr>
-              <th>Log Number</th>
-              <th>Customer EKON ID</th>
-              <th>Customer Name</th>
-              <th>Channel</th>
-              <th>Subject</th>
-              <th>Message</th>
-              <th>Status</th>
-              <th>Date</th>
-            </tr>
-          </thead>
-
-          <tbody>
-            {logs.length > 0 ? (
-              logs.map((log, index) => (
-                <tr key={log._id || index}>
-                  <td>{log.logNumber}</td>
-                  <td>{log.customerEkonId}</td>
-                  <td>{log.customerName}</td>
-                  <td>{log.channel}</td>
-                  <td>{log.subject}</td>
-                  <td>{log.message}</td>
-                  <td>
-                    <span
-                      style={{
-                        padding: "4px 10px",
-                        borderRadius: "6px",
-                        color: "white",
-                        backgroundColor: getStatusColor(log.status),
-                      }}
-                    >
-                      {log.status}
-                    </span>
-                  </td>
-                  <td>{log.date}</td>
+        {loadingLogs ? (
+          <p>Loading communication logs...</p>
+        ) : (
+          <div style={{ overflowX: "auto" }}>
+            <table border="1" cellPadding="10" style={{ minWidth: "1100px", width: "100%" }}>
+              <thead>
+                <tr>
+                  <th>Log Number</th>
+                  <th>Customer EKON ID</th>
+                  <th>Customer Name</th>
+                  <th>Channel</th>
+                  <th>Subject</th>
+                  <th>Message</th>
+                  <th>Status</th>
+                  <th>Date</th>
                 </tr>
-              ))
-            ) : (
-              <tr>
-                <td colSpan="8">No communication logs found.</td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+              </thead>
+
+              <tbody>
+                {logs.length > 0 ? (
+                  logs.map((log, index) => (
+                    <tr key={log._id || index}>
+                      <td>{log.logNumber}</td>
+                      <td>{log.customerEkonId}</td>
+                      <td>{log.customerName}</td>
+                      <td>{log.channel}</td>
+                      <td>{log.subject}</td>
+                      <td>{log.message}</td>
+                      <td>
+                        <span
+                          style={{
+                            padding: "4px 10px",
+                            borderRadius: "6px",
+                            color: "white",
+                            backgroundColor: getStatusColor(log.status),
+                          }}
+                        >
+                          {log.status}
+                        </span>
+                      </td>
+                      <td>{formatDate(log.date || log.createdAt)}</td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan="8">No communication logs found.</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );
