@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import api from "../api";
 
 function Communication() {
@@ -6,8 +6,12 @@ function Communication() {
   const [customers, setCustomers] = useState([]);
   const [loadingLogs, setLoadingLogs] = useState(true);
   const [loadingCustomers, setLoadingCustomers] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
+
   const [formData, setFormData] = useState({
+    recipientMode: "single",
     customerEkonId: "",
+    selectedCustomerEkonIds: [],
     channel: "Email",
     subject: "",
     message: "",
@@ -57,36 +61,113 @@ function Communication() {
     fetchPageData();
   }, []);
 
+  const filteredCustomers = useMemo(() => {
+    return customers.filter((customer) =>
+      `${customer.ekonId} ${customer.name} ${customer.email || ""} ${customer.phone || ""}`
+        .toLowerCase()
+        .includes(searchTerm.toLowerCase())
+    );
+  }, [customers, searchTerm]);
+
   const handleChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value,
+    const { name, value } = e.target;
+
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
+
+  const handleRecipientModeChange = (e) => {
+    const recipientMode = e.target.value;
+
+    setFormData((prev) => ({
+      ...prev,
+      recipientMode,
+      customerEkonId: "",
+      selectedCustomerEkonIds: [],
+    }));
+  };
+
+  const handleSelectedCustomerToggle = (ekonId) => {
+    setFormData((prev) => {
+      const alreadySelected = prev.selectedCustomerEkonIds.includes(ekonId);
+
+      return {
+        ...prev,
+        selectedCustomerEkonIds: alreadySelected
+          ? prev.selectedCustomerEkonIds.filter((id) => id !== ekonId)
+          : [...prev.selectedCustomerEkonIds, ekonId],
+      };
     });
+  };
+
+  const handleSelectAllFiltered = () => {
+    const filteredIds = filteredCustomers.map((customer) => customer.ekonId);
+
+    setFormData((prev) => ({
+      ...prev,
+      selectedCustomerEkonIds: filteredIds,
+    }));
+  };
+
+  const handleClearSelected = () => {
+    setFormData((prev) => ({
+      ...prev,
+      selectedCustomerEkonIds: [],
+    }));
   };
 
   const saveCommunication = async () => {
     try {
-      if (
-        !formData.customerEkonId ||
-        !formData.channel ||
-        !formData.subject ||
-        !formData.message
-      ) {
-        alert("Please complete all communication fields.");
+      if (!formData.channel || !formData.subject || !formData.message) {
+        alert("Please complete channel, subject, and message.");
         return;
       }
 
-      const res = await api.post("/api/communication", formData);
+      if (
+        formData.recipientMode === "single" &&
+        !formData.customerEkonId
+      ) {
+        alert("Please select one customer.");
+        return;
+      }
+
+      if (
+        formData.recipientMode === "selected" &&
+        formData.selectedCustomerEkonIds.length === 0
+      ) {
+        alert("Please select at least one customer.");
+        return;
+      }
+
+      const payload = {
+        recipientMode: formData.recipientMode,
+        customerEkonId:
+          formData.recipientMode === "single" ? formData.customerEkonId : "",
+        customerEkonIds:
+          formData.recipientMode === "selected"
+            ? formData.selectedCustomerEkonIds
+            : [],
+        channel: formData.channel,
+        subject: formData.subject,
+        message: formData.message,
+      };
+
+      const res = await api.post("/api/communication", payload);
 
       alert(res.data.message || "Communication saved successfully.");
 
       setFormData({
+        recipientMode: "single",
         customerEkonId: "",
+        selectedCustomerEkonIds: [],
         channel: "Email",
         subject: "",
         message: "",
       });
 
+      setSearchTerm("");
       await fetchLogs();
     } catch (error) {
       console.error("Error saving communication:", error);
@@ -159,23 +240,18 @@ function Communication() {
             display: "grid",
             gridTemplateColumns: "repeat(2, 1fr)",
             gap: "15px",
+            marginBottom: "15px",
           }}
         >
           <select
-            name="customerEkonId"
-            value={formData.customerEkonId}
-            onChange={handleChange}
+            name="recipientMode"
+            value={formData.recipientMode}
+            onChange={handleRecipientModeChange}
             style={{ padding: "10px" }}
-            disabled={loadingCustomers}
           >
-            <option value="">
-              {loadingCustomers ? "Loading customers..." : "Select Customer"}
-            </option>
-            {customers.map((customer) => (
-              <option key={customer._id} value={customer.ekonId}>
-                {customer.ekonId} - {customer.name}
-              </option>
-            ))}
+            <option value="single">Single Customer</option>
+            <option value="selected">Selected Customers</option>
+            <option value="all">All Customers</option>
           </select>
 
           <select
@@ -188,14 +264,168 @@ function Communication() {
             <option value="WhatsApp">WhatsApp</option>
             <option value="SMS">SMS</option>
           </select>
+        </div>
 
+        {formData.recipientMode === "single" && (
+          <div style={{ marginBottom: "15px" }}>
+            <select
+              name="customerEkonId"
+              value={formData.customerEkonId}
+              onChange={handleChange}
+              style={{ padding: "10px", width: "100%" }}
+              disabled={loadingCustomers}
+            >
+              <option value="">
+                {loadingCustomers ? "Loading customers..." : "Select Customer"}
+              </option>
+              {customers.map((customer) => (
+                <option key={customer._id} value={customer.ekonId}>
+                  {customer.ekonId} - {customer.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        {formData.recipientMode === "selected" && (
+          <div
+            style={{
+              border: "1px solid #d1d5db",
+              borderRadius: "8px",
+              padding: "15px",
+              marginBottom: "15px",
+              backgroundColor: "#f8fafc",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                gap: "12px",
+                flexWrap: "wrap",
+                alignItems: "center",
+                marginBottom: "12px",
+              }}
+            >
+              <input
+                type="text"
+                placeholder="Search customers by EKON ID or name"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                style={{
+                  padding: "10px",
+                  flex: "1",
+                  minWidth: "260px",
+                  borderRadius: "6px",
+                  border: "1px solid #cbd5e1",
+                }}
+              />
+
+              <button
+                onClick={handleSelectAllFiltered}
+                type="button"
+                style={{
+                  backgroundColor: "#0B3D91",
+                  color: "white",
+                  border: "none",
+                  padding: "10px 16px",
+                  borderRadius: "6px",
+                  cursor: "pointer",
+                }}
+              >
+                Select All Filtered
+              </button>
+
+              <button
+                onClick={handleClearSelected}
+                type="button"
+                style={{
+                  backgroundColor: "#64748b",
+                  color: "white",
+                  border: "none",
+                  padding: "10px 16px",
+                  borderRadius: "6px",
+                  cursor: "pointer",
+                }}
+              >
+                Clear Selected
+              </button>
+            </div>
+
+            <div style={{ marginBottom: "10px", fontWeight: "bold", color: "#334155" }}>
+              Selected Customers: {formData.selectedCustomerEkonIds.length}
+            </div>
+
+            <div
+              style={{
+                maxHeight: "260px",
+                overflowY: "auto",
+                border: "1px solid #e5e7eb",
+                borderRadius: "8px",
+                backgroundColor: "white",
+              }}
+            >
+              {loadingCustomers ? (
+                <div style={{ padding: "12px" }}>Loading customers...</div>
+              ) : filteredCustomers.length > 0 ? (
+                filteredCustomers.map((customer) => (
+                  <label
+                    key={customer._id}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "10px",
+                      padding: "12px",
+                      borderBottom: "1px solid #f1f5f9",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={formData.selectedCustomerEkonIds.includes(customer.ekonId)}
+                      onChange={() => handleSelectedCustomerToggle(customer.ekonId)}
+                    />
+                    <span>
+                      {customer.ekonId} - {customer.name}
+                    </span>
+                  </label>
+                ))
+              ) : (
+                <div style={{ padding: "12px" }}>No matching customers found.</div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {formData.recipientMode === "all" && (
+          <div
+            style={{
+              marginBottom: "15px",
+              padding: "12px",
+              backgroundColor: "#ecfdf5",
+              border: "1px solid #bbf7d0",
+              borderRadius: "8px",
+              color: "#166534",
+              fontWeight: "bold",
+            }}
+          >
+            This communication will be sent to all customers currently in the system.
+          </div>
+        )}
+
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1fr",
+            gap: "15px",
+          }}
+        >
           <input
             type="text"
             name="subject"
             placeholder="Subject"
             value={formData.subject}
             onChange={handleChange}
-            style={{ padding: "10px", gridColumn: "span 2" }}
+            style={{ padding: "10px" }}
           />
 
           <textarea
@@ -206,7 +436,6 @@ function Communication() {
             style={{
               padding: "10px",
               minHeight: "120px",
-              gridColumn: "span 2",
             }}
           />
         </div>
@@ -234,7 +463,7 @@ function Communication() {
           <p>Loading communication logs...</p>
         ) : (
           <div style={{ overflowX: "auto" }}>
-            <table border="1" cellPadding="10" style={{ minWidth: "1100px", width: "100%" }}>
+            <table border="1" cellPadding="10" style={{ minWidth: "1200px", width: "100%" }}>
               <thead>
                 <tr>
                   <th>Log Number</th>
