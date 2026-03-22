@@ -46,6 +46,11 @@ function Dashboard() {
         return new Date(`${short}T00:00:00`);
       }
 
+      if (/^\d{2}\/\d{2}\/\d{4}$/.test(value)) {
+        const [day, month, year] = value.split("/");
+        return new Date(`${year}-${month}-${day}T00:00:00`);
+      }
+
       const parsed = new Date(value);
       return Number.isNaN(parsed.getTime()) ? null : parsed;
     }
@@ -149,9 +154,12 @@ function Dashboard() {
     return invoices.filter((inv) => {
       const isPaid = String(inv.status || "").trim().toLowerCase() === "paid";
       if (!isPaid) return false;
-      if (!matchesLocation(inv)) return locationFilter === "All Locations";
 
-      return isWithinSelectedRange(inv.paidAt || inv.paidDate || inv.createdAt);
+      if (locationFilter !== "All Locations" && !matchesLocation(inv)) {
+        return false;
+      }
+
+      return isWithinSelectedRange(inv.paidDate || inv.paidAt || inv.createdAt);
     });
   }, [invoices, dateFilter, locationFilter]);
 
@@ -216,10 +224,18 @@ function Dashboard() {
             fontWeight: "bold",
           }}
         >
-          <option value="today" style={{ color: "black" }}>Today</option>
-          <option value="week" style={{ color: "black" }}>This Week</option>
-          <option value="month" style={{ color: "black" }}>This Month</option>
-          <option value="all" style={{ color: "black" }}>All Time</option>
+          <option value="today" style={{ color: "black" }}>
+            Today
+          </option>
+          <option value="week" style={{ color: "black" }}>
+            This Week
+          </option>
+          <option value="month" style={{ color: "black" }}>
+            This Month
+          </option>
+          <option value="all" style={{ color: "black" }}>
+            All Time
+          </option>
         </select>
 
         <select
