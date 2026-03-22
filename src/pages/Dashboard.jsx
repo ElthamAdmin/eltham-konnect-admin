@@ -35,16 +35,15 @@ function Dashboard() {
   const parseDate = (value) => {
     if (!value) return null;
 
+    if (value instanceof Date) {
+      return Number.isNaN(value.getTime()) ? null : value;
+    }
+
     if (typeof value === "string") {
       const short = value.slice(0, 10);
 
       if (/^\d{4}-\d{2}-\d{2}$/.test(short)) {
         return new Date(`${short}T00:00:00`);
-      }
-
-      if (/^\d{2}\/\d{2}\/\d{4}$/.test(value)) {
-        const [day, month, year] = value.split("/");
-        return new Date(`${year}-${month}-${day}T00:00:00`);
       }
 
       const parsed = new Date(value);
@@ -147,12 +146,13 @@ function Dashboard() {
   }, [packages, dateFilter, locationFilter]);
 
   const filteredPaidInvoices = useMemo(() => {
-    return invoices.filter(
-      (inv) =>
-        inv.status === "Paid" &&
-        matchesLocation(inv) &&
-        isWithinSelectedRange(inv.paidDate || inv.createdAt)
-    );
+    return invoices.filter((inv) => {
+      const isPaid = String(inv.status || "").trim().toLowerCase() === "paid";
+      if (!isPaid) return false;
+      if (!matchesLocation(inv)) return locationFilter === "All Locations";
+
+      return isWithinSelectedRange(inv.paidAt || inv.paidDate || inv.createdAt);
+    });
   }, [invoices, dateFilter, locationFilter]);
 
   const newSignupsCount = filteredCustomers.length;
@@ -216,18 +216,10 @@ function Dashboard() {
             fontWeight: "bold",
           }}
         >
-          <option value="today" style={{ color: "black" }}>
-            Today
-          </option>
-          <option value="week" style={{ color: "black" }}>
-            This Week
-          </option>
-          <option value="month" style={{ color: "black" }}>
-            This Month
-          </option>
-          <option value="all" style={{ color: "black" }}>
-            All Time
-          </option>
+          <option value="today" style={{ color: "black" }}>Today</option>
+          <option value="week" style={{ color: "black" }}>This Week</option>
+          <option value="month" style={{ color: "black" }}>This Month</option>
+          <option value="all" style={{ color: "black" }}>All Time</option>
         </select>
 
         <select
