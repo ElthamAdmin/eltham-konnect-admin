@@ -1,5 +1,5 @@
 import { useState } from "react";
-import axios from "axios";
+import api from "../api";
 
 function POS() {
   const [ekonId, setEkonId] = useState("");
@@ -13,7 +13,7 @@ function POS() {
 
   const loadRates = async () => {
     try {
-      const res = await axios.get("https://eltham-konnect-backend-c2sf.onrender.com/api/shipping-rates");
+      const res = await api.get("/api/shipping-rates");
       const rates = res.data.data || [];
       const mapped = {};
 
@@ -31,7 +31,7 @@ function POS() {
 
   const loadAccounts = async () => {
     try {
-      const res = await axios.get("https://eltham-konnect-backend-c2sf.onrender.com/api/financial-accounts");
+      const res = await api.get("/api/financial-accounts");
       setAccounts(res.data.data || []);
     } catch (error) {
       console.error("Error loading accounts:", error);
@@ -43,11 +43,21 @@ function POS() {
     return activeRateMap[roundedWeight] || 0;
   };
 
+  const formatDate = (value) => {
+    if (!value) return "";
+    try {
+      return String(value).slice(0, 10);
+    } catch {
+      return value;
+    }
+  };
+
   const loadCustomerPackages = async () => {
     try {
-      const [customersRes, packagesRes] = await Promise.all([
-        axios.get("https://eltham-konnect-backend-c2sf.onrender.com/api/customers"),
-        axios.get("https://eltham-konnect-backend-c2sf.onrender.com/api/packages"),
+      const [customersRes, packagesRes, invoicesRes] = await Promise.all([
+        api.get("/api/customers"),
+        api.get("/api/packages"),
+        api.get("/api/invoices"),
       ]);
 
       const freshRateMap = await loadRates();
@@ -61,19 +71,45 @@ function POS() {
         alert("Customer not found.");
         setCustomer(null);
         setPackages([]);
+        setInvoice(null);
+        setReceivingAccountNumber("");
         return;
       }
 
-      const readyPackages = (packagesRes.data.data || []).filter(
+      const allPackages = packagesRes.data.data || [];
+      const allInvoices = invoicesRes.data.data || [];
+
+      const readyPackages = allPackages.filter(
         (pkg) =>
           pkg.customerEkonId === ekonId &&
           pkg.status === "Ready for Pickup"
       );
 
+      const existingUnpaidInvoice = allInvoices
+        .filter(
+          (inv) =>
+            inv.customerEkonId === ekonId &&
+            inv.status === "Unpaid"
+        )
+        .sort(
+          (a, b) =>
+            new Date(b.createdAt || 0).getTime() -
+            new Date(a.createdAt || 0).getTime()
+        )[0] || null;
+
       setCustomer(foundCustomer);
       setPackages(readyPackages);
-      setInvoice(null);
+      setInvoice(existingUnpaidInvoice);
       setReceivingAccountNumber("");
+
+      if (existingUnpaidInvoice) {
+        alert(
+          `Existing unpaid invoice loaded. Final total: JMD ${Number(
+            existingUnpaidInvoice.finalTotal || 0
+          ).toLocaleString()}`
+        );
+        return;
+      }
 
       if (readyPackages.length === 0) {
         alert("No ready packages found for this customer.");
@@ -89,13 +125,20 @@ function POS() {
       }
     } catch (error) {
       console.error("Error loading POS data:", error);
-      alert("Could not load customer packages.");
+      alert(
+        error?.response?.data?.message || "Could not load customer packages."
+      );
     }
   };
 
   const createPosInvoice = async () => {
     try {
-      const res = await axios.post("https://eltham-konnect-backend-c2sf.onrender.com/api/invoices", {
+      if (invoice && invoice.status === "Unpaid") {
+        alert("This customer already has an unpaid invoice loaded.");
+        return;
+      }
+
+      const res = await api.post("/api/invoices", {
         customerEkonId: ekonId,
         pointsToRedeem: Number(pointsToRedeem) || 0,
       });
@@ -120,13 +163,15 @@ function POS() {
     }
 
     try {
-      const res = await axios.put(
-        `https://eltham-konnect-backend-c2sf.onrender.com/api/invoices/pay/${invoice.invoiceNumber}`,
+      const res = await api.put(
+        `/api/invoices/pay/${invoice.invoiceNumber}`,
         { receivingAccountNumber }
       );
 
       setInvoice(res.data.data);
       alert("Invoice marked as paid and account updated.");
+
+      await loadCustomerPackages();
     } catch (error) {
       console.error("Error marking invoice paid:", error);
       alert(error?.response?.data?.message || "Could not mark invoice as paid.");
@@ -194,7 +239,85 @@ function POS() {
         </div>
       )}
 
-      {packages.length > 0 && (
+      {invoice ? (
+        <div style={cardStyle}>
+          <h2>Existing / Current Checkout Invoice</h2>
+
+          <p><strong>Invoice Number:</strong> {invoice.invoiceNumber}</p>
+          <p><strong>Customer:</strong> {invoice.customerName}</p>
+          <p><strong>Package Count:</strong> {invoice.packageCount}</p>
+          <p><strong>Subtotal:</strong> JMD {Number(invoice.subtotal || 0).toLocaleString()}</p>
+          <p><strong>Points Redeemed:</strong> {Number(invoice.pointsRedeemed || 0).toLocaleString()}</p>
+          <p><strong>Final Total:</strong> JMD {Number(invoice.finalTotal || 0).toLocaleString()}</p>
+          <p><strong>Status:</strong> {invoice.status}</p>
+          <p><strong>Created Date:</strong> {formatDate(invoice.createdAt)}</p>
+          <p><strong>Paid Date:</strong> {invoice.paidDate ? formatDate(invoice.paidDate) : "Not paid yet"}</p>
+
+          {(invoice.packages || []).length > 0 && (
+            <>
+              <h3 style={{ marginTop: "20px" }}>Invoice Packages</h3>
+              <table border="1" cellPadding="10" style={{ width: "100%", marginBottom: "20px" }}>
+                <thead>
+                  <tr>
+                    <th>Tracking Number</th>
+                    <th>Chargeable Weight</th>
+                    <th>Rate</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {invoice.packages.map((pkg, index) => (
+                    <tr key={pkg.trackingNumber || index}>
+                      <td>{pkg.trackingNumber}</td>
+                      <td>{pkg.chargeableWeight}</td>
+                      <td>JMD {Number(pkg.rate || 0).toLocaleString()}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </>
+          )}
+
+          <div style={{ marginTop: "16px", marginBottom: "16px" }}>
+            <label style={{ display: "block", marginBottom: "8px", fontWeight: "bold" }}>
+              Receive Payment Into Account
+            </label>
+            <select
+              value={receivingAccountNumber}
+              onChange={(e) => setReceivingAccountNumber(e.target.value)}
+              style={{
+                padding: "10px",
+                minWidth: "260px",
+                borderRadius: "6px",
+                border: "1px solid #cbd5e1",
+              }}
+              disabled={invoice.status === "Paid"}
+            >
+              <option value="">Select Account</option>
+              {accounts.map((account) => (
+                <option key={account._id} value={account.accountNumber}>
+                  {account.accountName} ({account.accountType})
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <button
+            onClick={markInvoicePaid}
+            disabled={invoice.status === "Paid"}
+            style={{
+              marginTop: "10px",
+              backgroundColor: invoice.status === "Paid" ? "#999" : "#0B3D91",
+              color: "white",
+              border: "none",
+              padding: "10px 16px",
+              borderRadius: "6px",
+              cursor: invoice.status === "Paid" ? "not-allowed" : "pointer",
+            }}
+          >
+            Mark Invoice Paid
+          </button>
+        </div>
+      ) : packages.length > 0 ? (
         <div style={cardStyle}>
           <h2>Ready Packages</h2>
 
@@ -218,7 +341,7 @@ function POS() {
                   <td>{pkg.weight}</td>
                   <td>{pkg.status}</td>
                   <td>{pkg.invoiceStatus}</td>
-                  <td>{pkg.dateReceived}</td>
+                  <td>{formatDate(pkg.dateReceived)}</td>
                   <td>JMD {getChargeByWeight(pkg.weight).toLocaleString()}</td>
                 </tr>
               ))}
@@ -267,61 +390,7 @@ function POS() {
             </button>
           </div>
         </div>
-      )}
-
-      {invoice && (
-        <div style={cardStyle}>
-          <h2>Checkout Invoice</h2>
-
-          <p><strong>Invoice Number:</strong> {invoice.invoiceNumber}</p>
-          <p><strong>Customer:</strong> {invoice.customerName}</p>
-          <p><strong>Package Count:</strong> {invoice.packageCount}</p>
-          <p><strong>Subtotal:</strong> JMD {Number(invoice.subtotal || 0).toLocaleString()}</p>
-          <p><strong>Points Redeemed:</strong> {invoice.pointsRedeemed}</p>
-          <p><strong>Final Total:</strong> JMD {Number(invoice.finalTotal || 0).toLocaleString()}</p>
-          <p><strong>Status:</strong> {invoice.status}</p>
-
-          <div style={{ marginTop: "16px", marginBottom: "16px" }}>
-            <label style={{ display: "block", marginBottom: "8px", fontWeight: "bold" }}>
-              Receive Payment Into Account
-            </label>
-            <select
-              value={receivingAccountNumber}
-              onChange={(e) => setReceivingAccountNumber(e.target.value)}
-              style={{
-                padding: "10px",
-                minWidth: "260px",
-                borderRadius: "6px",
-                border: "1px solid #cbd5e1",
-              }}
-              disabled={invoice.status === "Paid"}
-            >
-              <option value="">Select Account</option>
-              {accounts.map((account) => (
-                <option key={account._id} value={account.accountNumber}>
-                  {account.accountName} ({account.accountType})
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <button
-            onClick={markInvoicePaid}
-            disabled={invoice.status === "Paid"}
-            style={{
-              marginTop: "10px",
-              backgroundColor: invoice.status === "Paid" ? "#999" : "#0B3D91",
-              color: "white",
-              border: "none",
-              padding: "10px 16px",
-              borderRadius: "6px",
-              cursor: invoice.status === "Paid" ? "not-allowed" : "pointer",
-            }}
-          >
-            Mark Invoice Paid
-          </button>
-        </div>
-      )}
+      ) : null}
     </div>
   );
 }
