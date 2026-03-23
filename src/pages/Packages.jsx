@@ -59,7 +59,7 @@ function Packages() {
 
   const filteredPackages = useMemo(() => {
     return packages.filter((pkg) =>
-      `${pkg.trackingNumber} ${pkg.customerName} ${pkg.customerEkonId} ${pkg.customerInvoiceNumber || ""} ${pkg.customerInvoiceNotes || ""} ${pkg.status}`
+      `${pkg.trackingNumber} ${pkg.customerName} ${pkg.customerEkonId} ${pkg.customerInvoiceNumber || ""} ${pkg.customerInvoiceNotes || ""} ${pkg.status} ${pkg.courier || ""} ${pkg.warehouseLocation || ""}`
         .toLowerCase()
         .includes(searchTerm.toLowerCase())
     );
@@ -71,9 +71,50 @@ function Packages() {
   const endIndex = startIndex + pageSize;
   const paginatedPackages = filteredPackages.slice(startIndex, endIndex);
 
+  const handleChange = (e) => {
+    const { name, value, type, checked } = e.target;
+
+    setFormData((prev) => ({
+      ...prev,
+      [name]: type === "checkbox" ? checked : value,
+    }));
+  };
+
   const getCharge = (w) => {
     const r = Math.ceil(Number(w || 0));
     return rateMap[r] || 0;
+  };
+
+  const savePackage = async () => {
+    try {
+      const payload = {
+        ...formData,
+        weight: Number(formData.weight || 0),
+      };
+
+      const res = await axios.post(`${API}/api/packages`, payload);
+
+      if (res.data.success) {
+        alert("Package saved successfully");
+        setShowForm(false);
+        setFormData({
+          trackingNumber: "",
+          customerEkonId: "",
+          customerName: "",
+          courier: "",
+          weight: "",
+          status: "At Warehouse",
+          warehouseLocation: "",
+          invoiceStatus: "Pending",
+          readyForPickup: false,
+          dateReceived: "",
+        });
+        await fetchPackages();
+      }
+    } catch (error) {
+      console.error("Error saving package:", error);
+      alert(error?.response?.data?.message || "Package could not be saved");
+    }
   };
 
   const updateStatus = async (trackingNumber, status) => {
@@ -165,7 +206,158 @@ function Packages() {
 
   return (
     <div>
-      <h1>Packages</h1>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          marginBottom: "20px",
+          gap: "12px",
+          flexWrap: "wrap",
+        }}
+      >
+        <h1 style={{ margin: 0 }}>Packages</h1>
+
+        <button
+          onClick={() => setShowForm((prev) => !prev)}
+          style={{
+            backgroundColor: "#0B3D91",
+            color: "white",
+            border: "none",
+            padding: "10px 16px",
+            borderRadius: "6px",
+            cursor: "pointer",
+            fontWeight: "bold",
+          }}
+        >
+          {showForm ? "Close Form" : "+ Add Package"}
+        </button>
+      </div>
+
+      {showForm && (
+        <div
+          style={{
+            backgroundColor: "white",
+            padding: "20px",
+            borderRadius: "8px",
+            marginBottom: "20px",
+            border: "1px solid #ddd",
+          }}
+        >
+          <h2>New Package</h2>
+
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(2, 1fr)",
+              gap: "15px",
+            }}
+          >
+            <input
+              type="text"
+              name="trackingNumber"
+              placeholder="Tracking Number"
+              value={formData.trackingNumber}
+              onChange={handleChange}
+              style={{ padding: "10px" }}
+            />
+
+            <input
+              type="text"
+              name="customerEkonId"
+              placeholder="Customer EKON ID"
+              value={formData.customerEkonId}
+              onChange={handleChange}
+              style={{ padding: "10px" }}
+            />
+
+            <input
+              type="text"
+              name="customerName"
+              placeholder="Customer Name"
+              value={formData.customerName}
+              onChange={handleChange}
+              style={{ padding: "10px" }}
+            />
+
+            <input
+              type="text"
+              name="courier"
+              placeholder="Courier"
+              value={formData.courier}
+              onChange={handleChange}
+              style={{ padding: "10px" }}
+            />
+
+            <input
+              type="number"
+              step="0.1"
+              name="weight"
+              placeholder="Weight"
+              value={formData.weight}
+              onChange={handleChange}
+              style={{ padding: "10px" }}
+            />
+
+            <input
+              type="text"
+              name="warehouseLocation"
+              placeholder="Warehouse Location"
+              value={formData.warehouseLocation}
+              onChange={handleChange}
+              style={{ padding: "10px" }}
+            />
+
+            <input
+              type="date"
+              name="dateReceived"
+              value={formData.dateReceived}
+              onChange={handleChange}
+              style={{ padding: "10px" }}
+            />
+
+            <div
+              style={{
+                padding: "10px",
+                border: "1px solid #ccc",
+                borderRadius: "6px",
+                backgroundColor: "#f8fafc",
+                display: "flex",
+                alignItems: "center",
+                fontWeight: "bold",
+              }}
+            >
+              Estimated Charge: JMD {getCharge(formData.weight).toLocaleString()}
+            </div>
+
+            <label style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+              <input
+                type="checkbox"
+                name="readyForPickup"
+                checked={formData.readyForPickup}
+                onChange={handleChange}
+              />
+              Ready for Pickup
+            </label>
+          </div>
+
+          <button
+            onClick={savePackage}
+            style={{
+              marginTop: "20px",
+              backgroundColor: "#D4AF37",
+              color: "black",
+              border: "none",
+              padding: "10px 16px",
+              borderRadius: "6px",
+              cursor: "pointer",
+              fontWeight: "bold",
+            }}
+          >
+            Save Package
+          </button>
+        </div>
+      )}
 
       <input
         placeholder="Search by tracking, customer, EKON ID, status, or invoice info"
@@ -230,9 +422,7 @@ function Packages() {
 
                   <td>
                     {pkg.customerInvoiceUploaded ? (
-                      <span style={{ color: "green", fontWeight: "bold" }}>
-                        YES
-                      </span>
+                      <span style={{ color: "green", fontWeight: "bold" }}>YES</span>
                     ) : (
                       <span style={{ color: "#999" }}>NO</span>
                     )}
@@ -267,6 +457,7 @@ function Packages() {
                         padding: "6px 10px",
                         borderRadius: "4px",
                         cursor: "pointer",
+                        fontWeight: "bold",
                       }}
                     >
                       Move
