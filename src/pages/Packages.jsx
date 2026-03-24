@@ -73,6 +73,7 @@ function Packages() {
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
+
     setFormData((prev) => ({
       ...prev,
       [name]: type === "checkbox" ? checked : value,
@@ -119,14 +120,23 @@ function Packages() {
   const updateStatus = async (trackingNumber, status) => {
     try {
       await axios.put(`${API}/api/packages/${trackingNumber}/status`, { status });
-      fetchPackages();
+      await fetchPackages();
     } catch (err) {
       console.error(err);
       alert("Status update failed");
     }
   };
 
-  // ✅ NEW FUNCTION (ONLY ADDITION)
+  const getNextStatus = (currentStatus) => {
+    if (currentStatus === "At Warehouse") return "In Transit";
+    if (currentStatus === "Manifest Assigned") return "In Transit";
+    if (currentStatus === "In Transit") return "Cleared Customs";
+    if (currentStatus === "Cleared Customs") return "Ready for Pickup";
+    if (currentStatus === "In Transit to Branch") return "Ready for Pickup";
+    if (currentStatus === "Ready for Pickup") return "Delivered";
+    return null;
+  };
+
   const generateInvoice = async (customerEkonId) => {
     try {
       const readyPackages = packages.filter(
@@ -137,78 +147,421 @@ function Packages() {
       );
 
       if (readyPackages.length === 0) {
-        alert("No READY packages for this customer.");
+        alert("No ready packages for this customer.");
         return;
       }
 
+      const pointsInput = prompt(
+        `Generate ONE invoice for ${readyPackages.length} ready package(s).\n\nEnter points to redeem for this invoice (or 0):`,
+        "0"
+      );
+
+      if (pointsInput === null) return;
+
       const res = await axios.post(`${API}/api/invoices/generate-multiple`, {
         customerEkonId,
-        packageIds: readyPackages.map((p) => p._id),
-        pointsToRedeem: 0,
+        packageIds: readyPackages.map((pkg) => pkg._id),
+        pointsToRedeem: Number(pointsInput) || 0,
       });
 
       alert(res.data.message || "Invoice generated successfully");
-      fetchPackages();
+      await fetchPackages();
     } catch (error) {
-      console.error(error);
+      console.error("Error generating invoice:", error);
       alert(error?.response?.data?.message || "Invoice generation failed");
     }
   };
 
   const formatDateTime = (v) => (v ? new Date(v).toLocaleString() : "");
+  const formatDate = (v) => (v ? String(v).slice(0, 10) : "");
+
+  const paginationControls = (
+    <div
+      style={{
+        backgroundColor: "white",
+        border: "1px solid #ddd",
+        borderRadius: "8px",
+        padding: "12px 15px",
+        marginBottom: "15px",
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        gap: "12px",
+        flexWrap: "wrap",
+      }}
+    >
+      <div style={{ display: "flex", gap: "10px", alignItems: "center", flexWrap: "wrap" }}>
+        <strong>
+          Showing {filteredPackages.length === 0 ? 0 : startIndex + 1} to{" "}
+          {Math.min(endIndex, filteredPackages.length)} of {filteredPackages.length}
+        </strong>
+
+        <select
+          value={pageSize}
+          onChange={(e) => setPageSize(Number(e.target.value))}
+          style={{
+            padding: "8px 10px",
+            borderRadius: "6px",
+            border: "1px solid #ccc",
+          }}
+        >
+          <option value={10}>10 per page</option>
+          <option value={25}>25 per page</option>
+          <option value={50}>50 per page</option>
+          <option value={100}>100 per page</option>
+        </select>
+      </div>
+
+      <div style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}>
+        <button
+          onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+          disabled={safeCurrentPage === 1}
+          style={{
+            backgroundColor: safeCurrentPage === 1 ? "#94a3b8" : "#0B3D91",
+            color: "white",
+            border: "none",
+            padding: "8px 12px",
+            borderRadius: "6px",
+            cursor: safeCurrentPage === 1 ? "not-allowed" : "pointer",
+          }}
+        >
+          Previous
+        </button>
+
+        <span style={{ fontWeight: "bold" }}>
+          Page {safeCurrentPage} of {totalPages}
+        </span>
+
+        <button
+          onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+          disabled={safeCurrentPage === totalPages}
+          style={{
+            backgroundColor: safeCurrentPage === totalPages ? "#94a3b8" : "#0B3D91",
+            color: "white",
+            border: "none",
+            padding: "8px 12px",
+            borderRadius: "6px",
+            cursor: safeCurrentPage === totalPages ? "not-allowed" : "pointer",
+          }}
+        >
+          Next
+        </button>
+      </div>
+    </div>
+  );
 
   return (
     <div>
-      <h1>Packages</h1>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          marginBottom: "20px",
+          gap: "12px",
+          flexWrap: "wrap",
+        }}
+      >
+        <h1 style={{ margin: 0 }}>Packages</h1>
 
-      <button onClick={() => setShowForm(!showForm)}>
-        {showForm ? "Close Form" : "+ Add Package"}
-      </button>
+        <button
+          onClick={() => setShowForm((prev) => !prev)}
+          style={{
+            backgroundColor: "#0B3D91",
+            color: "white",
+            border: "none",
+            padding: "10px 16px",
+            borderRadius: "6px",
+            cursor: "pointer",
+            fontWeight: "bold",
+          }}
+        >
+          {showForm ? "Close Form" : "+ Add Package"}
+        </button>
+      </div>
 
       {showForm && (
-        <div>
+        <div
+          style={{
+            backgroundColor: "white",
+            padding: "20px",
+            borderRadius: "8px",
+            marginBottom: "20px",
+            border: "1px solid #ddd",
+          }}
+        >
           <h2>New Package</h2>
-          <input name="trackingNumber" placeholder="Tracking" onChange={handleChange} />
-          <input name="customerEkonId" placeholder="EKON ID" onChange={handleChange} />
-          <input name="customerName" placeholder="Name" onChange={handleChange} />
-          <input name="weight" placeholder="Weight" onChange={handleChange} />
-          <button onClick={savePackage}>Save</button>
+
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(2, 1fr)",
+              gap: "15px",
+            }}
+          >
+            <input
+              type="text"
+              name="trackingNumber"
+              placeholder="Tracking Number"
+              value={formData.trackingNumber}
+              onChange={handleChange}
+              style={{ padding: "10px" }}
+            />
+
+            <input
+              type="text"
+              name="customerEkonId"
+              placeholder="Customer EKON ID"
+              value={formData.customerEkonId}
+              onChange={handleChange}
+              style={{ padding: "10px" }}
+            />
+
+            <input
+              type="text"
+              name="customerName"
+              placeholder="Customer Name"
+              value={formData.customerName}
+              onChange={handleChange}
+              style={{ padding: "10px" }}
+            />
+
+            <input
+              type="text"
+              name="courier"
+              placeholder="Courier"
+              value={formData.courier}
+              onChange={handleChange}
+              style={{ padding: "10px" }}
+            />
+
+            <input
+              type="number"
+              step="0.1"
+              name="weight"
+              placeholder="Weight"
+              value={formData.weight}
+              onChange={handleChange}
+              style={{ padding: "10px" }}
+            />
+
+            <input
+              type="text"
+              name="warehouseLocation"
+              placeholder="Warehouse Location"
+              value={formData.warehouseLocation}
+              onChange={handleChange}
+              style={{ padding: "10px" }}
+            />
+
+            <input
+              type="date"
+              name="dateReceived"
+              value={formData.dateReceived}
+              onChange={handleChange}
+              style={{ padding: "10px" }}
+            />
+
+            <div
+              style={{
+                padding: "10px",
+                border: "1px solid #ccc",
+                borderRadius: "6px",
+                backgroundColor: "#f8fafc",
+                display: "flex",
+                alignItems: "center",
+                fontWeight: "bold",
+              }}
+            >
+              Estimated Charge: JMD {getCharge(formData.weight).toLocaleString()}
+            </div>
+
+            <label style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+              <input
+                type="checkbox"
+                name="readyForPickup"
+                checked={formData.readyForPickup}
+                onChange={handleChange}
+              />
+              Ready for Pickup
+            </label>
+          </div>
+
+          <button
+            onClick={savePackage}
+            style={{
+              marginTop: "20px",
+              backgroundColor: "#D4AF37",
+              color: "black",
+              border: "none",
+              padding: "10px 16px",
+              borderRadius: "6px",
+              cursor: "pointer",
+              fontWeight: "bold",
+            }}
+          >
+            Save Package
+          </button>
         </div>
       )}
 
-      <table>
-        <thead>
-          <tr>
-            <th>Tracking</th>
-            <th>Customer</th>
-            <th>EKON</th>
-            <th>Status</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
+      <input
+        placeholder="Search by tracking, customer, EKON ID, status, or invoice info"
+        value={searchTerm}
+        onChange={(e) => setSearchTerm(e.target.value)}
+        style={{
+          padding: "10px",
+          marginBottom: "15px",
+          width: "100%",
+          borderRadius: "6px",
+          border: "1px solid #ccc",
+        }}
+      />
 
-        <tbody>
-          {paginatedPackages.map((pkg) => (
-            <tr key={pkg._id}>
-              <td>{pkg.trackingNumber}</td>
-              <td>{pkg.customerName}</td>
-              <td>{pkg.customerEkonId}</td>
-              <td>{pkg.status}</td>
+      {paginationControls}
 
-              <td>
-                <button onClick={() => updateStatus(pkg.trackingNumber, "In Transit")}>
-                  Move
-                </button>
-
-                {/* ✅ NEW BUTTON */}
-                <button onClick={() => generateInvoice(pkg.customerEkonId)}>
-                  Generate Invoice
-                </button>
-              </td>
+      <div style={{ overflowX: "auto" }}>
+        <table
+          border="1"
+          cellPadding="10"
+          style={{ minWidth: "2000px", width: "100%", borderCollapse: "collapse" }}
+        >
+          <thead>
+            <tr>
+              <th>Tracking</th>
+              <th>Customer</th>
+              <th>EKON</th>
+              <th>Weight</th>
+              <th>Charge</th>
+              <th>Status</th>
+              <th>Invoice Uploaded</th>
+              <th>Invoice #</th>
+              <th>Notes</th>
+              <th>Uploaded At</th>
+              <th>File</th>
+              <th>Actions</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+
+          <tbody>
+            {paginatedPackages.length > 0 ? (
+              paginatedPackages.map((pkg) => {
+                const nextStatus = getNextStatus(pkg.status);
+
+                return (
+                  <tr key={pkg._id}>
+                    <td>{pkg.trackingNumber}</td>
+                    <td>{pkg.customerName}</td>
+                    <td>{pkg.customerEkonId}</td>
+                    <td>{pkg.weight}</td>
+                    <td>JMD {getCharge(pkg.weight)}</td>
+
+                    <td>
+                      <span
+                        style={{
+                          background: "#0B3D91",
+                          color: "white",
+                          padding: "4px 8px",
+                          borderRadius: "6px",
+                        }}
+                      >
+                        {pkg.status}
+                      </span>
+                    </td>
+
+                    <td>
+                      {pkg.customerInvoiceUploaded ? (
+                        <span style={{ color: "green", fontWeight: "bold" }}>YES</span>
+                      ) : (
+                        <span style={{ color: "#999" }}>NO</span>
+                      )}
+                    </td>
+
+                    <td>{pkg.customerInvoiceNumber || "-"}</td>
+                    <td>{pkg.customerInvoiceNotes || "-"}</td>
+                    <td>{formatDateTime(pkg.customerInvoiceUploadedAt)}</td>
+
+                    <td>
+                      {pkg.customerInvoiceFilePath ? (
+                        <a
+                          href={`${API}${pkg.customerInvoiceFilePath}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          style={{ color: "#0B3D91", fontWeight: "bold" }}
+                        >
+                          View
+                        </a>
+                      ) : (
+                        "-"
+                      )}
+                    </td>
+
+                    <td>
+                      <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                        {nextStatus ? (
+                          <button
+                            onClick={() => updateStatus(pkg.trackingNumber, nextStatus)}
+                            style={{
+                              backgroundColor: "#D4AF37",
+                              color: "black",
+                              border: "none",
+                              padding: "8px 10px",
+                              borderRadius: "4px",
+                              cursor: "pointer",
+                              fontWeight: "bold",
+                              minWidth: "180px",
+                            }}
+                          >
+                            {`Move to ${nextStatus}`}
+                          </button>
+                        ) : (
+                          <button
+                            disabled
+                            style={{
+                              backgroundColor: "#cbd5e1",
+                              color: "#475569",
+                              border: "none",
+                              padding: "8px 10px",
+                              borderRadius: "4px",
+                              cursor: "not-allowed",
+                              fontWeight: "bold",
+                              minWidth: "180px",
+                            }}
+                          >
+                            Complete
+                          </button>
+                        )}
+
+                        <button
+                          onClick={() => generateInvoice(pkg.customerEkonId)}
+                          style={{
+                            backgroundColor: "#9ca3af",
+                            color: "white",
+                            border: "none",
+                            padding: "8px 10px",
+                            borderRadius: "4px",
+                            cursor: "pointer",
+                            fontWeight: "bold",
+                            minWidth: "180px",
+                          }}
+                        >
+                          Generate Invoice
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })
+            ) : (
+              <tr>
+                <td colSpan="12">No packages found.</td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      <div style={{ marginTop: "15px" }}>{paginationControls}</div>
     </div>
   );
 }
