@@ -73,7 +73,6 @@ function Packages() {
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
-
     setFormData((prev) => ({
       ...prev,
       [name]: type === "checkbox" ? checked : value,
@@ -127,7 +126,7 @@ function Packages() {
     }
   };
 
-  // ✅ ONLY ADDITION
+  // ✅ NEW FUNCTION (ONLY ADDITION)
   const generateInvoice = async (customerEkonId) => {
     try {
       const readyPackages = packages.filter(
@@ -138,7 +137,7 @@ function Packages() {
       );
 
       if (readyPackages.length === 0) {
-        alert("No ready packages for this customer");
+        alert("No READY packages for this customer.");
         return;
       }
 
@@ -148,46 +147,36 @@ function Packages() {
         pointsToRedeem: 0,
       });
 
-      alert(res.data.message || "Invoice generated");
+      alert(res.data.message || "Invoice generated successfully");
       fetchPackages();
     } catch (error) {
       console.error(error);
-      alert("Failed to generate invoice");
+      alert(error?.response?.data?.message || "Invoice generation failed");
     }
   };
 
   const formatDateTime = (v) => (v ? new Date(v).toLocaleString() : "");
 
-  const paginationControls = (
-    <div style={{ backgroundColor: "white", border: "1px solid #ddd", borderRadius: "8px", padding: "12px 15px", marginBottom: "15px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
-      <div style={{ display: "flex", gap: "10px", alignItems: "center", flexWrap: "wrap" }}>
-        <strong>
-          Showing {filteredPackages.length === 0 ? 0 : startIndex + 1} to {Math.min(endIndex, filteredPackages.length)} of {filteredPackages.length}
-        </strong>
-
-        <select value={pageSize} onChange={(e) => setPageSize(Number(e.target.value))} style={{ padding: "8px 10px", borderRadius: "6px", border: "1px solid #ccc" }}>
-          <option value={10}>10 per page</option>
-          <option value={25}>25 per page</option>
-          <option value={50}>50 per page</option>
-          <option value={100}>100 per page</option>
-        </select>
-      </div>
-
-      <div style={{ display: "flex", gap: "8px" }}>
-        <button onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}>Previous</button>
-        <span>Page {safeCurrentPage} of {totalPages}</span>
-        <button onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}>Next</button>
-      </div>
-    </div>
-  );
-
   return (
     <div>
       <h1>Packages</h1>
 
-      {paginationControls}
+      <button onClick={() => setShowForm(!showForm)}>
+        {showForm ? "Close Form" : "+ Add Package"}
+      </button>
 
-      <table border="1" cellPadding="10" style={{ width: "100%" }}>
+      {showForm && (
+        <div>
+          <h2>New Package</h2>
+          <input name="trackingNumber" placeholder="Tracking" onChange={handleChange} />
+          <input name="customerEkonId" placeholder="EKON ID" onChange={handleChange} />
+          <input name="customerName" placeholder="Name" onChange={handleChange} />
+          <input name="weight" placeholder="Weight" onChange={handleChange} />
+          <button onClick={savePackage}>Save</button>
+        </div>
+      )}
+
+      <table>
         <thead>
           <tr>
             <th>Tracking</th>
@@ -211,7 +200,7 @@ function Packages() {
                   Move
                 </button>
 
-                {/* ✅ ONLY ADDITION */}
+                {/* ✅ NEW BUTTON */}
                 <button onClick={() => generateInvoice(pkg.customerEkonId)}>
                   Generate Invoice
                 </button>
@@ -220,8 +209,6 @@ function Packages() {
           ))}
         </tbody>
       </table>
-
-      {paginationControls}
     </div>
   );
 }
