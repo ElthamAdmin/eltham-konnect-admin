@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import api from "../api";
 
 function SupportTickets() {
@@ -8,8 +8,8 @@ function SupportTickets() {
   const [replyFiles, setReplyFiles] = useState({});
   const [replyTexts, setReplyTexts] = useState({});
   const [expandedTicket, setExpandedTicket] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
 
-  // 🔥 PAGINATION
   const [currentPage, setCurrentPage] = useState(1);
   const [perPage, setPerPage] = useState(10);
 
@@ -19,6 +19,13 @@ function SupportTickets() {
     subject: "",
     message: "",
   });
+
+  const ROYAL_BLUE = "#0B3D91";
+  const GOLD = "#D4AF37";
+  const WHITE = "#FFFFFF";
+  const LIGHT_BG = "#f4f7fb";
+  const BORDER = "#dbe3ef";
+  const MUTED = "#64748b";
 
   const fetchTickets = async () => {
     try {
@@ -33,26 +40,61 @@ function SupportTickets() {
     fetchTickets();
   }, []);
 
-  // 🔥 PAGINATION LOGIC
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, perPage]);
+
+  const filteredTickets = useMemo(() => {
+    return tickets.filter((ticket) =>
+      `${ticket.ticketNumber} ${ticket.customerName} ${ticket.customerEkonId} ${ticket.subject} ${ticket.message} ${ticket.status}`
+        .toLowerCase()
+        .includes(searchTerm.toLowerCase())
+    );
+  }, [tickets, searchTerm]);
+
   const paginatedTickets = useMemo(() => {
     const start = (currentPage - 1) * perPage;
-    return tickets.slice(start, start + perPage);
-  }, [tickets, currentPage, perPage]);
+    return filteredTickets.slice(start, start + perPage);
+  }, [filteredTickets, currentPage, perPage]);
 
-  const totalPages = Math.ceil(tickets.length / perPage);
+  const totalPages = Math.max(1, Math.ceil(filteredTickets.length / perPage));
+
+  const summary = useMemo(() => {
+    return {
+      total: tickets.length,
+      open: tickets.filter((t) => t.status === "Open").length,
+      inProgress: tickets.filter((t) => t.status === "In Progress").length,
+      resolved: tickets.filter((t) => t.status === "Resolved").length,
+      closed: tickets.filter((t) => t.status === "Closed").length,
+    };
+  }, [tickets]);
 
   const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    setFormData((prev) => ({
+      ...prev,
+      [e.target.name]: e.target.value,
+    }));
   };
 
   const createTicket = async () => {
     try {
+      if (
+        !formData.customerEkonId.trim() ||
+        !formData.customerName.trim() ||
+        !formData.subject.trim() ||
+        !formData.message.trim()
+      ) {
+        alert("Please complete all ticket fields.");
+        return;
+      }
+
       const body = new FormData();
       Object.entries(formData).forEach(([k, v]) => body.append(k, v));
       if (selectedFile) body.append("attachmentFile", selectedFile);
 
       await api.post("/api/support-tickets", body);
-      alert("Ticket created");
+
+      alert("Ticket created successfully");
 
       setFormData({
         customerEkonId: "",
@@ -63,16 +105,24 @@ function SupportTickets() {
 
       setSelectedFile(null);
       setShowForm(false);
-      fetchTickets();
+      await fetchTickets();
     } catch (err) {
-      alert("Error creating ticket");
+      console.error(err);
+      alert(err?.response?.data?.message || "Error creating ticket");
     }
   };
 
   const submitReply = async (ticketNumber) => {
     try {
+      const message = replyTexts[ticketNumber] || "";
+
+      if (!message.trim()) {
+        alert("Please enter a reply message.");
+        return;
+      }
+
       const body = new FormData();
-      body.append("message", replyTexts[ticketNumber] || "");
+      body.append("message", message);
 
       if (replyFiles[ticketNumber]) {
         body.append("attachmentFile", replyFiles[ticketNumber]);
@@ -83,51 +133,104 @@ function SupportTickets() {
       setReplyTexts((prev) => ({ ...prev, [ticketNumber]: "" }));
       setReplyFiles((prev) => ({ ...prev, [ticketNumber]: null }));
 
-      fetchTickets();
+      await fetchTickets();
     } catch (err) {
-      alert("Reply failed");
+      console.error(err);
+      alert(err?.response?.data?.message || "Reply failed");
     }
   };
 
   const updateStatus = async (ticketNumber, status) => {
     try {
       await api.put(`/api/support-tickets/${ticketNumber}/status`, { status });
-      fetchTickets();
-    } catch {
-      alert("Update failed");
+      await fetchTickets();
+    } catch (error) {
+      console.error(error);
+      alert(error?.response?.data?.message || "Update failed");
     }
   };
 
-  const formatDate = (v) => (v ? new Date(v).toLocaleString() : "");
+  const formatDate = (v) => {
+    if (!v) return "";
+    try {
+      return new Date(v).toLocaleString();
+    } catch {
+      return v;
+    }
+  };
 
-  return (
-    <div>
-      <h1>Support Tickets</h1>
+  const statusBadgeStyle = (status) => {
+    let backgroundColor = "#64748b";
 
-      {/* CREATE */}
-      <button onClick={() => setShowForm(!showForm)}>
-        {showForm ? "Close" : "+ New Ticket"}
-      </button>
+    if (status === "Open") backgroundColor = "#dc2626";
+    if (status === "In Progress") backgroundColor = "#f59e0b";
+    if (status === "Resolved") backgroundColor = "#16a34a";
+    if (status === "Closed") backgroundColor = "#475569";
 
-      {showForm && (
-        <div style={{ margin: "20px 0" }}>
-          <input name="customerEkonId" placeholder="EKON ID" onChange={handleChange} />
-          <input name="customerName" placeholder="Name" onChange={handleChange} />
-          <input name="subject" placeholder="Subject" onChange={handleChange} />
-          <textarea name="message" placeholder="Message" onChange={handleChange} />
-          <input type="file" onChange={(e) => setSelectedFile(e.target.files[0])} />
+    return {
+      backgroundColor,
+      color: WHITE,
+      borderRadius: "999px",
+      padding: "5px 10px",
+      fontSize: "12px",
+      fontWeight: "bold",
+      display: "inline-block",
+      whiteSpace: "nowrap",
+    };
+  };
 
-          <button onClick={createTicket}>Save</button>
-        </div>
-      )}
+  const senderBadgeStyle = (senderType) => ({
+    backgroundColor: senderType === "Admin" ? ROYAL_BLUE : GOLD,
+    color: senderType === "Admin" ? WHITE : "black",
+    borderRadius: "999px",
+    padding: "4px 10px",
+    fontSize: "12px",
+    fontWeight: "bold",
+    display: "inline-block",
+    whiteSpace: "nowrap",
+  });
 
-      {/* 🔥 PAGINATION CONTROLS */}
-      <div style={{ marginBottom: "10px" }}>
+  const metricCardStyle = {
+    backgroundColor: WHITE,
+    borderRadius: "12px",
+    padding: "18px",
+    border: `1px solid ${BORDER}`,
+    boxShadow: "0 2px 8px rgba(15,23,42,0.04)",
+    minHeight: "110px",
+  };
+
+  const paginationControls = (
+    <div
+      style={{
+        backgroundColor: WHITE,
+        border: `1px solid ${BORDER}`,
+        borderRadius: "10px",
+        padding: "12px 15px",
+        marginBottom: "15px",
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        gap: "12px",
+        flexWrap: "wrap",
+      }}
+    >
+      <div style={{ display: "flex", gap: "10px", alignItems: "center", flexWrap: "wrap" }}>
+        <strong style={{ color: "#1e293b" }}>
+          Showing {filteredTickets.length === 0 ? 0 : (currentPage - 1) * perPage + 1} to{" "}
+          {Math.min(currentPage * perPage, filteredTickets.length)} of {filteredTickets.length}
+        </strong>
+
         <select
           value={perPage}
           onChange={(e) => {
             setPerPage(Number(e.target.value));
             setCurrentPage(1);
+          }}
+          style={{
+            padding: "8px 10px",
+            borderRadius: "8px",
+            border: `1px solid ${BORDER}`,
+            backgroundColor: WHITE,
           }}
         >
           <option value={10}>10 per page</option>
@@ -137,111 +240,555 @@ function SupportTickets() {
         </select>
       </div>
 
-      {/* TABLE */}
-      <table border="1" cellPadding="10" style={{ width: "100%" }}>
-        <thead>
-          <tr>
-            <th>Ticket</th>
-            <th>Customer</th>
-            <th>Subject</th>
-            <th>Status</th>
-            <th>Date</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-
-        <tbody>
-          {paginatedTickets.map((t) => (
-            <>
-              <tr key={t._id}>
-                <td>{t.ticketNumber}</td>
-                <td>{t.customerName}</td>
-                <td>{t.subject}</td>
-                <td>{t.status}</td>
-                <td>{formatDate(t.date)}</td>
-
-                <td>
-                  <button onClick={() => updateStatus(t.ticketNumber, "Resolved")}>
-                    Resolve
-                  </button>
-
-                  <button
-                    onClick={() =>
-                      setExpandedTicket(
-                        expandedTicket === t.ticketNumber ? "" : t.ticketNumber
-                      )
-                    }
-                  >
-                    Thread
-                  </button>
-                </td>
-              </tr>
-
-              {expandedTicket === t.ticketNumber && (
-                <tr>
-                  <td colSpan="6">
-                    <div>
-                      <strong>Message:</strong> {t.message}
-
-                      {(t.replies || []).map((r) => (
-                        <div key={r._id}>
-                          <b>{r.senderName}:</b> {r.message}
-                        </div>
-                      ))}
-
-                      <textarea
-                        placeholder="Reply"
-                        value={replyTexts[t.ticketNumber] || ""}
-                        onChange={(e) =>
-                          setReplyTexts((p) => ({
-                            ...p,
-                            [t.ticketNumber]: e.target.value,
-                          }))
-                        }
-                      />
-
-                      <input
-                        type="file"
-                        onChange={(e) =>
-                          setReplyFiles((p) => ({
-                            ...p,
-                            [t.ticketNumber]: e.target.files[0],
-                          }))
-                        }
-                      />
-
-                      <button onClick={() => submitReply(t.ticketNumber)}>
-                        Send Reply
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              )}
-            </>
-          ))}
-        </tbody>
-      </table>
-
-      {/* 🔥 PAGE NAV */}
-      <div style={{ marginTop: "15px" }}>
+      <div style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}>
         <button
           disabled={currentPage === 1}
           onClick={() => setCurrentPage((p) => p - 1)}
+          style={{
+            backgroundColor: currentPage === 1 ? "#cbd5e1" : ROYAL_BLUE,
+            color: WHITE,
+            border: "none",
+            padding: "8px 12px",
+            borderRadius: "8px",
+            cursor: currentPage === 1 ? "not-allowed" : "pointer",
+            fontWeight: "bold",
+          }}
         >
           Prev
         </button>
 
-        <span style={{ margin: "0 10px" }}>
-          Page {currentPage} of {totalPages || 1}
+        <span style={{ fontWeight: "bold", color: "#334155" }}>
+          Page {currentPage} of {totalPages}
         </span>
 
         <button
           disabled={currentPage === totalPages}
           onClick={() => setCurrentPage((p) => p + 1)}
+          style={{
+            backgroundColor: currentPage === totalPages ? "#cbd5e1" : ROYAL_BLUE,
+            color: WHITE,
+            border: "none",
+            padding: "8px 12px",
+            borderRadius: "8px",
+            cursor: currentPage === totalPages ? "not-allowed" : "pointer",
+            fontWeight: "bold",
+          }}
         >
           Next
         </button>
       </div>
+    </div>
+  );
+
+  return (
+    <div style={{ backgroundColor: LIGHT_BG, minHeight: "100vh" }}>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          gap: "12px",
+          flexWrap: "wrap",
+          marginBottom: "20px",
+        }}
+      >
+        <div>
+          <h1 style={{ margin: 0, color: "#0f172a" }}>Support Tickets</h1>
+          <p style={{ margin: "6px 0 0 0", color: MUTED }}>
+            Manage ticket conversations, respond to customers, and update ticket progress.
+          </p>
+        </div>
+
+        <button
+          onClick={() => setShowForm((prev) => !prev)}
+          style={{
+            backgroundColor: ROYAL_BLUE,
+            color: WHITE,
+            border: "none",
+            padding: "11px 18px",
+            borderRadius: "10px",
+            cursor: "pointer",
+            fontWeight: "bold",
+            boxShadow: "0 2px 6px rgba(11,61,145,0.18)",
+          }}
+        >
+          {showForm ? "Close Ticket Form" : "+ New Ticket"}
+        </button>
+      </div>
+
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+          gap: "16px",
+          marginBottom: "18px",
+        }}
+      >
+        <div style={metricCardStyle}>
+          <div style={{ fontSize: "30px", fontWeight: "bold", color: ROYAL_BLUE, marginBottom: "8px" }}>
+            {summary.total}
+          </div>
+          <div style={{ color: "#334155", fontWeight: "bold" }}>Total Tickets</div>
+        </div>
+
+        <div style={metricCardStyle}>
+          <div style={{ fontSize: "30px", fontWeight: "bold", color: "#dc2626", marginBottom: "8px" }}>
+            {summary.open}
+          </div>
+          <div style={{ color: "#334155", fontWeight: "bold" }}>Open</div>
+        </div>
+
+        <div style={metricCardStyle}>
+          <div style={{ fontSize: "30px", fontWeight: "bold", color: "#f59e0b", marginBottom: "8px" }}>
+            {summary.inProgress}
+          </div>
+          <div style={{ color: "#334155", fontWeight: "bold" }}>In Progress</div>
+        </div>
+
+        <div style={metricCardStyle}>
+          <div style={{ fontSize: "30px", fontWeight: "bold", color: "#16a34a", marginBottom: "8px" }}>
+            {summary.resolved}
+          </div>
+          <div style={{ color: "#334155", fontWeight: "bold" }}>Resolved</div>
+        </div>
+
+        <div style={metricCardStyle}>
+          <div style={{ fontSize: "30px", fontWeight: "bold", color: GOLD, marginBottom: "8px" }}>
+            {summary.closed}
+          </div>
+          <div style={{ color: "#334155", fontWeight: "bold" }}>Closed</div>
+        </div>
+      </div>
+
+      {showForm && (
+        <div
+          style={{
+            backgroundColor: WHITE,
+            padding: "20px",
+            borderRadius: "12px",
+            marginBottom: "20px",
+            border: `1px solid ${BORDER}`,
+            boxShadow: "0 2px 8px rgba(15,23,42,0.04)",
+          }}
+        >
+          <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>Create New Support Ticket</h2>
+
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+              gap: "14px",
+            }}
+          >
+            <input
+              name="customerEkonId"
+              placeholder="Customer EKON ID"
+              value={formData.customerEkonId}
+              onChange={handleChange}
+              style={{ padding: "10px", borderRadius: "8px", border: `1px solid ${BORDER}` }}
+            />
+
+            <input
+              name="customerName"
+              placeholder="Customer Name"
+              value={formData.customerName}
+              onChange={handleChange}
+              style={{ padding: "10px", borderRadius: "8px", border: `1px solid ${BORDER}` }}
+            />
+
+            <input
+              name="subject"
+              placeholder="Ticket Subject"
+              value={formData.subject}
+              onChange={handleChange}
+              style={{
+                padding: "10px",
+                borderRadius: "8px",
+                border: `1px solid ${BORDER}`,
+                gridColumn: "span 2",
+              }}
+            />
+
+            <textarea
+              name="message"
+              placeholder="Write the support issue or request"
+              value={formData.message}
+              onChange={handleChange}
+              style={{
+                padding: "10px",
+                borderRadius: "8px",
+                border: `1px solid ${BORDER}`,
+                minHeight: "120px",
+                gridColumn: "span 2",
+              }}
+            />
+
+            <input
+              type="file"
+              onChange={(e) => setSelectedFile(e.target.files[0] || null)}
+              style={{
+                padding: "10px",
+                borderRadius: "8px",
+                border: `1px solid ${BORDER}`,
+                gridColumn: "span 2",
+                backgroundColor: "#f8fafc",
+              }}
+            />
+          </div>
+
+          <button
+            onClick={createTicket}
+            style={{
+              marginTop: "18px",
+              backgroundColor: GOLD,
+              color: "black",
+              border: "none",
+              padding: "11px 18px",
+              borderRadius: "10px",
+              cursor: "pointer",
+              fontWeight: "bold",
+              boxShadow: "0 2px 6px rgba(212,175,55,0.2)",
+            }}
+          >
+            Save Ticket
+          </button>
+        </div>
+      )}
+
+      <div
+        style={{
+          backgroundColor: WHITE,
+          border: `1px solid ${BORDER}`,
+          borderRadius: "12px",
+          padding: "16px",
+          marginBottom: "16px",
+          boxShadow: "0 2px 8px rgba(15,23,42,0.04)",
+        }}
+      >
+        <input
+          type="text"
+          placeholder="Search by ticket number, customer, EKON ID, subject, message, or status"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          style={{
+            width: "100%",
+            padding: "12px",
+            borderRadius: "8px",
+            border: `1px solid ${BORDER}`,
+          }}
+        />
+      </div>
+
+      {paginationControls}
+
+      <div style={{ display: "grid", gap: "16px" }}>
+        {paginatedTickets.length > 0 ? (
+          paginatedTickets.map((ticket) => (
+            <div
+              key={ticket._id}
+              style={{
+                backgroundColor: WHITE,
+                border: `1px solid ${BORDER}`,
+                borderRadius: "12px",
+                padding: "18px",
+                boxShadow: "0 2px 8px rgba(15,23,42,0.04)",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "flex-start",
+                  gap: "14px",
+                  flexWrap: "wrap",
+                  marginBottom: "12px",
+                }}
+              >
+                <div>
+                  <div style={{ fontWeight: "bold", color: ROYAL_BLUE, marginBottom: "6px" }}>
+                    {ticket.ticketNumber}
+                  </div>
+                  <div style={{ fontSize: "20px", fontWeight: "bold", color: "#0f172a" }}>
+                    {ticket.subject}
+                  </div>
+                  <div style={{ color: MUTED, marginTop: "4px" }}>
+                    {ticket.customerName} • {ticket.customerEkonId || "No EKON ID"}
+                  </div>
+                </div>
+
+                <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+                  <span style={statusBadgeStyle(ticket.status)}>{ticket.status}</span>
+                  <span style={{ color: MUTED, fontSize: "13px" }}>{formatDate(ticket.date || ticket.createdAt)}</span>
+                </div>
+              </div>
+
+              <div
+                style={{
+                  backgroundColor: "#f8fafc",
+                  border: `1px solid ${BORDER}`,
+                  borderRadius: "10px",
+                  padding: "14px",
+                  marginBottom: "14px",
+                  color: "#334155",
+                  lineHeight: 1.6,
+                }}
+              >
+                {ticket.message}
+              </div>
+
+              <div
+                style={{
+                  display: "flex",
+                  gap: "10px",
+                  flexWrap: "wrap",
+                  marginBottom: "14px",
+                }}
+              >
+                <button
+                  onClick={() => updateStatus(ticket.ticketNumber, "Open")}
+                  style={{
+                    backgroundColor: "#dc2626",
+                    color: WHITE,
+                    border: "none",
+                    padding: "9px 12px",
+                    borderRadius: "8px",
+                    cursor: "pointer",
+                    fontWeight: "bold",
+                  }}
+                >
+                  Open
+                </button>
+
+                <button
+                  onClick={() => updateStatus(ticket.ticketNumber, "In Progress")}
+                  style={{
+                    backgroundColor: "#f59e0b",
+                    color: "black",
+                    border: "none",
+                    padding: "9px 12px",
+                    borderRadius: "8px",
+                    cursor: "pointer",
+                    fontWeight: "bold",
+                  }}
+                >
+                  In Progress
+                </button>
+
+                <button
+                  onClick={() => updateStatus(ticket.ticketNumber, "Resolved")}
+                  style={{
+                    backgroundColor: "#16a34a",
+                    color: WHITE,
+                    border: "none",
+                    padding: "9px 12px",
+                    borderRadius: "8px",
+                    cursor: "pointer",
+                    fontWeight: "bold",
+                  }}
+                >
+                  Resolved
+                </button>
+
+                <button
+                  onClick={() => updateStatus(ticket.ticketNumber, "Closed")}
+                  style={{
+                    backgroundColor: "#475569",
+                    color: WHITE,
+                    border: "none",
+                    padding: "9px 12px",
+                    borderRadius: "8px",
+                    cursor: "pointer",
+                    fontWeight: "bold",
+                  }}
+                >
+                  Closed
+                </button>
+
+                <button
+                  onClick={() =>
+                    setExpandedTicket(
+                      expandedTicket === ticket.ticketNumber ? "" : ticket.ticketNumber
+                    )
+                  }
+                  style={{
+                    backgroundColor: ROYAL_BLUE,
+                    color: WHITE,
+                    border: "none",
+                    padding: "9px 12px",
+                    borderRadius: "8px",
+                    cursor: "pointer",
+                    fontWeight: "bold",
+                    marginLeft: "auto",
+                  }}
+                >
+                  {expandedTicket === ticket.ticketNumber ? "Hide Conversation" : "Open Conversation"}
+                </button>
+              </div>
+
+              {expandedTicket === ticket.ticketNumber && (
+                <div
+                  style={{
+                    borderTop: `1px solid ${BORDER}`,
+                    paddingTop: "16px",
+                    display: "grid",
+                    gap: "14px",
+                  }}
+                >
+                  <h3 style={{ margin: 0, color: ROYAL_BLUE }}>Conversation Thread</h3>
+
+                  <div
+                    style={{
+                      border: `1px solid ${BORDER}`,
+                      borderRadius: "10px",
+                      padding: "14px",
+                      backgroundColor: "#fefce8",
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        gap: "10px",
+                        flexWrap: "wrap",
+                        marginBottom: "8px",
+                      }}
+                    >
+                      <div style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}>
+                        <span style={senderBadgeStyle("Customer")}>Customer</span>
+                        <strong>{ticket.customerName}</strong>
+                      </div>
+                      <span style={{ color: MUTED, fontSize: "12px" }}>
+                        {formatDate(ticket.date || ticket.createdAt)}
+                      </span>
+                    </div>
+
+                    <div style={{ color: "#334155", lineHeight: 1.6 }}>
+                      {ticket.message}
+                    </div>
+                  </div>
+
+                  {(ticket.replies || []).map((reply) => (
+                    <div
+                      key={reply._id}
+                      style={{
+                        border: `1px solid ${BORDER}`,
+                        borderRadius: "10px",
+                        padding: "14px",
+                        backgroundColor:
+                          reply.senderType === "Admin" ? "#eff6ff" : "#fefce8",
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          gap: "10px",
+                          flexWrap: "wrap",
+                          marginBottom: "8px",
+                        }}
+                      >
+                        <div style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}>
+                          <span style={senderBadgeStyle(reply.senderType || "Admin")}>
+                            {reply.senderType || "Admin"}
+                          </span>
+                          <strong>{reply.senderName}</strong>
+                        </div>
+                        <span style={{ color: MUTED, fontSize: "12px" }}>
+                          {formatDate(reply.createdAt)}
+                        </span>
+                      </div>
+
+                      <div style={{ color: "#334155", lineHeight: 1.6 }}>
+                        {reply.message}
+                      </div>
+                    </div>
+                  ))}
+
+                  <div
+                    style={{
+                      backgroundColor: "#f8fafc",
+                      border: `1px solid ${BORDER}`,
+                      borderRadius: "10px",
+                      padding: "14px",
+                    }}
+                  >
+                    <h4 style={{ marginTop: 0, color: "#0f172a" }}>Reply to Ticket</h4>
+
+                    <textarea
+                      placeholder="Write your reply"
+                      value={replyTexts[ticket.ticketNumber] || ""}
+                      onChange={(e) =>
+                        setReplyTexts((prev) => ({
+                          ...prev,
+                          [ticket.ticketNumber]: e.target.value,
+                        }))
+                      }
+                      style={{
+                        width: "100%",
+                        padding: "10px",
+                        minHeight: "100px",
+                        borderRadius: "8px",
+                        border: `1px solid ${BORDER}`,
+                        marginBottom: "10px",
+                      }}
+                    />
+
+                    <input
+                      type="file"
+                      onChange={(e) =>
+                        setReplyFiles((prev) => ({
+                          ...prev,
+                          [ticket.ticketNumber]: e.target.files[0] || null,
+                        }))
+                      }
+                      style={{
+                        marginBottom: "10px",
+                        width: "100%",
+                        padding: "10px",
+                        borderRadius: "8px",
+                        border: `1px solid ${BORDER}`,
+                        backgroundColor: WHITE,
+                      }}
+                    />
+
+                    <button
+                      onClick={() => submitReply(ticket.ticketNumber)}
+                      style={{
+                        backgroundColor: ROYAL_BLUE,
+                        color: WHITE,
+                        border: "none",
+                        padding: "10px 16px",
+                        borderRadius: "8px",
+                        cursor: "pointer",
+                        fontWeight: "bold",
+                      }}
+                    >
+                      Send Reply
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          ))
+        ) : (
+          <div
+            style={{
+              backgroundColor: WHITE,
+              border: `1px solid ${BORDER}`,
+              borderRadius: "12px",
+              padding: "24px",
+              textAlign: "center",
+              color: MUTED,
+            }}
+          >
+            No support tickets found.
+          </div>
+        )}
+      </div>
+
+      <div style={{ marginTop: "15px" }}>{paginationControls}</div>
     </div>
   );
 }
