@@ -10,6 +10,13 @@ function Invoices() {
   const [pageSize, setPageSize] = useState(25);
   const [currentPage, setCurrentPage] = useState(1);
 
+  const ROYAL_BLUE = "#0B3D91";
+  const GOLD = "#D4AF37";
+  const WHITE = "#FFFFFF";
+  const LIGHT_BG = "#f4f7fb";
+  const BORDER = "#dbe3ef";
+  const MUTED = "#64748b";
+
   const fetchInvoices = async () => {
     try {
       const res = await api.get("/api/invoices");
@@ -62,10 +69,9 @@ function Invoices() {
     try {
       const paymentLink = paymentLinkByInvoice[invoiceNumber] || "";
 
-      const res = await api.put(
-        `/api/invoices/${invoiceNumber}/payment-link`,
-        { paymentLink }
-      );
+      const res = await api.put(`/api/invoices/${invoiceNumber}/payment-link`, {
+        paymentLink,
+      });
 
       alert(res.data.message);
       await fetchInvoices();
@@ -84,10 +90,9 @@ function Invoices() {
         return;
       }
 
-      const res = await api.put(
-        `/api/invoices/pay/${invoiceNumber}`,
-        { receivingAccountNumber }
-      );
+      const res = await api.put(`/api/invoices/pay/${invoiceNumber}`, {
+        receivingAccountNumber,
+      });
 
       alert(res.data.message);
       await fetchInvoices();
@@ -111,7 +116,23 @@ function Invoices() {
   const endIndex = startIndex + pageSize;
   const paginatedInvoices = filteredInvoices.slice(startIndex, endIndex);
 
-  const formatCurrency = (value) => `JMD ${Number(value || 0).toLocaleString()}`;
+  const summary = useMemo(() => {
+    const paid = invoices.filter((inv) => inv.status === "Paid");
+    const unpaid = invoices.filter((inv) => inv.status === "Unpaid");
+
+    return {
+      totalInvoices: invoices.length,
+      unpaidInvoices: unpaid.length,
+      paidInvoices: paid.length,
+      outstandingTotal: unpaid.reduce(
+        (sum, inv) => sum + Number(inv.finalTotal || 0),
+        0
+      ),
+    };
+  }, [invoices]);
+
+  const formatCurrency = (value) =>
+    `JMD ${Number(value || 0).toLocaleString()}`;
 
   const formatDate = (value) => {
     if (!value) return "";
@@ -124,15 +145,19 @@ function Invoices() {
 
   const statusBadge = (status) => {
     const backgroundColor =
-      status === "Paid" ? "#16a34a" : status === "Unpaid" ? "#dc2626" : "#64748b";
+      status === "Paid" ? "#16a34a" : status === "Unpaid" ? "#dc2626" : MUTED;
 
     return (
       <span
         style={{
-          padding: "4px 10px",
-          borderRadius: "6px",
+          padding: "5px 10px",
+          borderRadius: "999px",
           color: "white",
           backgroundColor,
+          fontWeight: "bold",
+          fontSize: "12px",
+          whiteSpace: "nowrap",
+          display: "inline-block",
         }}
       >
         {status}
@@ -140,12 +165,21 @@ function Invoices() {
     );
   };
 
+  const metricCardStyle = {
+    backgroundColor: WHITE,
+    borderRadius: "12px",
+    padding: "18px",
+    border: `1px solid ${BORDER}`,
+    boxShadow: "0 2px 8px rgba(15,23,42,0.04)",
+    minHeight: "115px",
+  };
+
   const paginationControls = (
     <div
       style={{
-        backgroundColor: "white",
-        border: "1px solid #ddd",
-        borderRadius: "8px",
+        backgroundColor: WHITE,
+        border: `1px solid ${BORDER}`,
+        borderRadius: "10px",
         padding: "12px 15px",
         marginBottom: "15px",
         display: "flex",
@@ -155,10 +189,18 @@ function Invoices() {
         flexWrap: "wrap",
       }}
     >
-      <div style={{ display: "flex", gap: "10px", alignItems: "center", flexWrap: "wrap" }}>
-        <strong>
+      <div
+        style={{
+          display: "flex",
+          gap: "10px",
+          alignItems: "center",
+          flexWrap: "wrap",
+        }}
+      >
+        <strong style={{ color: "#1e293b" }}>
           Showing {filteredInvoices.length === 0 ? 0 : startIndex + 1} to{" "}
-          {Math.min(endIndex, filteredInvoices.length)} of {filteredInvoices.length}
+          {Math.min(endIndex, filteredInvoices.length)} of{" "}
+          {filteredInvoices.length}
         </strong>
 
         <select
@@ -166,8 +208,9 @@ function Invoices() {
           onChange={(e) => setPageSize(Number(e.target.value))}
           style={{
             padding: "8px 10px",
-            borderRadius: "6px",
-            border: "1px solid #ccc",
+            borderRadius: "8px",
+            border: `1px solid ${BORDER}`,
+            backgroundColor: WHITE,
           }}
         >
           <option value={10}>10 per page</option>
@@ -177,36 +220,49 @@ function Invoices() {
         </select>
       </div>
 
-      <div style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}>
+      <div
+        style={{
+          display: "flex",
+          gap: "8px",
+          alignItems: "center",
+          flexWrap: "wrap",
+        }}
+      >
         <button
           onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
           disabled={safeCurrentPage === 1}
           style={{
-            backgroundColor: safeCurrentPage === 1 ? "#94a3b8" : "#0B3D91",
-            color: "white",
+            backgroundColor: safeCurrentPage === 1 ? "#cbd5e1" : ROYAL_BLUE,
+            color: WHITE,
             border: "none",
             padding: "8px 12px",
-            borderRadius: "6px",
+            borderRadius: "8px",
             cursor: safeCurrentPage === 1 ? "not-allowed" : "pointer",
+            fontWeight: "bold",
           }}
         >
           Previous
         </button>
 
-        <span style={{ fontWeight: "bold" }}>
+        <span style={{ fontWeight: "bold", color: "#334155" }}>
           Page {safeCurrentPage} of {totalPages}
         </span>
 
         <button
-          onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+          onClick={() =>
+            setCurrentPage((prev) => Math.min(prev + 1, totalPages))
+          }
           disabled={safeCurrentPage === totalPages}
           style={{
-            backgroundColor: safeCurrentPage === totalPages ? "#94a3b8" : "#0B3D91",
-            color: "white",
+            backgroundColor:
+              safeCurrentPage === totalPages ? "#cbd5e1" : ROYAL_BLUE,
+            color: WHITE,
             border: "none",
             padding: "8px 12px",
-            borderRadius: "6px",
-            cursor: safeCurrentPage === totalPages ? "not-allowed" : "pointer",
+            borderRadius: "8px",
+            cursor:
+              safeCurrentPage === totalPages ? "not-allowed" : "pointer",
+            fontWeight: "bold",
           }}
         >
           Next
@@ -216,38 +272,137 @@ function Invoices() {
   );
 
   return (
-    <div>
-      <h1>Invoices</h1>
+    <div style={{ backgroundColor: LIGHT_BG, minHeight: "100vh" }}>
+      <div style={{ marginBottom: "20px" }}>
+        <h1 style={{ margin: 0, color: "#0f172a" }}>Invoices</h1>
+        <p style={{ margin: "6px 0 0 0", color: MUTED }}>
+          Manage invoice balances, payment links, and payment posting.
+        </p>
+      </div>
 
-      <input
-        type="text"
-        placeholder="Search by invoice number, customer, EKON ID, status, or payment link"
-        value={searchTerm}
-        onChange={(e) => setSearchTerm(e.target.value)}
+      <div
         style={{
-          width: "100%",
-          padding: "12px",
-          marginBottom: "15px",
-          borderRadius: "6px",
-          border: "1px solid #ccc",
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+          gap: "16px",
+          marginBottom: "18px",
         }}
-      />
+      >
+        <div style={metricCardStyle}>
+          <div
+            style={{
+              fontSize: "30px",
+              fontWeight: "bold",
+              color: ROYAL_BLUE,
+              marginBottom: "8px",
+            }}
+          >
+            {summary.totalInvoices}
+          </div>
+          <div style={{ color: "#334155", fontWeight: "bold" }}>
+            Total Invoices
+          </div>
+        </div>
+
+        <div style={metricCardStyle}>
+          <div
+            style={{
+              fontSize: "30px",
+              fontWeight: "bold",
+              color: "#dc2626",
+              marginBottom: "8px",
+            }}
+          >
+            {summary.unpaidInvoices}
+          </div>
+          <div style={{ color: "#334155", fontWeight: "bold" }}>
+            Unpaid Invoices
+          </div>
+        </div>
+
+        <div style={metricCardStyle}>
+          <div
+            style={{
+              fontSize: "30px",
+              fontWeight: "bold",
+              color: "#16a34a",
+              marginBottom: "8px",
+            }}
+          >
+            {summary.paidInvoices}
+          </div>
+          <div style={{ color: "#334155", fontWeight: "bold" }}>
+            Paid Invoices
+          </div>
+        </div>
+
+        <div style={metricCardStyle}>
+          <div
+            style={{
+              fontSize: "24px",
+              fontWeight: "bold",
+              color: GOLD,
+              marginBottom: "8px",
+              wordBreak: "break-word",
+            }}
+          >
+            {formatCurrency(summary.outstandingTotal)}
+          </div>
+          <div style={{ color: "#334155", fontWeight: "bold" }}>
+            Outstanding Total
+          </div>
+        </div>
+      </div>
+
+      <div
+        style={{
+          backgroundColor: WHITE,
+          border: `1px solid ${BORDER}`,
+          borderRadius: "12px",
+          padding: "16px",
+          marginBottom: "16px",
+          boxShadow: "0 2px 8px rgba(15,23,42,0.04)",
+        }}
+      >
+        <input
+          type="text"
+          placeholder="Search by invoice number, customer, EKON ID, status, or payment link"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          style={{
+            width: "100%",
+            padding: "12px",
+            borderRadius: "8px",
+            border: `1px solid ${BORDER}`,
+          }}
+        />
+      </div>
 
       {paginationControls}
 
       <div
         style={{
-          backgroundColor: "white",
+          backgroundColor: WHITE,
           padding: "20px",
-          borderRadius: "10px",
-          border: "1px solid #e5e7eb",
+          borderRadius: "12px",
+          border: `1px solid ${BORDER}`,
+          boxShadow: "0 2px 8px rgba(15,23,42,0.04)",
         }}
       >
-        <h2>All Invoices</h2>
+        <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>All Invoices</h2>
 
         <div style={{ overflowX: "auto" }}>
-          <table border="1" cellPadding="10" style={{ minWidth: "1900px", width: "100%" }}>
-            <thead>
+          <table
+            border="1"
+            cellPadding="10"
+            style={{
+              minWidth: "1900px",
+              width: "100%",
+              borderCollapse: "collapse",
+              borderColor: BORDER,
+            }}
+          >
+            <thead style={{ backgroundColor: "#eef4ff" }}>
               <tr>
                 <th>Invoice Number</th>
                 <th>Customer EKON ID</th>
@@ -269,45 +424,73 @@ function Invoices() {
               {paginatedInvoices.length > 0 ? (
                 paginatedInvoices.map((inv) => (
                   <tr key={inv._id}>
-                    <td>{inv.invoiceNumber}</td>
+                    <td style={{ fontWeight: "bold", color: "#334155" }}>
+                      {inv.invoiceNumber}
+                    </td>
                     <td>{inv.customerEkonId}</td>
                     <td>{inv.customerName}</td>
                     <td>{inv.packageCount}</td>
                     <td>{formatCurrency(inv.subtotal)}</td>
-                    <td>{inv.pointsRedeemed}</td>
-                    <td>{formatCurrency(inv.finalTotal)}</td>
+                    <td>{Number(inv.pointsRedeemed || 0).toLocaleString()}</td>
+                    <td style={{ fontWeight: "bold" }}>
+                      {formatCurrency(inv.finalTotal)}
+                    </td>
                     <td>{statusBadge(inv.status)}</td>
                     <td>{formatDate(inv.createdAt)}</td>
-                    <td>{inv.paidDate ? formatDate(inv.paidDate) : "Not paid yet"}</td>
                     <td>
-                      <div style={{ display: "grid", gap: "8px", minWidth: "320px" }}>
+                      {inv.paidDate ? formatDate(inv.paidDate) : "Not paid yet"}
+                    </td>
+
+                    <td>
+                      <div
+                        style={{
+                          display: "grid",
+                          gap: "8px",
+                          minWidth: "320px",
+                        }}
+                      >
                         <input
                           type="text"
                           placeholder="Paste Fygaro payment link"
                           value={paymentLinkByInvoice[inv.invoiceNumber] || ""}
                           onChange={(e) =>
-                            handlePaymentLinkChange(inv.invoiceNumber, e.target.value)
+                            handlePaymentLinkChange(
+                              inv.invoiceNumber,
+                              e.target.value
+                            )
                           }
                           disabled={inv.status === "Paid"}
-                          style={{ padding: "8px" }}
+                          style={{
+                            padding: "10px",
+                            borderRadius: "8px",
+                            border: `1px solid ${BORDER}`,
+                            backgroundColor:
+                              inv.status === "Paid" ? "#f8fafc" : WHITE,
+                          }}
                         />
 
                         <button
                           onClick={() => savePaymentLink(inv.invoiceNumber)}
                           disabled={inv.status === "Paid"}
                           style={{
-                            backgroundColor: inv.status === "Paid" ? "#999" : "#0B3D91",
-                            color: "white",
+                            backgroundColor:
+                              inv.status === "Paid" ? "#94a3b8" : ROYAL_BLUE,
+                            color: WHITE,
                             border: "none",
-                            padding: "8px 12px",
-                            borderRadius: "4px",
-                            cursor: inv.status === "Paid" ? "not-allowed" : "pointer",
+                            padding: "9px 12px",
+                            borderRadius: "8px",
+                            cursor:
+                              inv.status === "Paid"
+                                ? "not-allowed"
+                                : "pointer",
+                            fontWeight: "bold",
                           }}
                         >
                           Save Link
                         </button>
                       </div>
                     </td>
+
                     <td>
                       <select
                         value={selectedAccountByInvoice[inv.invoiceNumber] || ""}
@@ -315,27 +498,44 @@ function Invoices() {
                           handleAccountChange(inv.invoiceNumber, e.target.value)
                         }
                         disabled={inv.status === "Paid"}
-                        style={{ padding: "8px", minWidth: "220px" }}
+                        style={{
+                          padding: "10px",
+                          minWidth: "240px",
+                          borderRadius: "8px",
+                          border: `1px solid ${BORDER}`,
+                          backgroundColor:
+                            inv.status === "Paid" ? "#f8fafc" : WHITE,
+                        }}
                       >
                         <option value="">Select Account</option>
                         {accounts.map((account) => (
-                          <option key={account._id} value={account.accountNumber}>
+                          <option
+                            key={account._id}
+                            value={account.accountNumber}
+                          >
                             {account.accountName} ({account.accountType})
                           </option>
                         ))}
                       </select>
                     </td>
+
                     <td>
                       <button
                         onClick={() => markInvoicePaid(inv.invoiceNumber)}
                         disabled={inv.status === "Paid"}
                         style={{
-                          backgroundColor: inv.status === "Paid" ? "#999" : "#16a34a",
-                          color: "white",
+                          backgroundColor:
+                            inv.status === "Paid" ? "#94a3b8" : "#16a34a",
+                          color: WHITE,
                           border: "none",
-                          padding: "8px 12px",
-                          borderRadius: "4px",
-                          cursor: inv.status === "Paid" ? "not-allowed" : "pointer",
+                          padding: "10px 14px",
+                          borderRadius: "8px",
+                          cursor:
+                            inv.status === "Paid"
+                              ? "not-allowed"
+                              : "pointer",
+                          fontWeight: "bold",
+                          minWidth: "110px",
                         }}
                       >
                         Mark Paid
@@ -345,7 +545,16 @@ function Invoices() {
                 ))
               ) : (
                 <tr>
-                  <td colSpan="13">No invoices found.</td>
+                  <td
+                    colSpan="13"
+                    style={{
+                      textAlign: "center",
+                      padding: "20px",
+                      color: MUTED,
+                    }}
+                  >
+                    No invoices found.
+                  </td>
                 </tr>
               )}
             </tbody>
