@@ -25,6 +25,12 @@ function Packages() {
   });
 
   const API = "https://eltham-konnect-backend-c2sf.onrender.com";
+  const ROYAL_BLUE = "#0B3D91";
+  const GOLD = "#D4AF37";
+  const WHITE = "#FFFFFF";
+  const LIGHT_BG = "#f4f7fb";
+  const BORDER = "#dbe3ef";
+  const MUTED = "#64748b";
 
   const fetchPackages = async () => {
     try {
@@ -127,6 +133,59 @@ function Packages() {
     }
   };
 
+  const updateBulkStatus = async () => {
+    try {
+      if (!bulkStatus) {
+        alert("Please select a bulk status.");
+        return;
+      }
+
+      if (selectedPackages.length === 0) {
+        alert("Please select at least one package.");
+        return;
+      }
+
+      for (const trackingNumber of selectedPackages) {
+        await axios.put(`${API}/api/packages/${trackingNumber}/status`, {
+          status: bulkStatus,
+        });
+      }
+
+      alert("Selected package statuses updated successfully.");
+      setSelectedPackages([]);
+      setBulkStatus("");
+      await fetchPackages();
+    } catch (error) {
+      console.error("Bulk status update failed:", error);
+      alert(error?.response?.data?.message || "Bulk status update failed");
+    }
+  };
+
+  const togglePackageSelection = (trackingNumber) => {
+    setSelectedPackages((prev) =>
+      prev.includes(trackingNumber)
+        ? prev.filter((item) => item !== trackingNumber)
+        : [...prev, trackingNumber]
+    );
+  };
+
+  const toggleSelectAllVisible = () => {
+    const currentPageTracking = paginatedPackages.map((pkg) => pkg.trackingNumber);
+    const allVisibleSelected = currentPageTracking.every((tracking) =>
+      selectedPackages.includes(tracking)
+    );
+
+    if (allVisibleSelected) {
+      setSelectedPackages((prev) =>
+        prev.filter((tracking) => !currentPageTracking.includes(tracking))
+      );
+    } else {
+      setSelectedPackages((prev) => [
+        ...new Set([...prev, ...currentPageTracking]),
+      ]);
+    }
+  };
+
   const getNextStatus = (currentStatus) => {
     if (currentStatus === "At Warehouse") return "In Transit";
     if (currentStatus === "Manifest Assigned") return "In Transit";
@@ -175,12 +234,44 @@ function Packages() {
   const formatDateTime = (v) => (v ? new Date(v).toLocaleString() : "");
   const formatDate = (v) => (v ? String(v).slice(0, 10) : "");
 
+  const getStatusBadgeStyle = (status) => {
+    let bg = ROYAL_BLUE;
+
+    if (status === "In Transit") bg = "#2563eb";
+    if (status === "Cleared Customs") bg = "#7c3aed";
+    if (status === "Ready for Pickup") bg = "#16a34a";
+    if (status === "Delivered") bg = "#475569";
+    if (status === "Manifest Assigned") bg = "#9333ea";
+    if (status === "In Transit to Branch") bg = "#0f766e";
+
+    return {
+      background: bg,
+      color: WHITE,
+      padding: "5px 10px",
+      borderRadius: "999px",
+      fontWeight: "bold",
+      fontSize: "12px",
+      display: "inline-block",
+      whiteSpace: "nowrap",
+    };
+  };
+
+  const actionButtonStyle = {
+    border: "none",
+    padding: "9px 12px",
+    borderRadius: "8px",
+    cursor: "pointer",
+    fontWeight: "bold",
+    width: "100%",
+    boxShadow: "0 1px 2px rgba(15,23,42,0.08)",
+  };
+
   const paginationControls = (
     <div
       style={{
-        backgroundColor: "white",
-        border: "1px solid #ddd",
-        borderRadius: "8px",
+        backgroundColor: WHITE,
+        border: `1px solid ${BORDER}`,
+        borderRadius: "10px",
         padding: "12px 15px",
         marginBottom: "15px",
         display: "flex",
@@ -191,7 +282,7 @@ function Packages() {
       }}
     >
       <div style={{ display: "flex", gap: "10px", alignItems: "center", flexWrap: "wrap" }}>
-        <strong>
+        <strong style={{ color: "#1e293b" }}>
           Showing {filteredPackages.length === 0 ? 0 : startIndex + 1} to{" "}
           {Math.min(endIndex, filteredPackages.length)} of {filteredPackages.length}
         </strong>
@@ -201,8 +292,9 @@ function Packages() {
           onChange={(e) => setPageSize(Number(e.target.value))}
           style={{
             padding: "8px 10px",
-            borderRadius: "6px",
-            border: "1px solid #ccc",
+            borderRadius: "8px",
+            border: `1px solid ${BORDER}`,
+            backgroundColor: WHITE,
           }}
         >
           <option value={10}>10 per page</option>
@@ -217,18 +309,19 @@ function Packages() {
           onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
           disabled={safeCurrentPage === 1}
           style={{
-            backgroundColor: safeCurrentPage === 1 ? "#94a3b8" : "#0B3D91",
-            color: "white",
+            backgroundColor: safeCurrentPage === 1 ? "#cbd5e1" : ROYAL_BLUE,
+            color: WHITE,
             border: "none",
             padding: "8px 12px",
-            borderRadius: "6px",
+            borderRadius: "8px",
             cursor: safeCurrentPage === 1 ? "not-allowed" : "pointer",
+            fontWeight: "bold",
           }}
         >
           Previous
         </button>
 
-        <span style={{ fontWeight: "bold" }}>
+        <span style={{ fontWeight: "bold", color: "#334155" }}>
           Page {safeCurrentPage} of {totalPages}
         </span>
 
@@ -236,12 +329,13 @@ function Packages() {
           onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
           disabled={safeCurrentPage === totalPages}
           style={{
-            backgroundColor: safeCurrentPage === totalPages ? "#94a3b8" : "#0B3D91",
-            color: "white",
+            backgroundColor: safeCurrentPage === totalPages ? "#cbd5e1" : ROYAL_BLUE,
+            color: WHITE,
             border: "none",
             padding: "8px 12px",
-            borderRadius: "6px",
+            borderRadius: "8px",
             cursor: safeCurrentPage === totalPages ? "not-allowed" : "pointer",
+            fontWeight: "bold",
           }}
         >
           Next
@@ -251,7 +345,7 @@ function Packages() {
   );
 
   return (
-    <div>
+    <div style={{ backgroundColor: LIGHT_BG, minHeight: "100vh" }}>
       <div
         style={{
           display: "flex",
@@ -262,18 +356,24 @@ function Packages() {
           flexWrap: "wrap",
         }}
       >
-        <h1 style={{ margin: 0 }}>Packages</h1>
+        <div>
+          <h1 style={{ margin: 0, color: "#0f172a" }}>Packages</h1>
+          <p style={{ margin: "6px 0 0 0", color: MUTED }}>
+            Manage package status, invoice uploads, and bulk workflow updates.
+          </p>
+        </div>
 
         <button
           onClick={() => setShowForm((prev) => !prev)}
           style={{
-            backgroundColor: "#0B3D91",
-            color: "white",
+            backgroundColor: ROYAL_BLUE,
+            color: WHITE,
             border: "none",
-            padding: "10px 16px",
-            borderRadius: "6px",
+            padding: "11px 18px",
+            borderRadius: "10px",
             cursor: "pointer",
             fontWeight: "bold",
+            boxShadow: "0 2px 6px rgba(11,61,145,0.18)",
           }}
         >
           {showForm ? "Close Form" : "+ Add Package"}
@@ -283,19 +383,20 @@ function Packages() {
       {showForm && (
         <div
           style={{
-            backgroundColor: "white",
+            backgroundColor: WHITE,
             padding: "20px",
-            borderRadius: "8px",
+            borderRadius: "12px",
             marginBottom: "20px",
-            border: "1px solid #ddd",
+            border: `1px solid ${BORDER}`,
+            boxShadow: "0 2px 8px rgba(15,23,42,0.04)",
           }}
         >
-          <h2>New Package</h2>
+          <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>New Package</h2>
 
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "repeat(2, 1fr)",
+              gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
               gap: "15px",
             }}
           >
@@ -305,7 +406,7 @@ function Packages() {
               placeholder="Tracking Number"
               value={formData.trackingNumber}
               onChange={handleChange}
-              style={{ padding: "10px" }}
+              style={{ padding: "10px", borderRadius: "8px", border: `1px solid ${BORDER}` }}
             />
 
             <input
@@ -314,7 +415,7 @@ function Packages() {
               placeholder="Customer EKON ID"
               value={formData.customerEkonId}
               onChange={handleChange}
-              style={{ padding: "10px" }}
+              style={{ padding: "10px", borderRadius: "8px", border: `1px solid ${BORDER}` }}
             />
 
             <input
@@ -323,7 +424,7 @@ function Packages() {
               placeholder="Customer Name"
               value={formData.customerName}
               onChange={handleChange}
-              style={{ padding: "10px" }}
+              style={{ padding: "10px", borderRadius: "8px", border: `1px solid ${BORDER}` }}
             />
 
             <input
@@ -332,7 +433,7 @@ function Packages() {
               placeholder="Courier"
               value={formData.courier}
               onChange={handleChange}
-              style={{ padding: "10px" }}
+              style={{ padding: "10px", borderRadius: "8px", border: `1px solid ${BORDER}` }}
             />
 
             <input
@@ -342,7 +443,7 @@ function Packages() {
               placeholder="Weight"
               value={formData.weight}
               onChange={handleChange}
-              style={{ padding: "10px" }}
+              style={{ padding: "10px", borderRadius: "8px", border: `1px solid ${BORDER}` }}
             />
 
             <input
@@ -351,7 +452,7 @@ function Packages() {
               placeholder="Warehouse Location"
               value={formData.warehouseLocation}
               onChange={handleChange}
-              style={{ padding: "10px" }}
+              style={{ padding: "10px", borderRadius: "8px", border: `1px solid ${BORDER}` }}
             />
 
             <input
@@ -359,24 +460,37 @@ function Packages() {
               name="dateReceived"
               value={formData.dateReceived}
               onChange={handleChange}
-              style={{ padding: "10px" }}
+              style={{ padding: "10px", borderRadius: "8px", border: `1px solid ${BORDER}` }}
             />
 
             <div
               style={{
                 padding: "10px",
-                border: "1px solid #ccc",
-                borderRadius: "6px",
+                border: `1px solid ${BORDER}`,
+                borderRadius: "8px",
                 backgroundColor: "#f8fafc",
                 display: "flex",
                 alignItems: "center",
                 fontWeight: "bold",
+                color: "#1e293b",
               }}
             >
               Estimated Charge: JMD {getCharge(formData.weight).toLocaleString()}
             </div>
 
-            <label style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <label
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "10px",
+                backgroundColor: "#f8fafc",
+                border: `1px solid ${BORDER}`,
+                borderRadius: "8px",
+                padding: "10px",
+                fontWeight: "bold",
+                color: "#334155",
+              }}
+            >
               <input
                 type="checkbox"
                 name="readyForPickup"
@@ -391,13 +505,14 @@ function Packages() {
             onClick={savePackage}
             style={{
               marginTop: "20px",
-              backgroundColor: "#D4AF37",
+              backgroundColor: GOLD,
               color: "black",
               border: "none",
-              padding: "10px 16px",
-              borderRadius: "6px",
+              padding: "11px 18px",
+              borderRadius: "10px",
               cursor: "pointer",
               fontWeight: "bold",
+              boxShadow: "0 2px 6px rgba(212,175,55,0.2)",
             }}
           >
             Save Package
@@ -405,41 +520,123 @@ function Packages() {
         </div>
       )}
 
-      <input
-        placeholder="Search by tracking, customer, EKON ID, status, or invoice info"
-        value={searchTerm}
-        onChange={(e) => setSearchTerm(e.target.value)}
+      <div
         style={{
-          padding: "10px",
-          marginBottom: "15px",
-          width: "100%",
-          borderRadius: "6px",
-          border: "1px solid #ccc",
+          backgroundColor: WHITE,
+          border: `1px solid ${BORDER}`,
+          borderRadius: "12px",
+          padding: "16px",
+          marginBottom: "16px",
+          boxShadow: "0 2px 8px rgba(15,23,42,0.04)",
         }}
-      />
+      >
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "minmax(260px, 2fr) minmax(220px, 1fr) auto",
+            gap: "12px",
+            alignItems: "center",
+          }}
+        >
+          <input
+            placeholder="Search by tracking, customer, EKON ID, status, or invoice info"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            style={{
+              padding: "10px",
+              width: "100%",
+              borderRadius: "8px",
+              border: `1px solid ${BORDER}`,
+            }}
+          />
+
+          <select
+            value={bulkStatus}
+            onChange={(e) => setBulkStatus(e.target.value)}
+            style={{
+              padding: "10px",
+              borderRadius: "8px",
+              border: `1px solid ${BORDER}`,
+              backgroundColor: WHITE,
+            }}
+          >
+            <option value="">Bulk Status Update</option>
+            <option value="At Warehouse">At Warehouse</option>
+            <option value="In Transit">In Transit</option>
+            <option value="Cleared Customs">Cleared Customs</option>
+            <option value="Ready for Pickup">Ready for Pickup</option>
+            <option value="Delivered">Delivered</option>
+          </select>
+
+          <button
+            onClick={updateBulkStatus}
+            style={{
+              backgroundColor: ROYAL_BLUE,
+              color: WHITE,
+              border: "none",
+              padding: "10px 16px",
+              borderRadius: "8px",
+              cursor: "pointer",
+              fontWeight: "bold",
+              whiteSpace: "nowrap",
+            }}
+          >
+            Update Selected
+          </button>
+        </div>
+
+        <div style={{ marginTop: "10px", color: MUTED, fontSize: "14px" }}>
+          {selectedPackages.length} package(s) selected on this screen.
+        </div>
+      </div>
 
       {paginationControls}
 
-      <div style={{ overflowX: "auto" }}>
+      <div
+        style={{
+          overflowX: "auto",
+          backgroundColor: WHITE,
+          border: `1px solid ${BORDER}`,
+          borderRadius: "12px",
+          boxShadow: "0 2px 8px rgba(15,23,42,0.04)",
+        }}
+      >
         <table
           border="1"
           cellPadding="10"
-          style={{ minWidth: "2000px", width: "100%", borderCollapse: "collapse" }}
+          style={{
+            minWidth: "1600px",
+            width: "100%",
+            borderCollapse: "collapse",
+            borderColor: BORDER,
+          }}
         >
-          <thead>
+          <thead style={{ backgroundColor: "#eef4ff" }}>
             <tr>
+              <th style={{ width: "48px" }}>
+                <input
+                  type="checkbox"
+                  checked={
+                    paginatedPackages.length > 0 &&
+                    paginatedPackages.every((pkg) =>
+                      selectedPackages.includes(pkg.trackingNumber)
+                    )
+                  }
+                  onChange={toggleSelectAllVisible}
+                />
+              </th>
               <th>Tracking</th>
               <th>Customer</th>
               <th>EKON</th>
-              <th>Weight</th>
-              <th>Charge</th>
-              <th>Status</th>
-              <th>Invoice Uploaded</th>
-              <th>Invoice #</th>
-              <th>Notes</th>
-              <th>Uploaded At</th>
-              <th>File</th>
-              <th>Actions</th>
+              <th style={{ width: "90px" }}>Weight</th>
+              <th style={{ width: "110px" }}>Charge</th>
+              <th style={{ width: "150px" }}>Status</th>
+              <th style={{ width: "100px" }}>Invoice Uploaded</th>
+              <th style={{ width: "120px" }}>Invoice #</th>
+              <th style={{ minWidth: "160px" }}>Notes</th>
+              <th style={{ width: "170px" }}>Uploaded At</th>
+              <th style={{ width: "80px" }}>File</th>
+              <th style={{ width: "220px" }}>Actions</th>
             </tr>
           </thead>
 
@@ -449,37 +646,35 @@ function Packages() {
                 const nextStatus = getNextStatus(pkg.status);
 
                 return (
-                  <tr key={pkg._id}>
-                    <td>{pkg.trackingNumber}</td>
+                  <tr key={pkg._id} style={{ backgroundColor: selectedPackages.includes(pkg.trackingNumber) ? "#f8fbff" : WHITE }}>
+                    <td style={{ textAlign: "center" }}>
+                      <input
+                        type="checkbox"
+                        checked={selectedPackages.includes(pkg.trackingNumber)}
+                        onChange={() => togglePackageSelection(pkg.trackingNumber)}
+                      />
+                    </td>
+                    <td style={{ wordBreak: "break-word", maxWidth: "220px" }}>{pkg.trackingNumber}</td>
                     <td>{pkg.customerName}</td>
                     <td>{pkg.customerEkonId}</td>
                     <td>{pkg.weight}</td>
                     <td>JMD {getCharge(pkg.weight)}</td>
 
                     <td>
-                      <span
-                        style={{
-                          background: "#0B3D91",
-                          color: "white",
-                          padding: "4px 8px",
-                          borderRadius: "6px",
-                        }}
-                      >
-                        {pkg.status}
-                      </span>
+                      <span style={getStatusBadgeStyle(pkg.status)}>{pkg.status}</span>
                     </td>
 
                     <td>
                       {pkg.customerInvoiceUploaded ? (
-                        <span style={{ color: "green", fontWeight: "bold" }}>YES</span>
+                        <span style={{ color: "#15803d", fontWeight: "bold" }}>YES</span>
                       ) : (
-                        <span style={{ color: "#999" }}>NO</span>
+                        <span style={{ color: "#94a3b8" }}>NO</span>
                       )}
                     </td>
 
                     <td>{pkg.customerInvoiceNumber || "-"}</td>
-                    <td>{pkg.customerInvoiceNotes || "-"}</td>
-                    <td>{formatDateTime(pkg.customerInvoiceUploadedAt)}</td>
+                    <td style={{ color: "#475569" }}>{pkg.customerInvoiceNotes || "-"}</td>
+                    <td>{formatDateTime(pkg.customerInvoiceUploadedAt) || "-"}</td>
 
                     <td>
                       {pkg.customerInvoiceFilePath ? (
@@ -487,7 +682,7 @@ function Packages() {
                           href={`${API}${pkg.customerInvoiceFilePath}`}
                           target="_blank"
                           rel="noreferrer"
-                          style={{ color: "#0B3D91", fontWeight: "bold" }}
+                          style={{ color: ROYAL_BLUE, fontWeight: "bold", textDecoration: "none" }}
                         >
                           View
                         </a>
@@ -502,14 +697,9 @@ function Packages() {
                           <button
                             onClick={() => updateStatus(pkg.trackingNumber, nextStatus)}
                             style={{
-                              backgroundColor: "#D4AF37",
+                              ...actionButtonStyle,
+                              backgroundColor: GOLD,
                               color: "black",
-                              border: "none",
-                              padding: "8px 10px",
-                              borderRadius: "4px",
-                              cursor: "pointer",
-                              fontWeight: "bold",
-                              minWidth: "180px",
                             }}
                           >
                             {`Move to ${nextStatus}`}
@@ -518,14 +708,10 @@ function Packages() {
                           <button
                             disabled
                             style={{
+                              ...actionButtonStyle,
                               backgroundColor: "#cbd5e1",
                               color: "#475569",
-                              border: "none",
-                              padding: "8px 10px",
-                              borderRadius: "4px",
                               cursor: "not-allowed",
-                              fontWeight: "bold",
-                              minWidth: "180px",
                             }}
                           >
                             Complete
@@ -535,14 +721,9 @@ function Packages() {
                         <button
                           onClick={() => generateInvoice(pkg.customerEkonId)}
                           style={{
-                            backgroundColor: "#9ca3af",
-                            color: "white",
-                            border: "none",
-                            padding: "8px 10px",
-                            borderRadius: "4px",
-                            cursor: "pointer",
-                            fontWeight: "bold",
-                            minWidth: "180px",
+                            ...actionButtonStyle,
+                            backgroundColor: ROYAL_BLUE,
+                            color: WHITE,
                           }}
                         >
                           Generate Invoice
@@ -554,7 +735,9 @@ function Packages() {
               })
             ) : (
               <tr>
-                <td colSpan="12">No packages found.</td>
+                <td colSpan="13" style={{ textAlign: "center", padding: "20px", color: MUTED }}>
+                  No packages found.
+                </td>
               </tr>
             )}
           </tbody>
