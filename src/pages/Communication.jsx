@@ -17,6 +17,13 @@ function Communication() {
     message: "",
   });
 
+  const ROYAL_BLUE = "#0B3D91";
+  const GOLD = "#D4AF37";
+  const WHITE = "#FFFFFF";
+  const LIGHT_BG = "#f4f7fb";
+  const BORDER = "#dbe3ef";
+  const MUTED = "#64748b";
+
   const fetchLogs = async () => {
     try {
       setLoadingLogs(true);
@@ -68,6 +75,15 @@ function Communication() {
         .includes(searchTerm.toLowerCase())
     );
   }, [customers, searchTerm]);
+
+  const summary = useMemo(() => {
+    return {
+      totalLogs: logs.length,
+      sent: logs.filter((log) => log.status === "Sent").length,
+      pending: logs.filter((log) => log.status === "Pending").length,
+      failed: logs.filter((log) => log.status === "Failed").length,
+    };
+  }, [logs]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -125,10 +141,7 @@ function Communication() {
         return;
       }
 
-      if (
-        formData.recipientMode === "single" &&
-        !formData.customerEkonId
-      ) {
+      if (formData.recipientMode === "single" && !formData.customerEkonId) {
         alert("Please select one customer.");
         return;
       }
@@ -196,14 +209,24 @@ function Communication() {
   };
 
   const cardStyle = {
-    backgroundColor: "white",
+    backgroundColor: WHITE,
     padding: "20px",
-    borderRadius: "10px",
-    border: "1px solid #e5e7eb",
+    borderRadius: "12px",
+    border: `1px solid ${BORDER}`,
+    boxShadow: "0 2px 8px rgba(15,23,42,0.04)",
+  };
+
+  const metricCardStyle = {
+    backgroundColor: WHITE,
+    borderRadius: "12px",
+    padding: "18px",
+    border: `1px solid ${BORDER}`,
+    boxShadow: "0 2px 8px rgba(15,23,42,0.04)",
+    minHeight: "110px",
   };
 
   return (
-    <div>
+    <div style={{ backgroundColor: LIGHT_BG, minHeight: "100vh" }}>
       <div
         style={{
           display: "flex",
@@ -214,16 +237,21 @@ function Communication() {
           marginBottom: "20px",
         }}
       >
-        <h1 style={{ margin: 0 }}>Communication Center</h1>
+        <div>
+          <h1 style={{ margin: 0, color: "#0f172a" }}>Communication Center</h1>
+          <p style={{ margin: "6px 0 0 0", color: MUTED }}>
+            Send important updates to one customer, selected customers, or all customers.
+          </p>
+        </div>
 
         <button
           onClick={fetchPageData}
           style={{
             backgroundColor: "#16a34a",
-            color: "white",
+            color: WHITE,
             border: "none",
             padding: "10px 16px",
-            borderRadius: "6px",
+            borderRadius: "8px",
             cursor: "pointer",
             fontWeight: "bold",
           }}
@@ -232,13 +260,80 @@ function Communication() {
         </button>
       </div>
 
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+          gap: "16px",
+          marginBottom: "18px",
+        }}
+      >
+        <div style={metricCardStyle}>
+          <div
+            style={{
+              fontSize: "30px",
+              fontWeight: "bold",
+              color: ROYAL_BLUE,
+              marginBottom: "8px",
+            }}
+          >
+            {summary.totalLogs}
+          </div>
+          <div style={{ color: "#334155", fontWeight: "bold" }}>
+            Total Communications
+          </div>
+        </div>
+
+        <div style={metricCardStyle}>
+          <div
+            style={{
+              fontSize: "30px",
+              fontWeight: "bold",
+              color: "#16a34a",
+              marginBottom: "8px",
+            }}
+          >
+            {summary.sent}
+          </div>
+          <div style={{ color: "#334155", fontWeight: "bold" }}>Sent</div>
+        </div>
+
+        <div style={metricCardStyle}>
+          <div
+            style={{
+              fontSize: "30px",
+              fontWeight: "bold",
+              color: GOLD,
+              marginBottom: "8px",
+            }}
+          >
+            {summary.pending}
+          </div>
+          <div style={{ color: "#334155", fontWeight: "bold" }}>Pending</div>
+        </div>
+
+        <div style={metricCardStyle}>
+          <div
+            style={{
+              fontSize: "30px",
+              fontWeight: "bold",
+              color: "#dc2626",
+              marginBottom: "8px",
+            }}
+          >
+            {summary.failed}
+          </div>
+          <div style={{ color: "#334155", fontWeight: "bold" }}>Failed</div>
+        </div>
+      </div>
+
       <div style={{ ...cardStyle, marginBottom: "20px" }}>
-        <h2>New Communication</h2>
+        <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>New Communication</h2>
 
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "repeat(2, 1fr)",
+            gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
             gap: "15px",
             marginBottom: "15px",
           }}
@@ -247,7 +342,11 @@ function Communication() {
             name="recipientMode"
             value={formData.recipientMode}
             onChange={handleRecipientModeChange}
-            style={{ padding: "10px" }}
+            style={{
+              padding: "10px",
+              borderRadius: "8px",
+              border: `1px solid ${BORDER}`,
+            }}
           >
             <option value="single">Single Customer</option>
             <option value="selected">Selected Customers</option>
@@ -258,7 +357,11 @@ function Communication() {
             name="channel"
             value={formData.channel}
             onChange={handleChange}
-            style={{ padding: "10px" }}
+            style={{
+              padding: "10px",
+              borderRadius: "8px",
+              border: `1px solid ${BORDER}`,
+            }}
           >
             <option value="Email">Email</option>
             <option value="WhatsApp">WhatsApp</option>
@@ -272,7 +375,12 @@ function Communication() {
               name="customerEkonId"
               value={formData.customerEkonId}
               onChange={handleChange}
-              style={{ padding: "10px", width: "100%" }}
+              style={{
+                padding: "10px",
+                width: "100%",
+                borderRadius: "8px",
+                border: `1px solid ${BORDER}`,
+              }}
               disabled={loadingCustomers}
             >
               <option value="">
@@ -290,8 +398,8 @@ function Communication() {
         {formData.recipientMode === "selected" && (
           <div
             style={{
-              border: "1px solid #d1d5db",
-              borderRadius: "8px",
+              border: `1px solid ${BORDER}`,
+              borderRadius: "10px",
               padding: "15px",
               marginBottom: "15px",
               backgroundColor: "#f8fafc",
@@ -308,15 +416,15 @@ function Communication() {
             >
               <input
                 type="text"
-                placeholder="Search customers by EKON ID or name"
+                placeholder="Search customers by EKON ID, name, email, or phone"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 style={{
                   padding: "10px",
                   flex: "1",
                   minWidth: "260px",
-                  borderRadius: "6px",
-                  border: "1px solid #cbd5e1",
+                  borderRadius: "8px",
+                  border: `1px solid ${BORDER}`,
                 }}
               />
 
@@ -324,12 +432,13 @@ function Communication() {
                 onClick={handleSelectAllFiltered}
                 type="button"
                 style={{
-                  backgroundColor: "#0B3D91",
-                  color: "white",
+                  backgroundColor: ROYAL_BLUE,
+                  color: WHITE,
                   border: "none",
                   padding: "10px 16px",
-                  borderRadius: "6px",
+                  borderRadius: "8px",
                   cursor: "pointer",
+                  fontWeight: "bold",
                 }}
               >
                 Select All Filtered
@@ -340,28 +449,35 @@ function Communication() {
                 type="button"
                 style={{
                   backgroundColor: "#64748b",
-                  color: "white",
+                  color: WHITE,
                   border: "none",
                   padding: "10px 16px",
-                  borderRadius: "6px",
+                  borderRadius: "8px",
                   cursor: "pointer",
+                  fontWeight: "bold",
                 }}
               >
                 Clear Selected
               </button>
             </div>
 
-            <div style={{ marginBottom: "10px", fontWeight: "bold", color: "#334155" }}>
+            <div
+              style={{
+                marginBottom: "10px",
+                fontWeight: "bold",
+                color: "#334155",
+              }}
+            >
               Selected Customers: {formData.selectedCustomerEkonIds.length}
             </div>
 
             <div
               style={{
-                maxHeight: "260px",
+                maxHeight: "280px",
                 overflowY: "auto",
-                border: "1px solid #e5e7eb",
-                borderRadius: "8px",
-                backgroundColor: "white",
+                border: `1px solid ${BORDER}`,
+                borderRadius: "10px",
+                backgroundColor: WHITE,
               }}
             >
               {loadingCustomers ? (
@@ -381,11 +497,15 @@ function Communication() {
                   >
                     <input
                       type="checkbox"
-                      checked={formData.selectedCustomerEkonIds.includes(customer.ekonId)}
-                      onChange={() => handleSelectedCustomerToggle(customer.ekonId)}
+                      checked={formData.selectedCustomerEkonIds.includes(
+                        customer.ekonId
+                      )}
+                      onChange={() =>
+                        handleSelectedCustomerToggle(customer.ekonId)
+                      }
                     />
                     <span>
-                      {customer.ekonId} - {customer.name}
+                      <strong>{customer.ekonId}</strong> - {customer.name}
                     </span>
                   </label>
                 ))
@@ -401,10 +521,10 @@ function Communication() {
             style={{
               marginBottom: "15px",
               padding: "12px",
-              backgroundColor: "#ecfdf5",
-              border: "1px solid #bbf7d0",
-              borderRadius: "8px",
-              color: "#166534",
+              backgroundColor: "#eff6ff",
+              border: "1px solid #bfdbfe",
+              borderRadius: "10px",
+              color: ROYAL_BLUE,
               fontWeight: "bold",
             }}
           >
@@ -425,7 +545,11 @@ function Communication() {
             placeholder="Subject"
             value={formData.subject}
             onChange={handleChange}
-            style={{ padding: "10px" }}
+            style={{
+              padding: "10px",
+              borderRadius: "8px",
+              border: `1px solid ${BORDER}`,
+            }}
           />
 
           <textarea
@@ -435,7 +559,9 @@ function Communication() {
             onChange={handleChange}
             style={{
               padding: "10px",
-              minHeight: "120px",
+              minHeight: "130px",
+              borderRadius: "8px",
+              border: `1px solid ${BORDER}`,
             }}
           />
         </div>
@@ -444,12 +570,13 @@ function Communication() {
           onClick={saveCommunication}
           style={{
             marginTop: "20px",
-            backgroundColor: "#0B3D91",
-            color: "white",
+            backgroundColor: ROYAL_BLUE,
+            color: WHITE,
             border: "none",
-            padding: "10px 16px",
-            borderRadius: "6px",
+            padding: "11px 18px",
+            borderRadius: "8px",
             cursor: "pointer",
+            fontWeight: "bold",
           }}
         >
           Save Communication
@@ -457,14 +584,23 @@ function Communication() {
       </div>
 
       <div style={cardStyle}>
-        <h2>Communication History</h2>
+        <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>Communication History</h2>
 
         {loadingLogs ? (
           <p>Loading communication logs...</p>
         ) : (
           <div style={{ overflowX: "auto" }}>
-            <table border="1" cellPadding="10" style={{ minWidth: "1200px", width: "100%" }}>
-              <thead>
+            <table
+              border="1"
+              cellPadding="10"
+              style={{
+                minWidth: "1200px",
+                width: "100%",
+                borderCollapse: "collapse",
+                borderColor: BORDER,
+              }}
+            >
+              <thead style={{ backgroundColor: "#eef4ff" }}>
                 <tr>
                   <th>Log Number</th>
                   <th>Customer EKON ID</th>
@@ -481,19 +617,25 @@ function Communication() {
                 {logs.length > 0 ? (
                   logs.map((log, index) => (
                     <tr key={log._id || index}>
-                      <td>{log.logNumber}</td>
+                      <td style={{ fontWeight: "bold", color: "#334155" }}>
+                        {log.logNumber}
+                      </td>
                       <td>{log.customerEkonId}</td>
                       <td>{log.customerName}</td>
                       <td>{log.channel}</td>
                       <td>{log.subject}</td>
-                      <td>{log.message}</td>
+                      <td style={{ color: "#475569" }}>{log.message}</td>
                       <td>
                         <span
                           style={{
-                            padding: "4px 10px",
-                            borderRadius: "6px",
-                            color: "white",
+                            padding: "5px 10px",
+                            borderRadius: "999px",
+                            color: WHITE,
                             backgroundColor: getStatusColor(log.status),
+                            fontWeight: "bold",
+                            fontSize: "12px",
+                            display: "inline-block",
+                            whiteSpace: "nowrap",
                           }}
                         >
                           {log.status}
@@ -504,7 +646,9 @@ function Communication() {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan="8">No communication logs found.</td>
+                    <td colSpan="8" style={{ textAlign: "center", color: MUTED }}>
+                      No communication logs found.
+                    </td>
                   </tr>
                 )}
               </tbody>
