@@ -19,6 +19,7 @@ import Communication from "./pages/Communication";
 import WarehouseManagement from "./pages/WarehouseManagement";
 import Settings from "./pages/Settings";
 import AuditLogs from "./pages/AuditLogs";
+import PreAlerts from "./pages/PreAlerts";
 
 import Login from "./pages/Login";
 import DutyMonitor from "./pages/DutyMonitor";
@@ -145,6 +146,7 @@ function AppShell() {
         {can("manifests") && <Link to="/manifests" style={navItemStyle(location.pathname === "/manifests")}>Manifests</Link>}
         {can("packages") && <Link to="/packages" style={navItemStyle(location.pathname === "/packages")}>Packages</Link>}
         {can("invoices") && <Link to="/invoices" style={navItemStyle(location.pathname === "/invoices")}>Invoices</Link>}
+        {can("packages") && <Link to="/prealerts" style={navItemStyle(location.pathname === "/prealerts")}>PreAlerts</Link>}
         {can("support") && <Link to="/support-tickets" style={navItemStyle(location.pathname === "/support-tickets")}>Support Tickets</Link>}
         {can("finance") && <Link to="/finance" style={navItemStyle(location.pathname === "/finance")}>Finance</Link>}
         {can("communication") && <Link to="/communication" style={navItemStyle(location.pathname === "/communication")}>Communication</Link>}
@@ -285,6 +287,7 @@ function AppShell() {
             <Route path="/manifests" element={can("manifests") ? <Manifests /> : <Navigate to="/" replace />} />
             <Route path="/packages" element={can("packages") ? <Packages /> : <Navigate to="/" replace />} />
             <Route path="/invoices" element={can("invoices") ? <Invoices /> : <Navigate to="/" replace />} />
+            <Route path="/prealerts" element={can("packages") ? <PreAlerts /> : <Navigate to="/" replace />} />
             <Route path="/support-tickets" element={can("support") ? <SupportTickets /> : <Navigate to="/" replace />} />
             <Route path="/finance" element={can("finance") ? <Finance /> : <Navigate to="/" replace />} />
             <Route path="/communication" element={can("communication") ? <Communication /> : <Navigate to="/" replace />} />
