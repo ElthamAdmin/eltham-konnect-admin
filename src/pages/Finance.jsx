@@ -49,6 +49,12 @@ function Finance() {
     grossPay: "",
     deductions: "",
     status: "Pending",
+    autoCalculateStatutoryDeductions: true,
+    nisEmployee: "",
+    nhtEmployee: "",
+    educationTax: "",
+    incomeTax: "",
+    pensionEmployee: "",
   });
 
   const [accountForm, setAccountForm] = useState({
@@ -99,19 +105,97 @@ function Finance() {
     "Other",
   ];
 
+  const roundMoney = (value) =>
+    Math.round((Number(value || 0) + Number.EPSILON) * 100) / 100;
+
+  const JAMAICA_NIS_EMPLOYEE_RATE = 0.025;
+  const JAMAICA_NHT_EMPLOYEE_RATE = 0.02;
+  const JAMAICA_EDUCATION_TAX_RATE = 0.0225;
+  const JAMAICA_INCOME_TAX_RATE = 0.25;
+  const JAMAICA_ANNUAL_PIT_THRESHOLD = 2003496;
+  const JAMAICA_MONTHLY_PIT_THRESHOLD = JAMAICA_ANNUAL_PIT_THRESHOLD / 12;
+  const JAMAICA_NIS_ANNUAL_WAGE_CEILING = 5000000;
+  const JAMAICA_NIS_MONTHLY_WAGE_CEILING =
+    JAMAICA_NIS_ANNUAL_WAGE_CEILING / 12;
+
+  const calculatePayrollPreview = useMemo(() => {
+    const gross = roundMoney(payrollForm.grossPay);
+    const pension = roundMoney(payrollForm.pensionEmployee);
+
+    if (!gross || gross <= 0) {
+      return {
+        nisEmployee: 0,
+        nhtEmployee: 0,
+        educationTax: 0,
+        incomeTax: 0,
+        pensionEmployee: 0,
+        totalDeductions: 0,
+        netPay: 0,
+      };
+    }
+
+    if (!payrollForm.autoCalculateStatutoryDeductions) {
+      const nisEmployee = roundMoney(payrollForm.nisEmployee);
+      const nhtEmployee = roundMoney(payrollForm.nhtEmployee);
+      const educationTax = roundMoney(payrollForm.educationTax);
+      const incomeTax = roundMoney(payrollForm.incomeTax);
+      const pensionEmployeeManual = roundMoney(payrollForm.pensionEmployee);
+
+      const totalDeductions = roundMoney(
+        nisEmployee +
+          nhtEmployee +
+          educationTax +
+          incomeTax +
+          pensionEmployeeManual
+      );
+
+      return {
+        nisEmployee,
+        nhtEmployee,
+        educationTax,
+        incomeTax,
+        pensionEmployee: pensionEmployeeManual,
+        totalDeductions,
+        netPay: roundMoney(gross - totalDeductions),
+      };
+    }
+
+    const nisBase = Math.min(gross, JAMAICA_NIS_MONTHLY_WAGE_CEILING);
+    const nisEmployee = roundMoney(nisBase * JAMAICA_NIS_EMPLOYEE_RATE);
+    const nhtEmployee = roundMoney(gross * JAMAICA_NHT_EMPLOYEE_RATE);
+    const educationTax = roundMoney(gross * JAMAICA_EDUCATION_TAX_RATE);
+
+    const taxableIncome = Math.max(0, roundMoney(gross - pension));
+    const taxableOverThreshold = Math.max(
+      0,
+      roundMoney(taxableIncome - JAMAICA_MONTHLY_PIT_THRESHOLD)
+    );
+    const incomeTax = roundMoney(taxableOverThreshold * JAMAICA_INCOME_TAX_RATE);
+
+    const totalDeductions = roundMoney(
+      nisEmployee + nhtEmployee + educationTax + incomeTax + pension
+    );
+
+    return {
+      nisEmployee,
+      nhtEmployee,
+      educationTax,
+      incomeTax,
+      pensionEmployee: pension,
+      totalDeductions,
+      netPay: roundMoney(gross - totalDeductions),
+    };
+  }, [payrollForm]);
+
   const fetchStaticFinanceData = async () => {
     try {
-      const [
-        invoicesRes,
-        summaryRes,
-        reportsRes,
-        accountsRes,
-      ] = await Promise.all([
-        api.get("/api/invoices"),
-        api.get("/api/finance/summary"),
-        api.get("/api/finance/reports"),
-        api.get("/api/financial-accounts"),
-      ]);
+      const [invoicesRes, summaryRes, reportsRes, accountsRes] =
+        await Promise.all([
+          api.get("/api/invoices"),
+          api.get("/api/finance/summary"),
+          api.get("/api/finance/reports"),
+          api.get("/api/financial-accounts"),
+        ]);
 
       setInvoices(invoicesRes.data.data || []);
       setSummary(summaryRes.data.data || null);
@@ -127,7 +211,10 @@ function Finance() {
     }
   };
 
-  const fetchExpenses = async (page = expensePagination.page, limit = expensePagination.limit) => {
+  const fetchExpenses = async (
+    page = expensePagination.page,
+    limit = expensePagination.limit
+  ) => {
     try {
       const res = await api.get(`/api/finance/expenses?page=${page}&limit=${limit}`);
       setExpenses(res.data.data || []);
@@ -141,7 +228,10 @@ function Finance() {
     }
   };
 
-  const fetchPayroll = async (page = payrollPagination.page, limit = payrollPagination.limit) => {
+  const fetchPayroll = async (
+    page = payrollPagination.page,
+    limit = payrollPagination.limit
+  ) => {
     try {
       const res = await api.get(`/api/finance/payroll?page=${page}&limit=${limit}`);
       setPayroll(res.data.data || []);
@@ -160,7 +250,9 @@ function Finance() {
     limit = transactionPagination.limit
   ) => {
     try {
-      const res = await api.get(`/api/account-transactions?page=${page}&limit=${limit}`);
+      const res = await api.get(
+        `/api/account-transactions?page=${page}&limit=${limit}`
+      );
       setTransactions(res.data.data || []);
       setTransactionPagination((prev) => ({
         ...prev,
@@ -186,7 +278,8 @@ function Finance() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const formatCurrency = (value) => `JMD ${Number(value || 0).toLocaleString()}`;
+  const formatCurrency = (value) =>
+    `JMD ${Number(value || 0).toLocaleString()}`;
 
   const formatDate = (value) => {
     if (!value) return "";
@@ -214,6 +307,13 @@ function Finance() {
     minHeight: "125px",
   };
 
+  const miniMetricCardStyle = {
+    backgroundColor: "#f8fbff",
+    borderRadius: "12px",
+    padding: "14px",
+    border: `1px solid ${BORDER}`,
+  };
+
   const tabButtonStyle = (tabName) => ({
     backgroundColor: activeTab === tabName ? ROYAL_BLUE : WHITE,
     color: activeTab === tabName ? WHITE : "#1f2937",
@@ -222,7 +322,8 @@ function Finance() {
     borderRadius: "10px",
     cursor: "pointer",
     fontWeight: "bold",
-    boxShadow: activeTab === tabName ? "0 6px 16px rgba(11,61,145,0.2)" : "none",
+    boxShadow:
+      activeTab === tabName ? "0 6px 16px rgba(11,61,145,0.2)" : "none",
   });
 
   const statusBadge = (status) => {
@@ -313,7 +414,10 @@ function Finance() {
       await fetchStaticFinanceData();
       await fetchExpenses(1, expensePagination.limit);
       setExpensePagination((prev) => ({ ...prev, page: 1 }));
-      await fetchTransactions(transactionPagination.page, transactionPagination.limit);
+      await fetchTransactions(
+        transactionPagination.page,
+        transactionPagination.limit
+      );
     } catch (error) {
       console.error("Error adding expense:", error);
       alert(error?.response?.data?.message || "Could not save expense.");
@@ -321,10 +425,12 @@ function Finance() {
   };
 
   const handlePayrollChange = (e) => {
-    setPayrollForm({
-      ...payrollForm,
-      [e.target.name]: e.target.value,
-    });
+    const { name, value, type, checked } = e.target;
+
+    setPayrollForm((prev) => ({
+      ...prev,
+      [name]: type === "checkbox" ? checked : value,
+    }));
   };
 
   const addPayroll = async () => {
@@ -335,11 +441,31 @@ function Finance() {
         !payrollForm.payPeriod ||
         !payrollForm.grossPay
       ) {
-        alert("Please complete all payroll fields.");
+        alert("Please complete employee name, role, pay period, and gross pay.");
         return;
       }
 
-      const res = await api.post("/api/finance/payroll", payrollForm);
+      const payload = {
+        employeeName: payrollForm.employeeName,
+        role: payrollForm.role,
+        payPeriod: payrollForm.payPeriod,
+        grossPay: Number(payrollForm.grossPay || 0),
+        status: payrollForm.status,
+        autoCalculateStatutoryDeductions:
+          payrollForm.autoCalculateStatutoryDeductions,
+      };
+
+      if (payrollForm.autoCalculateStatutoryDeductions) {
+        payload.pensionEmployee = Number(payrollForm.pensionEmployee || 0);
+      } else {
+        payload.nisEmployee = Number(payrollForm.nisEmployee || 0);
+        payload.nhtEmployee = Number(payrollForm.nhtEmployee || 0);
+        payload.educationTax = Number(payrollForm.educationTax || 0);
+        payload.incomeTax = Number(payrollForm.incomeTax || 0);
+        payload.pensionEmployee = Number(payrollForm.pensionEmployee || 0);
+      }
+
+      const res = await api.post("/api/finance/payroll", payload);
 
       alert(res.data.message);
 
@@ -350,6 +476,12 @@ function Finance() {
         grossPay: "",
         deductions: "",
         status: "Pending",
+        autoCalculateStatutoryDeductions: true,
+        nisEmployee: "",
+        nhtEmployee: "",
+        educationTax: "",
+        incomeTax: "",
+        pensionEmployee: "",
       });
 
       await fetchStaticFinanceData();
@@ -487,11 +619,19 @@ function Finance() {
   };
 
   const totalAccountBalances = useMemo(
-    () => accounts.reduce((sum, account) => sum + Number(account.currentBalance || 0), 0),
+    () =>
+      accounts.reduce(
+        (sum, account) => sum + Number(account.currentBalance || 0),
+        0
+      ),
     [accounts]
   );
 
-  const renderPagination = ({ page, pages, limit, total }, onPageChange, onLimitChange) => (
+  const renderPagination = (
+    { page, pages, limit, total },
+    onPageChange,
+    onLimitChange
+  ) => (
     <div
       style={{
         backgroundColor: WHITE,
@@ -506,10 +646,15 @@ function Finance() {
         flexWrap: "wrap",
       }}
     >
-      <div style={{ display: "flex", gap: "10px", alignItems: "center", flexWrap: "wrap" }}>
-        <strong style={{ color: "#1e293b" }}>
-          Total Records: {total}
-        </strong>
+      <div
+        style={{
+          display: "flex",
+          gap: "10px",
+          alignItems: "center",
+          flexWrap: "wrap",
+        }}
+      >
+        <strong style={{ color: "#1e293b" }}>Total Records: {total}</strong>
 
         <select
           value={limit}
@@ -528,7 +673,14 @@ function Finance() {
         </select>
       </div>
 
-      <div style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}>
+      <div
+        style={{
+          display: "flex",
+          gap: "8px",
+          alignItems: "center",
+          flexWrap: "wrap",
+        }}
+      >
         <button
           onClick={() => onPageChange(Math.max(page - 1, 1))}
           disabled={page <= 1}
@@ -585,22 +737,40 @@ function Finance() {
           flexWrap: "wrap",
         }}
       >
-        <button style={tabButtonStyle("dashboard")} onClick={() => setActiveTab("dashboard")}>
+        <button
+          style={tabButtonStyle("dashboard")}
+          onClick={() => setActiveTab("dashboard")}
+        >
           Dashboard
         </button>
-        <button style={tabButtonStyle("expenses")} onClick={() => setActiveTab("expenses")}>
+        <button
+          style={tabButtonStyle("expenses")}
+          onClick={() => setActiveTab("expenses")}
+        >
           Expenses
         </button>
-        <button style={tabButtonStyle("payroll")} onClick={() => setActiveTab("payroll")}>
+        <button
+          style={tabButtonStyle("payroll")}
+          onClick={() => setActiveTab("payroll")}
+        >
           Payroll
         </button>
-        <button style={tabButtonStyle("reports")} onClick={() => setActiveTab("reports")}>
+        <button
+          style={tabButtonStyle("reports")}
+          onClick={() => setActiveTab("reports")}
+        >
           Financial Reports
         </button>
-        <button style={tabButtonStyle("accounts")} onClick={() => setActiveTab("accounts")}>
+        <button
+          style={tabButtonStyle("accounts")}
+          onClick={() => setActiveTab("accounts")}
+        >
           Accounts
         </button>
-        <button style={tabButtonStyle("transactions")} onClick={() => setActiveTab("transactions")}>
+        <button
+          style={tabButtonStyle("transactions")}
+          onClick={() => setActiveTab("transactions")}
+        >
           Transactions
         </button>
       </div>
@@ -616,31 +786,67 @@ function Finance() {
             }}
           >
             <div style={metricCardStyle}>
-              <div style={{ fontSize: "32px", fontWeight: "bold", color: ROYAL_BLUE, marginBottom: "8px" }}>
+              <div
+                style={{
+                  fontSize: "32px",
+                  fontWeight: "bold",
+                  color: ROYAL_BLUE,
+                  marginBottom: "8px",
+                }}
+              >
                 {formatCurrency(summary?.totalRevenue)}
               </div>
-              <div style={{ color: "#334155", fontWeight: "bold" }}>Total Revenue</div>
+              <div style={{ color: "#334155", fontWeight: "bold" }}>
+                Total Revenue
+              </div>
             </div>
 
             <div style={metricCardStyle}>
-              <div style={{ fontSize: "32px", fontWeight: "bold", color: "#16a34a", marginBottom: "8px" }}>
+              <div
+                style={{
+                  fontSize: "32px",
+                  fontWeight: "bold",
+                  color: "#16a34a",
+                  marginBottom: "8px",
+                }}
+              >
                 {summary?.paidInvoices || 0}
               </div>
-              <div style={{ color: "#334155", fontWeight: "bold" }}>Paid Invoices</div>
+              <div style={{ color: "#334155", fontWeight: "bold" }}>
+                Paid Invoices
+              </div>
             </div>
 
             <div style={metricCardStyle}>
-              <div style={{ fontSize: "32px", fontWeight: "bold", color: "#dc2626", marginBottom: "8px" }}>
+              <div
+                style={{
+                  fontSize: "32px",
+                  fontWeight: "bold",
+                  color: "#dc2626",
+                  marginBottom: "8px",
+                }}
+              >
                 {summary?.unpaidInvoices || 0}
               </div>
-              <div style={{ color: "#334155", fontWeight: "bold" }}>Unpaid Invoices</div>
+              <div style={{ color: "#334155", fontWeight: "bold" }}>
+                Unpaid Invoices
+              </div>
             </div>
 
             <div style={metricCardStyle}>
-              <div style={{ fontSize: "32px", fontWeight: "bold", color: GOLD, marginBottom: "8px" }}>
+              <div
+                style={{
+                  fontSize: "32px",
+                  fontWeight: "bold",
+                  color: GOLD,
+                  marginBottom: "8px",
+                }}
+              >
                 {formatCurrency(summary?.outstandingRevenue)}
               </div>
-              <div style={{ color: "#334155", fontWeight: "bold" }}>Outstanding Revenue</div>
+              <div style={{ color: "#334155", fontWeight: "bold" }}>
+                Outstanding Revenue
+              </div>
             </div>
           </div>
 
@@ -653,17 +859,19 @@ function Finance() {
             }}
           >
             <div style={metricCardStyle}>
-              <div style={{ fontSize: "32px", fontWeight: "bold", color: "#f97316", marginBottom: "8px" }}>
+              <div
+                style={{
+                  fontSize: "32px",
+                  fontWeight: "bold",
+                  color: "#f97316",
+                  marginBottom: "8px",
+                }}
+              >
                 {formatCurrency(summary?.totalExpenses)}
               </div>
-              <div style={{ color: "#334155", fontWeight: "bold" }}>Total Expenses</div>
-            </div>
-
-            <div style={metricCardStyle}>
-              <div style={{ fontSize: "32px", fontWeight: "bold", color: "#7c3aed", marginBottom: "8px" }}>
-                {formatCurrency(summary?.totalPayroll)}
+              <div style={{ color: "#334155", fontWeight: "bold" }}>
+                Total Expenses
               </div>
-              <div style={{ color: "#334155", fontWeight: "bold" }}>Total Payroll</div>
             </div>
 
             <div style={metricCardStyle}>
@@ -671,20 +879,50 @@ function Finance() {
                 style={{
                   fontSize: "32px",
                   fontWeight: "bold",
-                  color: Number(summary?.netPosition || 0) >= 0 ? "#16a34a" : "#dc2626",
+                  color: "#7c3aed",
+                  marginBottom: "8px",
+                }}
+              >
+                {formatCurrency(summary?.totalPayroll)}
+              </div>
+              <div style={{ color: "#334155", fontWeight: "bold" }}>
+                Total Payroll
+              </div>
+            </div>
+
+            <div style={metricCardStyle}>
+              <div
+                style={{
+                  fontSize: "32px",
+                  fontWeight: "bold",
+                  color:
+                    Number(summary?.netPosition || 0) >= 0
+                      ? "#16a34a"
+                      : "#dc2626",
                   marginBottom: "8px",
                 }}
               >
                 {formatCurrency(summary?.netPosition)}
               </div>
-              <div style={{ color: "#334155", fontWeight: "bold" }}>Net Position</div>
+              <div style={{ color: "#334155", fontWeight: "bold" }}>
+                Net Position
+              </div>
             </div>
 
             <div style={metricCardStyle}>
-              <div style={{ fontSize: "32px", fontWeight: "bold", color: "#0f172a", marginBottom: "8px" }}>
+              <div
+                style={{
+                  fontSize: "32px",
+                  fontWeight: "bold",
+                  color: "#0f172a",
+                  marginBottom: "8px",
+                }}
+              >
                 {formatCurrency(totalAccountBalances)}
               </div>
-              <div style={{ color: "#334155", fontWeight: "bold" }}>Total Account Balances</div>
+              <div style={{ color: "#334155", fontWeight: "bold" }}>
+                Total Account Balances
+              </div>
             </div>
           </div>
         </>
@@ -806,7 +1044,15 @@ function Finance() {
           <div style={cardStyle}>
             <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>Expense Records</h2>
             <div style={{ overflowX: "auto" }}>
-              <table border="1" cellPadding="10" style={{ minWidth: "1100px", width: "100%", borderCollapse: "collapse" }}>
+              <table
+                border="1"
+                cellPadding="10"
+                style={{
+                  minWidth: "1100px",
+                  width: "100%",
+                  borderCollapse: "collapse",
+                }}
+              >
                 <thead style={{ backgroundColor: "#eef4ff" }}>
                   <tr>
                     <th>Expense Number</th>
@@ -861,7 +1107,50 @@ function Finance() {
       {activeTab === "payroll" && (
         <>
           <div style={{ ...cardStyle, marginBottom: "24px" }}>
-            <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>Add Payroll Record</h2>
+            <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>
+              Add Payroll Record
+            </h2>
+
+            <div
+              style={{
+                marginBottom: "18px",
+                padding: "14px",
+                borderRadius: "12px",
+                border: `1px solid ${BORDER}`,
+                backgroundColor: "#f8fbff",
+              }}
+            >
+              <label
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "10px",
+                  fontWeight: "bold",
+                  color: "#1e293b",
+                }}
+              >
+                <input
+                  type="checkbox"
+                  name="autoCalculateStatutoryDeductions"
+                  checked={payrollForm.autoCalculateStatutoryDeductions}
+                  onChange={handlePayrollChange}
+                />
+                Auto Calculate Jamaican Statutory Deductions
+              </label>
+
+              <div
+                style={{
+                  marginTop: "8px",
+                  color: MUTED,
+                  fontSize: "14px",
+                  lineHeight: 1.5,
+                }}
+              >
+                When turned on, the system calculates NIS, NHT, Education Tax,
+                and Income Tax automatically. Pension can still be entered.
+              </div>
+            </div>
+
             <div
               style={{
                 display: "grid",
@@ -900,14 +1189,16 @@ function Finance() {
                 onChange={handlePayrollChange}
                 style={{ padding: "10px" }}
               />
+
               <input
                 type="number"
-                name="deductions"
-                placeholder="Deductions"
-                value={payrollForm.deductions}
+                name="pensionEmployee"
+                placeholder="Pension Employee"
+                value={payrollForm.pensionEmployee}
                 onChange={handlePayrollChange}
                 style={{ padding: "10px" }}
               />
+
               <select
                 name="status"
                 value={payrollForm.status}
@@ -917,6 +1208,129 @@ function Finance() {
                 <option value="Pending">Pending</option>
                 <option value="Paid">Paid</option>
               </select>
+
+              <input
+                type="number"
+                name="nisEmployee"
+                placeholder="NIS Employee"
+                value={payrollForm.nisEmployee}
+                onChange={handlePayrollChange}
+                disabled={payrollForm.autoCalculateStatutoryDeductions}
+                style={{
+                  padding: "10px",
+                  backgroundColor: payrollForm.autoCalculateStatutoryDeductions
+                    ? "#f8fafc"
+                    : WHITE,
+                }}
+              />
+
+              <input
+                type="number"
+                name="nhtEmployee"
+                placeholder="NHT Employee"
+                value={payrollForm.nhtEmployee}
+                onChange={handlePayrollChange}
+                disabled={payrollForm.autoCalculateStatutoryDeductions}
+                style={{
+                  padding: "10px",
+                  backgroundColor: payrollForm.autoCalculateStatutoryDeductions
+                    ? "#f8fafc"
+                    : WHITE,
+                }}
+              />
+
+              <input
+                type="number"
+                name="educationTax"
+                placeholder="Education Tax"
+                value={payrollForm.educationTax}
+                onChange={handlePayrollChange}
+                disabled={payrollForm.autoCalculateStatutoryDeductions}
+                style={{
+                  padding: "10px",
+                  backgroundColor: payrollForm.autoCalculateStatutoryDeductions
+                    ? "#f8fafc"
+                    : WHITE,
+                }}
+              />
+
+              <input
+                type="number"
+                name="incomeTax"
+                placeholder="Income Tax"
+                value={payrollForm.incomeTax}
+                onChange={handlePayrollChange}
+                disabled={payrollForm.autoCalculateStatutoryDeductions}
+                style={{
+                  padding: "10px",
+                  backgroundColor: payrollForm.autoCalculateStatutoryDeductions
+                    ? "#f8fafc"
+                    : WHITE,
+                }}
+              />
+            </div>
+
+            <div
+              style={{
+                marginTop: "18px",
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+                gap: "12px",
+              }}
+            >
+              <div style={miniMetricCardStyle}>
+                <div style={{ color: MUTED, fontSize: "13px", marginBottom: "6px" }}>
+                  NIS
+                </div>
+                <div style={{ fontWeight: "bold", color: ROYAL_BLUE }}>
+                  {formatCurrency(calculatePayrollPreview.nisEmployee)}
+                </div>
+              </div>
+
+              <div style={miniMetricCardStyle}>
+                <div style={{ color: MUTED, fontSize: "13px", marginBottom: "6px" }}>
+                  NHT
+                </div>
+                <div style={{ fontWeight: "bold", color: ROYAL_BLUE }}>
+                  {formatCurrency(calculatePayrollPreview.nhtEmployee)}
+                </div>
+              </div>
+
+              <div style={miniMetricCardStyle}>
+                <div style={{ color: MUTED, fontSize: "13px", marginBottom: "6px" }}>
+                  Education Tax
+                </div>
+                <div style={{ fontWeight: "bold", color: ROYAL_BLUE }}>
+                  {formatCurrency(calculatePayrollPreview.educationTax)}
+                </div>
+              </div>
+
+              <div style={miniMetricCardStyle}>
+                <div style={{ color: MUTED, fontSize: "13px", marginBottom: "6px" }}>
+                  Income Tax
+                </div>
+                <div style={{ fontWeight: "bold", color: ROYAL_BLUE }}>
+                  {formatCurrency(calculatePayrollPreview.incomeTax)}
+                </div>
+              </div>
+
+              <div style={miniMetricCardStyle}>
+                <div style={{ color: MUTED, fontSize: "13px", marginBottom: "6px" }}>
+                  Total Deductions
+                </div>
+                <div style={{ fontWeight: "bold", color: "#dc2626" }}>
+                  {formatCurrency(calculatePayrollPreview.totalDeductions)}
+                </div>
+              </div>
+
+              <div style={miniMetricCardStyle}>
+                <div style={{ color: MUTED, fontSize: "13px", marginBottom: "6px" }}>
+                  Net Pay
+                </div>
+                <div style={{ fontWeight: "bold", color: "#16a34a" }}>
+                  {formatCurrency(calculatePayrollPreview.netPay)}
+                </div>
+              </div>
             </div>
 
             <button
@@ -949,9 +1363,19 @@ function Finance() {
           )}
 
           <div style={cardStyle}>
-            <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>Payroll Records</h2>
+            <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>
+              Payroll Records
+            </h2>
             <div style={{ overflowX: "auto" }}>
-              <table border="1" cellPadding="10" style={{ minWidth: "1000px", width: "100%", borderCollapse: "collapse" }}>
+              <table
+                border="1"
+                cellPadding="10"
+                style={{
+                  minWidth: "1500px",
+                  width: "100%",
+                  borderCollapse: "collapse",
+                }}
+              >
                 <thead style={{ backgroundColor: "#eef4ff" }}>
                   <tr>
                     <th>Payroll Number</th>
@@ -959,7 +1383,12 @@ function Finance() {
                     <th>Role</th>
                     <th>Pay Period</th>
                     <th>Gross Pay</th>
-                    <th>Deductions</th>
+                    <th>NIS</th>
+                    <th>NHT</th>
+                    <th>Education Tax</th>
+                    <th>Income Tax</th>
+                    <th>Pension</th>
+                    <th>Total Deductions</th>
                     <th>Net Pay</th>
                     <th>Status</th>
                   </tr>
@@ -973,14 +1402,25 @@ function Finance() {
                         <td>{item.role}</td>
                         <td>{item.payPeriod}</td>
                         <td>{formatCurrency(item.grossPay)}</td>
-                        <td>{formatCurrency(item.deductions)}</td>
+                        <td>{formatCurrency(item.nisEmployee)}</td>
+                        <td>{formatCurrency(item.nhtEmployee)}</td>
+                        <td>{formatCurrency(item.educationTax)}</td>
+                        <td>{formatCurrency(item.incomeTax)}</td>
+                        <td>{formatCurrency(item.pensionEmployee)}</td>
+                        <td>
+                          {formatCurrency(
+                            item.totalDeductions !== undefined
+                              ? item.totalDeductions
+                              : item.deductions
+                          )}
+                        </td>
                         <td>{formatCurrency(item.netPay)}</td>
                         <td>{statusBadge(item.status)}</td>
                       </tr>
                     ))
                   ) : (
                     <tr>
-                      <td colSpan="8">No payroll records found.</td>
+                      <td colSpan="13">No payroll records found.</td>
                     </tr>
                   )}
                 </tbody>
@@ -991,29 +1431,53 @@ function Finance() {
       )}
 
       {activeTab === "reports" && (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "24px" }}>
+        <div
+          style={{ display: "grid", gridTemplateColumns: "1fr", gap: "24px" }}
+        >
           <div style={cardStyle}>
-            <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>Profit and Loss Statement</h2>
-            <table border="1" cellPadding="12" style={{ width: "100%", borderCollapse: "collapse" }}>
+            <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>
+              Profit and Loss Statement
+            </h2>
+            <table
+              border="1"
+              cellPadding="12"
+              style={{ width: "100%", borderCollapse: "collapse" }}
+            >
               <tbody>
                 <tr>
-                  <td><strong>Revenue</strong></td>
+                  <td>
+                    <strong>Revenue</strong>
+                  </td>
                   <td>{formatCurrency(reports?.profitAndLoss?.revenue)}</td>
                 </tr>
                 <tr>
-                  <td><strong>Operating Expenses</strong></td>
-                  <td>{formatCurrency(reports?.profitAndLoss?.operatingExpenses)}</td>
+                  <td>
+                    <strong>Operating Expenses</strong>
+                  </td>
+                  <td>
+                    {formatCurrency(reports?.profitAndLoss?.operatingExpenses)}
+                  </td>
                 </tr>
                 <tr>
-                  <td><strong>Payroll Expense</strong></td>
-                  <td>{formatCurrency(reports?.profitAndLoss?.payrollExpense)}</td>
+                  <td>
+                    <strong>Payroll Expense</strong>
+                  </td>
+                  <td>
+                    {formatCurrency(reports?.profitAndLoss?.payrollExpense)}
+                  </td>
                 </tr>
                 <tr>
-                  <td><strong>Total Expenses</strong></td>
-                  <td>{formatCurrency(reports?.profitAndLoss?.totalExpenses)}</td>
+                  <td>
+                    <strong>Total Expenses</strong>
+                  </td>
+                  <td>
+                    {formatCurrency(reports?.profitAndLoss?.totalExpenses)}
+                  </td>
                 </tr>
                 <tr>
-                  <td><strong>Net Profit / Loss</strong></td>
+                  <td>
+                    <strong>Net Profit / Loss</strong>
+                  </td>
                   <td>{formatCurrency(reports?.profitAndLoss?.netProfit)}</td>
                 </tr>
               </tbody>
@@ -1021,19 +1485,31 @@ function Finance() {
           </div>
 
           <div style={cardStyle}>
-            <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>Cash Flow Statement</h2>
-            <table border="1" cellPadding="12" style={{ width: "100%", borderCollapse: "collapse" }}>
+            <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>
+              Cash Flow Statement
+            </h2>
+            <table
+              border="1"
+              cellPadding="12"
+              style={{ width: "100%", borderCollapse: "collapse" }}
+            >
               <tbody>
                 <tr>
-                  <td><strong>Cash Inflows</strong></td>
+                  <td>
+                    <strong>Cash Inflows</strong>
+                  </td>
                   <td>{formatCurrency(reports?.cashFlow?.cashInflows)}</td>
                 </tr>
                 <tr>
-                  <td><strong>Cash Outflows</strong></td>
+                  <td>
+                    <strong>Cash Outflows</strong>
+                  </td>
                   <td>{formatCurrency(reports?.cashFlow?.cashOutflows)}</td>
                 </tr>
                 <tr>
-                  <td><strong>Net Cash Flow</strong></td>
+                  <td>
+                    <strong>Net Cash Flow</strong>
+                  </td>
                   <td>{formatCurrency(reports?.cashFlow?.netCashFlow)}</td>
                 </tr>
               </tbody>
@@ -1042,27 +1518,53 @@ function Finance() {
 
           <div style={cardStyle}>
             <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>Balance Sheet</h2>
-            <table border="1" cellPadding="12" style={{ width: "100%", borderCollapse: "collapse" }}>
+            <table
+              border="1"
+              cellPadding="12"
+              style={{ width: "100%", borderCollapse: "collapse" }}
+            >
               <tbody>
                 <tr>
-                  <td><strong>Cash</strong></td>
+                  <td>
+                    <strong>Cash</strong>
+                  </td>
                   <td>{formatCurrency(reports?.balanceSheet?.assets?.cash)}</td>
                 </tr>
                 <tr>
-                  <td><strong>Accounts Receivable</strong></td>
-                  <td>{formatCurrency(reports?.balanceSheet?.assets?.accountsReceivable)}</td>
+                  <td>
+                    <strong>Accounts Receivable</strong>
+                  </td>
+                  <td>
+                    {formatCurrency(
+                      reports?.balanceSheet?.assets?.accountsReceivable
+                    )}
+                  </td>
                 </tr>
                 <tr>
-                  <td><strong>Total Assets</strong></td>
-                  <td>{formatCurrency(reports?.balanceSheet?.assets?.totalAssets)}</td>
+                  <td>
+                    <strong>Total Assets</strong>
+                  </td>
+                  <td>
+                    {formatCurrency(reports?.balanceSheet?.assets?.totalAssets)}
+                  </td>
                 </tr>
                 <tr>
-                  <td><strong>Total Liabilities</strong></td>
-                  <td>{formatCurrency(reports?.balanceSheet?.liabilities?.totalLiabilities)}</td>
+                  <td>
+                    <strong>Total Liabilities</strong>
+                  </td>
+                  <td>
+                    {formatCurrency(
+                      reports?.balanceSheet?.liabilities?.totalLiabilities
+                    )}
+                  </td>
                 </tr>
                 <tr>
-                  <td><strong>Owner's Equity</strong></td>
-                  <td>{formatCurrency(reports?.balanceSheet?.equity?.ownerEquity)}</td>
+                  <td>
+                    <strong>Owner's Equity</strong>
+                  </td>
+                  <td>
+                    {formatCurrency(reports?.balanceSheet?.equity?.ownerEquity)}
+                  </td>
                 </tr>
               </tbody>
             </table>
@@ -1073,7 +1575,9 @@ function Finance() {
       {activeTab === "accounts" && (
         <>
           <div style={{ ...cardStyle, marginBottom: "24px" }}>
-            <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>Create Financial Account</h2>
+            <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>
+              Create Financial Account
+            </h2>
             <div
               style={{
                 display: "grid",
@@ -1143,38 +1647,84 @@ function Finance() {
             }}
           >
             <div style={metricCardStyle}>
-              <div style={{ fontSize: "32px", fontWeight: "bold", color: ROYAL_BLUE, marginBottom: "8px" }}>
+              <div
+                style={{
+                  fontSize: "32px",
+                  fontWeight: "bold",
+                  color: ROYAL_BLUE,
+                  marginBottom: "8px",
+                }}
+              >
                 {accounts.length}
               </div>
-              <div style={{ color: "#334155", fontWeight: "bold" }}>Total Accounts</div>
+              <div style={{ color: "#334155", fontWeight: "bold" }}>
+                Total Accounts
+              </div>
             </div>
 
             <div style={metricCardStyle}>
-              <div style={{ fontSize: "32px", fontWeight: "bold", color: "#16a34a", marginBottom: "8px" }}>
+              <div
+                style={{
+                  fontSize: "32px",
+                  fontWeight: "bold",
+                  color: "#16a34a",
+                  marginBottom: "8px",
+                }}
+              >
                 {accounts.filter((a) => a.accountType === "Bank").length}
               </div>
-              <div style={{ color: "#334155", fontWeight: "bold" }}>Bank Accounts</div>
+              <div style={{ color: "#334155", fontWeight: "bold" }}>
+                Bank Accounts
+              </div>
             </div>
 
             <div style={metricCardStyle}>
-              <div style={{ fontSize: "32px", fontWeight: "bold", color: GOLD, marginBottom: "8px" }}>
+              <div
+                style={{
+                  fontSize: "32px",
+                  fontWeight: "bold",
+                  color: GOLD,
+                  marginBottom: "8px",
+                }}
+              >
                 {accounts.filter((a) => a.accountType === "Cash").length}
               </div>
-              <div style={{ color: "#334155", fontWeight: "bold" }}>Cash Accounts</div>
+              <div style={{ color: "#334155", fontWeight: "bold" }}>
+                Cash Accounts
+              </div>
             </div>
 
             <div style={metricCardStyle}>
-              <div style={{ fontSize: "32px", fontWeight: "bold", color: "#dc2626", marginBottom: "8px" }}>
+              <div
+                style={{
+                  fontSize: "32px",
+                  fontWeight: "bold",
+                  color: "#dc2626",
+                  marginBottom: "8px",
+                }}
+              >
                 {accounts.filter((a) => a.accountType === "Credit Card").length}
               </div>
-              <div style={{ color: "#334155", fontWeight: "bold" }}>Credit Card Accounts</div>
+              <div style={{ color: "#334155", fontWeight: "bold" }}>
+                Credit Card Accounts
+              </div>
             </div>
           </div>
 
           <div style={cardStyle}>
-            <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>Financial Accounts</h2>
+            <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>
+              Financial Accounts
+            </h2>
             <div style={{ overflowX: "auto" }}>
-              <table border="1" cellPadding="10" style={{ minWidth: "1100px", width: "100%", borderCollapse: "collapse" }}>
+              <table
+                border="1"
+                cellPadding="10"
+                style={{
+                  minWidth: "1100px",
+                  width: "100%",
+                  borderCollapse: "collapse",
+                }}
+              >
                 <thead style={{ backgroundColor: "#eef4ff" }}>
                   <tr>
                     <th>Account Number</th>
@@ -1216,7 +1766,9 @@ function Finance() {
       {activeTab === "transactions" && (
         <>
           <div style={{ ...cardStyle, marginBottom: "24px" }}>
-            <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>Record Account Transaction</h2>
+            <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>
+              Record Account Transaction
+            </h2>
 
             <div
               style={{
@@ -1401,9 +1953,19 @@ function Finance() {
           )}
 
           <div style={cardStyle}>
-            <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>Account Transactions</h2>
+            <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>
+              Account Transactions
+            </h2>
             <div style={{ overflowX: "auto" }}>
-              <table border="1" cellPadding="10" style={{ minWidth: "1200px", width: "100%", borderCollapse: "collapse" }}>
+              <table
+                border="1"
+                cellPadding="10"
+                style={{
+                  minWidth: "1200px",
+                  width: "100%",
+                  borderCollapse: "collapse",
+                }}
+              >
                 <thead style={{ backgroundColor: "#eef4ff" }}>
                   <tr>
                     <th>Transaction Number</th>
