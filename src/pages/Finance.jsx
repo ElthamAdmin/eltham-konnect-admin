@@ -12,6 +12,27 @@ function Finance() {
   const [transactions, setTransactions] = useState([]);
   const [expenseReceipt, setExpenseReceipt] = useState(null);
 
+  const [expensePagination, setExpensePagination] = useState({
+    page: 1,
+    limit: 10,
+    pages: 1,
+    total: 0,
+  });
+
+  const [payrollPagination, setPayrollPagination] = useState({
+    page: 1,
+    limit: 10,
+    pages: 1,
+    total: 0,
+  });
+
+  const [transactionPagination, setTransactionPagination] = useState({
+    page: 1,
+    limit: 10,
+    pages: 1,
+    total: 0,
+  });
+
   const [expenseForm, setExpenseForm] = useState({
     date: "",
     category: "",
@@ -53,35 +74,51 @@ function Finance() {
     notes: "",
   });
 
-  const fetchFinanceData = async () => {
+  const ROYAL_BLUE = "#0B3D91";
+  const GOLD = "#D4AF37";
+  const WHITE = "#FFFFFF";
+  const LIGHT_BG = "#f4f7fb";
+  const BORDER = "#dbe3ef";
+  const MUTED = "#64748b";
+
+  const EXPENSE_CATEGORIES = [
+    "Rent",
+    "Fuel",
+    "Customs Clearance",
+    "Marketing",
+    "Supplies",
+    "Maintenance",
+    "Utilities",
+    "Internet",
+    "Phone",
+    "Delivery Expense",
+    "Staff Refreshment",
+    "Office Expense",
+    "Bank Charges",
+    "Insurance",
+    "Other",
+  ];
+
+  const fetchStaticFinanceData = async () => {
     try {
       const [
         invoicesRes,
-        expensesRes,
-        payrollRes,
         summaryRes,
         reportsRes,
         accountsRes,
-        transactionsRes,
       ] = await Promise.all([
         api.get("/api/invoices"),
-        api.get("/api/finance/expenses"),
-        api.get("/api/finance/payroll"),
         api.get("/api/finance/summary"),
         api.get("/api/finance/reports"),
         api.get("/api/financial-accounts"),
-        api.get("/api/account-transactions"),
       ]);
 
       setInvoices(invoicesRes.data.data || []);
-      setExpenses(expensesRes.data.data || []);
-      setPayroll(payrollRes.data.data || []);
       setSummary(summaryRes.data.data || null);
       setReports(reportsRes.data.data || null);
       setAccounts(accountsRes.data.data || []);
-      setTransactions(transactionsRes.data.data || []);
     } catch (error) {
-      console.error("Error loading finance data:", error);
+      console.error("Error loading finance summary data:", error);
       alert(
         error?.response?.data?.message ||
           error?.message ||
@@ -90,8 +127,63 @@ function Finance() {
     }
   };
 
+  const fetchExpenses = async (page = expensePagination.page, limit = expensePagination.limit) => {
+    try {
+      const res = await api.get(`/api/finance/expenses?page=${page}&limit=${limit}`);
+      setExpenses(res.data.data || []);
+      setExpensePagination((prev) => ({
+        ...prev,
+        ...(res.data.pagination || prev),
+      }));
+    } catch (error) {
+      console.error("Error loading expenses:", error);
+      alert(error?.response?.data?.message || "Could not load expenses.");
+    }
+  };
+
+  const fetchPayroll = async (page = payrollPagination.page, limit = payrollPagination.limit) => {
+    try {
+      const res = await api.get(`/api/finance/payroll?page=${page}&limit=${limit}`);
+      setPayroll(res.data.data || []);
+      setPayrollPagination((prev) => ({
+        ...prev,
+        ...(res.data.pagination || prev),
+      }));
+    } catch (error) {
+      console.error("Error loading payroll:", error);
+      alert(error?.response?.data?.message || "Could not load payroll.");
+    }
+  };
+
+  const fetchTransactions = async (
+    page = transactionPagination.page,
+    limit = transactionPagination.limit
+  ) => {
+    try {
+      const res = await api.get(`/api/account-transactions?page=${page}&limit=${limit}`);
+      setTransactions(res.data.data || []);
+      setTransactionPagination((prev) => ({
+        ...prev,
+        ...(res.data.pagination || prev),
+      }));
+    } catch (error) {
+      console.error("Error loading transactions:", error);
+      alert(error?.response?.data?.message || "Could not load transactions.");
+    }
+  };
+
+  const fetchFinanceData = async () => {
+    await Promise.all([
+      fetchStaticFinanceData(),
+      fetchExpenses(expensePagination.page, expensePagination.limit),
+      fetchPayroll(payrollPagination.page, payrollPagination.limit),
+      fetchTransactions(transactionPagination.page, transactionPagination.limit),
+    ]);
+  };
+
   useEffect(() => {
     fetchFinanceData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const formatCurrency = (value) => `JMD ${Number(value || 0).toLocaleString()}`;
@@ -106,20 +198,31 @@ function Finance() {
   };
 
   const cardStyle = {
-    backgroundColor: "white",
-    borderRadius: "10px",
+    backgroundColor: WHITE,
+    borderRadius: "14px",
     padding: "20px",
-    border: "1px solid #e5e7eb",
+    border: `1px solid ${BORDER}`,
+    boxShadow: "0 4px 14px rgba(15,23,42,0.05)",
+  };
+
+  const metricCardStyle = {
+    backgroundColor: WHITE,
+    borderRadius: "16px",
+    padding: "22px",
+    border: `1px solid ${BORDER}`,
+    boxShadow: "0 6px 18px rgba(15,23,42,0.05)",
+    minHeight: "125px",
   };
 
   const tabButtonStyle = (tabName) => ({
-    backgroundColor: activeTab === tabName ? "#0B3D91" : "white",
-    color: activeTab === tabName ? "white" : "#1f2937",
-    border: "1px solid #cbd5e1",
-    padding: "10px 16px",
-    borderRadius: "6px",
+    backgroundColor: activeTab === tabName ? ROYAL_BLUE : WHITE,
+    color: activeTab === tabName ? WHITE : "#1f2937",
+    border: `1px solid ${activeTab === tabName ? ROYAL_BLUE : "#cbd5e1"}`,
+    padding: "11px 18px",
+    borderRadius: "10px",
     cursor: "pointer",
     fontWeight: "bold",
+    boxShadow: activeTab === tabName ? "0 6px 16px rgba(11,61,145,0.2)" : "none",
   });
 
   const statusBadge = (status) => {
@@ -139,10 +242,14 @@ function Finance() {
     return (
       <span
         style={{
-          padding: "4px 10px",
-          borderRadius: "6px",
+          padding: "5px 10px",
+          borderRadius: "999px",
           color: "white",
           backgroundColor,
+          fontWeight: "bold",
+          fontSize: "12px",
+          display: "inline-block",
+          whiteSpace: "nowrap",
         }}
       >
         {status}
@@ -203,7 +310,10 @@ function Finance() {
       const fileInput = document.getElementById("expense-receipt-input");
       if (fileInput) fileInput.value = "";
 
-      await fetchFinanceData();
+      await fetchStaticFinanceData();
+      await fetchExpenses(1, expensePagination.limit);
+      setExpensePagination((prev) => ({ ...prev, page: 1 }));
+      await fetchTransactions(transactionPagination.page, transactionPagination.limit);
     } catch (error) {
       console.error("Error adding expense:", error);
       alert(error?.response?.data?.message || "Could not save expense.");
@@ -242,7 +352,9 @@ function Finance() {
         status: "Pending",
       });
 
-      await fetchFinanceData();
+      await fetchStaticFinanceData();
+      await fetchPayroll(1, payrollPagination.limit);
+      setPayrollPagination((prev) => ({ ...prev, page: 1 }));
     } catch (error) {
       console.error("Error adding payroll:", error);
       alert(error?.response?.data?.message || "Could not save payroll.");
@@ -279,7 +391,7 @@ function Finance() {
         openingBalance: "",
       });
 
-      await fetchFinanceData();
+      await fetchStaticFinanceData();
     } catch (error) {
       console.error("Error creating financial account:", error);
       alert(error?.response?.data?.message || "Could not create account.");
@@ -321,7 +433,9 @@ function Finance() {
         notes: "",
       });
 
-      await fetchFinanceData();
+      await fetchStaticFinanceData();
+      await fetchTransactions(1, transactionPagination.limit);
+      setTransactionPagination((prev) => ({ ...prev, page: 1 }));
     } catch (error) {
       console.error("Error creating account transaction:", error);
       alert(error?.response?.data?.message || "Could not save transaction.");
@@ -363,7 +477,9 @@ function Finance() {
         notes: "",
       });
 
-      await fetchFinanceData();
+      await fetchStaticFinanceData();
+      await fetchTransactions(1, transactionPagination.limit);
+      setTransactionPagination((prev) => ({ ...prev, page: 1 }));
     } catch (error) {
       console.error("Error creating transfer:", error);
       alert(error?.response?.data?.message || "Could not complete transfer.");
@@ -375,9 +491,91 @@ function Finance() {
     [accounts]
   );
 
+  const renderPagination = ({ page, pages, limit, total }, onPageChange, onLimitChange) => (
+    <div
+      style={{
+        backgroundColor: WHITE,
+        border: `1px solid ${BORDER}`,
+        borderRadius: "10px",
+        padding: "12px 15px",
+        marginBottom: "15px",
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        gap: "12px",
+        flexWrap: "wrap",
+      }}
+    >
+      <div style={{ display: "flex", gap: "10px", alignItems: "center", flexWrap: "wrap" }}>
+        <strong style={{ color: "#1e293b" }}>
+          Total Records: {total}
+        </strong>
+
+        <select
+          value={limit}
+          onChange={(e) => onLimitChange(Number(e.target.value))}
+          style={{
+            padding: "8px 10px",
+            borderRadius: "8px",
+            border: `1px solid ${BORDER}`,
+            backgroundColor: WHITE,
+          }}
+        >
+          <option value={10}>10 per page</option>
+          <option value={25}>25 per page</option>
+          <option value={50}>50 per page</option>
+          <option value={100}>100 per page</option>
+        </select>
+      </div>
+
+      <div style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}>
+        <button
+          onClick={() => onPageChange(Math.max(page - 1, 1))}
+          disabled={page <= 1}
+          style={{
+            backgroundColor: page <= 1 ? "#cbd5e1" : ROYAL_BLUE,
+            color: WHITE,
+            border: "none",
+            padding: "8px 12px",
+            borderRadius: "8px",
+            cursor: page <= 1 ? "not-allowed" : "pointer",
+            fontWeight: "bold",
+          }}
+        >
+          Previous
+        </button>
+
+        <span style={{ fontWeight: "bold", color: "#334155" }}>
+          Page {page} of {pages || 1}
+        </span>
+
+        <button
+          onClick={() => onPageChange(Math.min(page + 1, pages || 1))}
+          disabled={page >= (pages || 1)}
+          style={{
+            backgroundColor: page >= (pages || 1) ? "#cbd5e1" : ROYAL_BLUE,
+            color: WHITE,
+            border: "none",
+            padding: "8px 12px",
+            borderRadius: "8px",
+            cursor: page >= (pages || 1) ? "not-allowed" : "pointer",
+            fontWeight: "bold",
+          }}
+        >
+          Next
+        </button>
+      </div>
+    </div>
+  );
+
   return (
-    <div>
-      <h1>Finance Dashboard</h1>
+    <div style={{ backgroundColor: LIGHT_BG, minHeight: "100vh" }}>
+      <div style={{ marginBottom: "20px" }}>
+        <h1 style={{ margin: 0, color: "#0f172a" }}>Finance Dashboard</h1>
+        <p style={{ margin: "6px 0 0 0", color: MUTED }}>
+          Manage revenue, expenses, payroll, reports, accounts, and transactions.
+        </p>
+      </div>
 
       <div
         style={{
@@ -412,52 +610,81 @@ function Finance() {
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "repeat(4, 1fr)",
+              gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
               gap: "20px",
-              marginBottom: "30px",
+              marginBottom: "24px",
             }}
           >
-            <div style={cardStyle}>
-              <h2>{formatCurrency(summary?.totalRevenue)}</h2>
-              <p>Total Revenue</p>
+            <div style={metricCardStyle}>
+              <div style={{ fontSize: "32px", fontWeight: "bold", color: ROYAL_BLUE, marginBottom: "8px" }}>
+                {formatCurrency(summary?.totalRevenue)}
+              </div>
+              <div style={{ color: "#334155", fontWeight: "bold" }}>Total Revenue</div>
             </div>
-            <div style={cardStyle}>
-              <h2>{summary?.paidInvoices || 0}</h2>
-              <p>Paid Invoices</p>
+
+            <div style={metricCardStyle}>
+              <div style={{ fontSize: "32px", fontWeight: "bold", color: "#16a34a", marginBottom: "8px" }}>
+                {summary?.paidInvoices || 0}
+              </div>
+              <div style={{ color: "#334155", fontWeight: "bold" }}>Paid Invoices</div>
             </div>
-            <div style={cardStyle}>
-              <h2>{summary?.unpaidInvoices || 0}</h2>
-              <p>Unpaid Invoices</p>
+
+            <div style={metricCardStyle}>
+              <div style={{ fontSize: "32px", fontWeight: "bold", color: "#dc2626", marginBottom: "8px" }}>
+                {summary?.unpaidInvoices || 0}
+              </div>
+              <div style={{ color: "#334155", fontWeight: "bold" }}>Unpaid Invoices</div>
             </div>
-            <div style={cardStyle}>
-              <h2>{formatCurrency(summary?.outstandingRevenue)}</h2>
-              <p>Outstanding Revenue</p>
+
+            <div style={metricCardStyle}>
+              <div style={{ fontSize: "32px", fontWeight: "bold", color: GOLD, marginBottom: "8px" }}>
+                {formatCurrency(summary?.outstandingRevenue)}
+              </div>
+              <div style={{ color: "#334155", fontWeight: "bold" }}>Outstanding Revenue</div>
             </div>
           </div>
 
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "repeat(4, 1fr)",
+              gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
               gap: "20px",
               marginBottom: "30px",
             }}
           >
-            <div style={cardStyle}>
-              <h2>{formatCurrency(summary?.totalExpenses)}</h2>
-              <p>Total Expenses</p>
+            <div style={metricCardStyle}>
+              <div style={{ fontSize: "32px", fontWeight: "bold", color: "#f97316", marginBottom: "8px" }}>
+                {formatCurrency(summary?.totalExpenses)}
+              </div>
+              <div style={{ color: "#334155", fontWeight: "bold" }}>Total Expenses</div>
             </div>
-            <div style={cardStyle}>
-              <h2>{formatCurrency(summary?.totalPayroll)}</h2>
-              <p>Total Payroll</p>
+
+            <div style={metricCardStyle}>
+              <div style={{ fontSize: "32px", fontWeight: "bold", color: "#7c3aed", marginBottom: "8px" }}>
+                {formatCurrency(summary?.totalPayroll)}
+              </div>
+              <div style={{ color: "#334155", fontWeight: "bold" }}>Total Payroll</div>
             </div>
-            <div style={cardStyle}>
-              <h2>{formatCurrency(summary?.netPosition)}</h2>
-              <p>Net Position</p>
+
+            <div style={metricCardStyle}>
+              <div
+                style={{
+                  fontSize: "32px",
+                  fontWeight: "bold",
+                  color: Number(summary?.netPosition || 0) >= 0 ? "#16a34a" : "#dc2626",
+                  marginBottom: "8px",
+                }}
+              >
+                {formatCurrency(summary?.netPosition)}
+              </div>
+              <div style={{ color: "#334155", fontWeight: "bold" }}>Net Position</div>
             </div>
-            <div style={cardStyle}>
-              <h2>{formatCurrency(totalAccountBalances)}</h2>
-              <p>Total Account Balances</p>
+
+            <div style={metricCardStyle}>
+              <div style={{ fontSize: "32px", fontWeight: "bold", color: "#0f172a", marginBottom: "8px" }}>
+                {formatCurrency(totalAccountBalances)}
+              </div>
+              <div style={{ color: "#334155", fontWeight: "bold" }}>Total Account Balances</div>
             </div>
           </div>
         </>
@@ -466,11 +693,11 @@ function Finance() {
       {activeTab === "expenses" && (
         <>
           <div style={{ ...cardStyle, marginBottom: "24px" }}>
-            <h2>Add Expense</h2>
+            <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>Add Expense</h2>
             <div
               style={{
                 display: "grid",
-                gridTemplateColumns: "repeat(2, 1fr)",
+                gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
                 gap: "15px",
               }}
             >
@@ -481,14 +708,21 @@ function Finance() {
                 onChange={handleExpenseChange}
                 style={{ padding: "10px" }}
               />
-              <input
-                type="text"
+
+              <select
                 name="category"
-                placeholder="Category"
                 value={expenseForm.category}
                 onChange={handleExpenseChange}
                 style={{ padding: "10px" }}
-              />
+              >
+                <option value="">Select Category</option>
+                {EXPENSE_CATEGORIES.map((category) => (
+                  <option key={category} value={category}>
+                    {category}
+                  </option>
+                ))}
+              </select>
+
               <input
                 type="text"
                 name="description"
@@ -497,6 +731,7 @@ function Finance() {
                 onChange={handleExpenseChange}
                 style={{ padding: "10px" }}
               />
+
               <input
                 type="number"
                 name="amount"
@@ -505,6 +740,7 @@ function Finance() {
                 onChange={handleExpenseChange}
                 style={{ padding: "10px" }}
               />
+
               <select
                 name="paidFromAccountNumber"
                 value={expenseForm.paidFromAccountNumber}
@@ -518,6 +754,7 @@ function Finance() {
                   </option>
                 ))}
               </select>
+
               <select
                 name="status"
                 value={expenseForm.status}
@@ -536,70 +773,87 @@ function Finance() {
                 style={{ padding: "10px", gridColumn: "span 2" }}
               />
             </div>
+
             <button
               onClick={addExpense}
               style={{
                 marginTop: "20px",
-                backgroundColor: "#0B3D91",
-                color: "white",
+                backgroundColor: ROYAL_BLUE,
+                color: WHITE,
                 border: "none",
                 padding: "10px 16px",
-                borderRadius: "6px",
+                borderRadius: "8px",
                 cursor: "pointer",
+                fontWeight: "bold",
               }}
             >
               Save Expense
             </button>
           </div>
 
+          {renderPagination(
+            expensePagination,
+            async (page) => {
+              setExpensePagination((prev) => ({ ...prev, page }));
+              await fetchExpenses(page, expensePagination.limit);
+            },
+            async (limit) => {
+              setExpensePagination((prev) => ({ ...prev, limit, page: 1 }));
+              await fetchExpenses(1, limit);
+            }
+          )}
+
           <div style={cardStyle}>
-            <h2>Expense Records</h2>
-            <table border="1" cellPadding="10" style={{ width: "100%" }}>
-              <thead>
-                <tr>
-                  <th>Expense Number</th>
-                  <th>Date</th>
-                  <th>Category</th>
-                  <th>Description</th>
-                  <th>Amount</th>
-                  <th>Paid From Account</th>
-                  <th>Status</th>
-                  <th>Receipt</th>
-                </tr>
-              </thead>
-              <tbody>
-                {expenses.length > 0 ? (
-                  expenses.map((expense) => (
-                    <tr key={expense._id || expense.id}>
-                      <td>{expense.expenseNumber}</td>
-                      <td>{expense.date}</td>
-                      <td>{expense.category}</td>
-                      <td>{expense.description}</td>
-                      <td>{formatCurrency(expense.amount)}</td>
-                      <td>{expense.paidFromAccountName || ""}</td>
-                      <td>{statusBadge(expense.status)}</td>
-                      <td>
-                        {expense.receiptUrl ? (
-                          <a
-                            href={`${api.defaults.baseURL}${expense.receiptUrl}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                          >
-                            View Receipt
-                          </a>
-                        ) : (
-                          "No File"
-                        )}
-                      </td>
-                    </tr>
-                  ))
-                ) : (
+            <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>Expense Records</h2>
+            <div style={{ overflowX: "auto" }}>
+              <table border="1" cellPadding="10" style={{ minWidth: "1100px", width: "100%", borderCollapse: "collapse" }}>
+                <thead style={{ backgroundColor: "#eef4ff" }}>
                   <tr>
-                    <td colSpan="8">No expense records found.</td>
+                    <th>Expense Number</th>
+                    <th>Date</th>
+                    <th>Category</th>
+                    <th>Description</th>
+                    <th>Amount</th>
+                    <th>Paid From Account</th>
+                    <th>Status</th>
+                    <th>Receipt</th>
                   </tr>
-                )}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {expenses.length > 0 ? (
+                    expenses.map((expense) => (
+                      <tr key={expense._id || expense.id}>
+                        <td>{expense.expenseNumber}</td>
+                        <td>{expense.date}</td>
+                        <td>{expense.category}</td>
+                        <td>{expense.description}</td>
+                        <td>{formatCurrency(expense.amount)}</td>
+                        <td>{expense.paidFromAccountName || ""}</td>
+                        <td>{statusBadge(expense.status)}</td>
+                        <td>
+                          {expense.receiptUrl ? (
+                            <a
+                              href={`${api.defaults.baseURL}${expense.receiptUrl}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              style={{ color: ROYAL_BLUE, fontWeight: "bold" }}
+                            >
+                              View Receipt
+                            </a>
+                          ) : (
+                            "No File"
+                          )}
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan="8">No expense records found.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         </>
       )}
@@ -607,11 +861,11 @@ function Finance() {
       {activeTab === "payroll" && (
         <>
           <div style={{ ...cardStyle, marginBottom: "24px" }}>
-            <h2>Add Payroll Record</h2>
+            <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>Add Payroll Record</h2>
             <div
               style={{
                 display: "grid",
-                gridTemplateColumns: "repeat(2, 1fr)",
+                gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
                 gap: "15px",
               }}
             >
@@ -664,58 +918,74 @@ function Finance() {
                 <option value="Paid">Paid</option>
               </select>
             </div>
+
             <button
               onClick={addPayroll}
               style={{
                 marginTop: "20px",
-                backgroundColor: "#0B3D91",
-                color: "white",
+                backgroundColor: ROYAL_BLUE,
+                color: WHITE,
                 border: "none",
                 padding: "10px 16px",
-                borderRadius: "6px",
+                borderRadius: "8px",
                 cursor: "pointer",
+                fontWeight: "bold",
               }}
             >
               Save Payroll Record
             </button>
           </div>
 
+          {renderPagination(
+            payrollPagination,
+            async (page) => {
+              setPayrollPagination((prev) => ({ ...prev, page }));
+              await fetchPayroll(page, payrollPagination.limit);
+            },
+            async (limit) => {
+              setPayrollPagination((prev) => ({ ...prev, limit, page: 1 }));
+              await fetchPayroll(1, limit);
+            }
+          )}
+
           <div style={cardStyle}>
-            <h2>Payroll Records</h2>
-            <table border="1" cellPadding="10" style={{ width: "100%" }}>
-              <thead>
-                <tr>
-                  <th>Payroll Number</th>
-                  <th>Employee</th>
-                  <th>Role</th>
-                  <th>Pay Period</th>
-                  <th>Gross Pay</th>
-                  <th>Deductions</th>
-                  <th>Net Pay</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {payroll.length > 0 ? (
-                  payroll.map((item) => (
-                    <tr key={item._id || item.id}>
-                      <td>{item.payrollNumber}</td>
-                      <td>{item.employeeName}</td>
-                      <td>{item.role}</td>
-                      <td>{item.payPeriod}</td>
-                      <td>{formatCurrency(item.grossPay)}</td>
-                      <td>{formatCurrency(item.deductions)}</td>
-                      <td>{formatCurrency(item.netPay)}</td>
-                      <td>{statusBadge(item.status)}</td>
-                    </tr>
-                  ))
-                ) : (
+            <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>Payroll Records</h2>
+            <div style={{ overflowX: "auto" }}>
+              <table border="1" cellPadding="10" style={{ minWidth: "1000px", width: "100%", borderCollapse: "collapse" }}>
+                <thead style={{ backgroundColor: "#eef4ff" }}>
                   <tr>
-                    <td colSpan="8">No payroll records found.</td>
+                    <th>Payroll Number</th>
+                    <th>Employee</th>
+                    <th>Role</th>
+                    <th>Pay Period</th>
+                    <th>Gross Pay</th>
+                    <th>Deductions</th>
+                    <th>Net Pay</th>
+                    <th>Status</th>
                   </tr>
-                )}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {payroll.length > 0 ? (
+                    payroll.map((item) => (
+                      <tr key={item._id || item.id}>
+                        <td>{item.payrollNumber}</td>
+                        <td>{item.employeeName}</td>
+                        <td>{item.role}</td>
+                        <td>{item.payPeriod}</td>
+                        <td>{formatCurrency(item.grossPay)}</td>
+                        <td>{formatCurrency(item.deductions)}</td>
+                        <td>{formatCurrency(item.netPay)}</td>
+                        <td>{statusBadge(item.status)}</td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan="8">No payroll records found.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         </>
       )}
@@ -723,8 +993,8 @@ function Finance() {
       {activeTab === "reports" && (
         <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "24px" }}>
           <div style={cardStyle}>
-            <h2>Profit and Loss Statement</h2>
-            <table border="1" cellPadding="12" style={{ width: "100%" }}>
+            <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>Profit and Loss Statement</h2>
+            <table border="1" cellPadding="12" style={{ width: "100%", borderCollapse: "collapse" }}>
               <tbody>
                 <tr>
                   <td><strong>Revenue</strong></td>
@@ -751,8 +1021,8 @@ function Finance() {
           </div>
 
           <div style={cardStyle}>
-            <h2>Cash Flow Statement</h2>
-            <table border="1" cellPadding="12" style={{ width: "100%" }}>
+            <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>Cash Flow Statement</h2>
+            <table border="1" cellPadding="12" style={{ width: "100%", borderCollapse: "collapse" }}>
               <tbody>
                 <tr>
                   <td><strong>Cash Inflows</strong></td>
@@ -771,8 +1041,8 @@ function Finance() {
           </div>
 
           <div style={cardStyle}>
-            <h2>Balance Sheet</h2>
-            <table border="1" cellPadding="12" style={{ width: "100%" }}>
+            <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>Balance Sheet</h2>
+            <table border="1" cellPadding="12" style={{ width: "100%", borderCollapse: "collapse" }}>
               <tbody>
                 <tr>
                   <td><strong>Cash</strong></td>
@@ -803,11 +1073,11 @@ function Finance() {
       {activeTab === "accounts" && (
         <>
           <div style={{ ...cardStyle, marginBottom: "24px" }}>
-            <h2>Create Financial Account</h2>
+            <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>Create Financial Account</h2>
             <div
               style={{
                 display: "grid",
-                gridTemplateColumns: "repeat(2, 1fr)",
+                gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
                 gap: "15px",
               }}
             >
@@ -846,16 +1116,18 @@ function Finance() {
                 style={{ padding: "10px" }}
               />
             </div>
+
             <button
               onClick={addAccount}
               style={{
                 marginTop: "20px",
-                backgroundColor: "#0B3D91",
-                color: "white",
+                backgroundColor: ROYAL_BLUE,
+                color: WHITE,
                 border: "none",
                 padding: "10px 16px",
-                borderRadius: "6px",
+                borderRadius: "8px",
                 cursor: "pointer",
+                fontWeight: "bold",
               }}
             >
               Save Account
@@ -865,65 +1137,78 @@ function Finance() {
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "repeat(4, 1fr)",
+              gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
               gap: "20px",
               marginBottom: "24px",
             }}
           >
-            <div style={cardStyle}>
-              <h2>{accounts.length}</h2>
-              <p>Total Accounts</p>
+            <div style={metricCardStyle}>
+              <div style={{ fontSize: "32px", fontWeight: "bold", color: ROYAL_BLUE, marginBottom: "8px" }}>
+                {accounts.length}
+              </div>
+              <div style={{ color: "#334155", fontWeight: "bold" }}>Total Accounts</div>
             </div>
-            <div style={cardStyle}>
-              <h2>{accounts.filter((a) => a.accountType === "Bank").length}</h2>
-              <p>Bank Accounts</p>
+
+            <div style={metricCardStyle}>
+              <div style={{ fontSize: "32px", fontWeight: "bold", color: "#16a34a", marginBottom: "8px" }}>
+                {accounts.filter((a) => a.accountType === "Bank").length}
+              </div>
+              <div style={{ color: "#334155", fontWeight: "bold" }}>Bank Accounts</div>
             </div>
-            <div style={cardStyle}>
-              <h2>{accounts.filter((a) => a.accountType === "Cash").length}</h2>
-              <p>Cash Accounts</p>
+
+            <div style={metricCardStyle}>
+              <div style={{ fontSize: "32px", fontWeight: "bold", color: GOLD, marginBottom: "8px" }}>
+                {accounts.filter((a) => a.accountType === "Cash").length}
+              </div>
+              <div style={{ color: "#334155", fontWeight: "bold" }}>Cash Accounts</div>
             </div>
-            <div style={cardStyle}>
-              <h2>{accounts.filter((a) => a.accountType === "Credit Card").length}</h2>
-              <p>Credit Card Accounts</p>
+
+            <div style={metricCardStyle}>
+              <div style={{ fontSize: "32px", fontWeight: "bold", color: "#dc2626", marginBottom: "8px" }}>
+                {accounts.filter((a) => a.accountType === "Credit Card").length}
+              </div>
+              <div style={{ color: "#334155", fontWeight: "bold" }}>Credit Card Accounts</div>
             </div>
           </div>
 
           <div style={cardStyle}>
-            <h2>Financial Accounts</h2>
-            <table border="1" cellPadding="10" style={{ width: "100%" }}>
-              <thead>
-                <tr>
-                  <th>Account Number</th>
-                  <th>Account Name</th>
-                  <th>Type</th>
-                  <th>Bank Name</th>
-                  <th>Opening Balance</th>
-                  <th>Current Balance</th>
-                  <th>Currency</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {accounts.length > 0 ? (
-                  accounts.map((account) => (
-                    <tr key={account._id}>
-                      <td>{account.accountNumber}</td>
-                      <td>{account.accountName}</td>
-                      <td>{account.accountType}</td>
-                      <td>{account.bankName}</td>
-                      <td>{formatCurrency(account.openingBalance)}</td>
-                      <td>{formatCurrency(account.currentBalance)}</td>
-                      <td>{account.currency}</td>
-                      <td>{statusBadge(account.status)}</td>
-                    </tr>
-                  ))
-                ) : (
+            <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>Financial Accounts</h2>
+            <div style={{ overflowX: "auto" }}>
+              <table border="1" cellPadding="10" style={{ minWidth: "1100px", width: "100%", borderCollapse: "collapse" }}>
+                <thead style={{ backgroundColor: "#eef4ff" }}>
                   <tr>
-                    <td colSpan="8">No financial accounts found.</td>
+                    <th>Account Number</th>
+                    <th>Account Name</th>
+                    <th>Type</th>
+                    <th>Bank Name</th>
+                    <th>Opening Balance</th>
+                    <th>Current Balance</th>
+                    <th>Currency</th>
+                    <th>Status</th>
                   </tr>
-                )}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {accounts.length > 0 ? (
+                    accounts.map((account) => (
+                      <tr key={account._id}>
+                        <td>{account.accountNumber}</td>
+                        <td>{account.accountName}</td>
+                        <td>{account.accountType}</td>
+                        <td>{account.bankName}</td>
+                        <td>{formatCurrency(account.openingBalance)}</td>
+                        <td>{formatCurrency(account.currentBalance)}</td>
+                        <td>{account.currency}</td>
+                        <td>{statusBadge(account.status)}</td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan="8">No financial accounts found.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         </>
       )}
@@ -931,12 +1216,12 @@ function Finance() {
       {activeTab === "transactions" && (
         <>
           <div style={{ ...cardStyle, marginBottom: "24px" }}>
-            <h2>Record Account Transaction</h2>
+            <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>Record Account Transaction</h2>
 
             <div
               style={{
                 display: "grid",
-                gridTemplateColumns: "repeat(2, 1fr)",
+                gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
                 gap: "15px",
                 marginBottom: "20px",
               }}
@@ -1005,23 +1290,24 @@ function Finance() {
               onClick={addTransaction}
               style={{
                 marginBottom: "30px",
-                backgroundColor: "#0B3D91",
-                color: "white",
+                backgroundColor: ROYAL_BLUE,
+                color: WHITE,
                 border: "none",
                 padding: "10px 16px",
-                borderRadius: "6px",
+                borderRadius: "8px",
                 cursor: "pointer",
+                fontWeight: "bold",
               }}
             >
               Save Transaction
             </button>
 
-            <h2>Transfer Between Accounts</h2>
+            <h2 style={{ color: ROYAL_BLUE }}>Transfer Between Accounts</h2>
 
             <div
               style={{
                 display: "grid",
-                gridTemplateColumns: "repeat(2, 1fr)",
+                gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
                 gap: "15px",
                 marginTop: "15px",
               }}
@@ -1090,54 +1376,68 @@ function Finance() {
               style={{
                 marginTop: "20px",
                 backgroundColor: "#16a34a",
-                color: "white",
+                color: WHITE,
                 border: "none",
                 padding: "10px 16px",
-                borderRadius: "6px",
+                borderRadius: "8px",
                 cursor: "pointer",
+                fontWeight: "bold",
               }}
             >
               Save Transfer
             </button>
           </div>
 
-          <div style={cardStyle}>
-            <h2>Account Transactions</h2>
+          {renderPagination(
+            transactionPagination,
+            async (page) => {
+              setTransactionPagination((prev) => ({ ...prev, page }));
+              await fetchTransactions(page, transactionPagination.limit);
+            },
+            async (limit) => {
+              setTransactionPagination((prev) => ({ ...prev, limit, page: 1 }));
+              await fetchTransactions(1, limit);
+            }
+          )}
 
-            <table border="1" cellPadding="10" style={{ width: "100%" }}>
-              <thead>
-                <tr>
-                  <th>Transaction Number</th>
-                  <th>Account Number</th>
-                  <th>Account Name</th>
-                  <th>Transaction Type</th>
-                  <th>Amount</th>
-                  <th>Reference</th>
-                  <th>Notes</th>
-                  <th>Transaction Date</th>
-                </tr>
-              </thead>
-              <tbody>
-                {transactions.length > 0 ? (
-                  transactions.map((transaction) => (
-                    <tr key={transaction._id}>
-                      <td>{transaction.transactionNumber}</td>
-                      <td>{transaction.accountNumber}</td>
-                      <td>{transaction.accountName}</td>
-                      <td>{transaction.transactionType}</td>
-                      <td>{formatCurrency(transaction.amount)}</td>
-                      <td>{transaction.reference}</td>
-                      <td>{transaction.notes}</td>
-                      <td>{formatDate(transaction.transactionDate)}</td>
-                    </tr>
-                  ))
-                ) : (
+          <div style={cardStyle}>
+            <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>Account Transactions</h2>
+            <div style={{ overflowX: "auto" }}>
+              <table border="1" cellPadding="10" style={{ minWidth: "1200px", width: "100%", borderCollapse: "collapse" }}>
+                <thead style={{ backgroundColor: "#eef4ff" }}>
                   <tr>
-                    <td colSpan="8">No account transactions found.</td>
+                    <th>Transaction Number</th>
+                    <th>Account Number</th>
+                    <th>Account Name</th>
+                    <th>Transaction Type</th>
+                    <th>Amount</th>
+                    <th>Reference</th>
+                    <th>Notes</th>
+                    <th>Transaction Date</th>
                   </tr>
-                )}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {transactions.length > 0 ? (
+                    transactions.map((transaction) => (
+                      <tr key={transaction._id}>
+                        <td>{transaction.transactionNumber}</td>
+                        <td>{transaction.accountNumber}</td>
+                        <td>{transaction.accountName}</td>
+                        <td>{transaction.transactionType}</td>
+                        <td>{formatCurrency(transaction.amount)}</td>
+                        <td>{transaction.reference}</td>
+                        <td>{transaction.notes}</td>
+                        <td>{formatDate(transaction.transactionDate)}</td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan="8">No account transactions found.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         </>
       )}
