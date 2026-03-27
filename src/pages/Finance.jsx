@@ -55,6 +55,7 @@ function Finance() {
     educationTax: "",
     incomeTax: "",
     pensionEmployee: "",
+    paidFromAccountNumber: "",
   });
 
   const [accountForm, setAccountForm] = useState({
@@ -170,7 +171,9 @@ function Finance() {
       0,
       roundMoney(taxableIncome - JAMAICA_MONTHLY_PIT_THRESHOLD)
     );
-    const incomeTax = roundMoney(taxableOverThreshold * JAMAICA_INCOME_TAX_RATE);
+    const incomeTax = roundMoney(
+      taxableOverThreshold * JAMAICA_INCOME_TAX_RATE
+    );
 
     const totalDeductions = roundMoney(
       nisEmployee + nhtEmployee + educationTax + incomeTax + pension
@@ -453,6 +456,7 @@ function Finance() {
         status: payrollForm.status,
         autoCalculateStatutoryDeductions:
           payrollForm.autoCalculateStatutoryDeductions,
+        paidFromAccountNumber: payrollForm.paidFromAccountNumber,
       };
 
       if (payrollForm.autoCalculateStatutoryDeductions) {
@@ -482,11 +486,16 @@ function Finance() {
         educationTax: "",
         incomeTax: "",
         pensionEmployee: "",
+        paidFromAccountNumber: "",
       });
 
       await fetchStaticFinanceData();
       await fetchPayroll(1, payrollPagination.limit);
       setPayrollPagination((prev) => ({ ...prev, page: 1 }));
+      await fetchTransactions(
+        transactionPagination.page,
+        transactionPagination.limit
+      );
     } catch (error) {
       console.error("Error adding payroll:", error);
       alert(error?.response?.data?.message || "Could not save payroll.");
@@ -1200,6 +1209,22 @@ function Finance() {
               />
 
               <select
+                name="paidFromAccountNumber"
+                value={payrollForm.paidFromAccountNumber}
+                onChange={handlePayrollChange}
+                style={{ padding: "10px" }}
+              >
+                <option value="">Select Payroll Payment Account</option>
+                {accounts
+                  .filter((account) => account.status === "Active")
+                  .map((account) => (
+                    <option key={account._id} value={account.accountNumber}>
+                      {account.accountName} ({account.accountType}) - {formatCurrency(account.currentBalance)}
+                    </option>
+                  ))}
+              </select>
+
+              <select
                 name="status"
                 value={payrollForm.status}
                 onChange={handlePayrollChange}
@@ -1371,7 +1396,7 @@ function Finance() {
                 border="1"
                 cellPadding="10"
                 style={{
-                  minWidth: "1500px",
+                  minWidth: "1800px",
                   width: "100%",
                   borderCollapse: "collapse",
                 }}
@@ -1390,6 +1415,7 @@ function Finance() {
                     <th>Pension</th>
                     <th>Total Deductions</th>
                     <th>Net Pay</th>
+                    <th>Paid From Account</th>
                     <th>Status</th>
                   </tr>
                 </thead>
@@ -1415,12 +1441,13 @@ function Finance() {
                           )}
                         </td>
                         <td>{formatCurrency(item.netPay)}</td>
+                        <td>{item.paidFromAccountName || item.paidFromAccountNumber || "-"}</td>
                         <td>{statusBadge(item.status)}</td>
                       </tr>
                     ))
                   ) : (
                     <tr>
-                      <td colSpan="13">No payroll records found.</td>
+                      <td colSpan="14">No payroll records found.</td>
                     </tr>
                   )}
                 </tbody>
