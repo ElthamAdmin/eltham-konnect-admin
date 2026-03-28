@@ -11,7 +11,10 @@ function Finance() {
   const [accounts, setAccounts] = useState([]);
   const [transactions, setTransactions] = useState([]);
   const [expenseReceipt, setExpenseReceipt] = useState(null);
-
+  const [reportFilters, setReportFilters] = useState({
+  from: "",
+  to: "",
+});
   const [expensePagination, setExpensePagination] = useState({
     page: 1,
     limit: 10,
@@ -189,16 +192,30 @@ function Finance() {
       netPay: roundMoney(gross - totalDeductions),
     };
   }, [payrollForm]);
+const fetchReports = async (from = reportFilters.from, to = reportFilters.to) => {
+  try {
+    const params = new URLSearchParams();
 
+    if (from) params.append("from", from);
+    if (to) params.append("to", to);
+
+    const query = params.toString() ? `?${params.toString()}` : "";
+    const res = await api.get(`/api/finance/reports${query}`);
+
+    setReports(res.data.data || null);
+  } catch (error) {
+    console.error("Error loading reports:", error);
+    alert(error?.response?.data?.message || "Could not load financial reports.");
+  }
+};
   const fetchStaticFinanceData = async () => {
     try {
-      const [invoicesRes, summaryRes, reportsRes, accountsRes] =
-        await Promise.all([
-          api.get("/api/invoices"),
-          api.get("/api/finance/summary"),
-          api.get("/api/finance/reports"),
-          api.get("/api/financial-accounts"),
-        ]);
+      const [invoicesRes, summaryRes, accountsRes] =
+  await Promise.all([
+    api.get("/api/invoices"),
+    api.get("/api/finance/summary"),
+    api.get("/api/financial-accounts"),
+  ]);
 
       setInvoices(invoicesRes.data.data || []);
       setSummary(summaryRes.data.data || null);
@@ -268,13 +285,14 @@ function Finance() {
   };
 
   const fetchFinanceData = async () => {
-    await Promise.all([
-      fetchStaticFinanceData(),
-      fetchExpenses(expensePagination.page, expensePagination.limit),
-      fetchPayroll(payrollPagination.page, payrollPagination.limit),
-      fetchTransactions(transactionPagination.page, transactionPagination.limit),
-    ]);
-  };
+  await Promise.all([
+    fetchStaticFinanceData(),
+    fetchReports(),
+    fetchExpenses(expensePagination.page, expensePagination.limit),
+    fetchPayroll(payrollPagination.page, payrollPagination.limit),
+    fetchTransactions(transactionPagination.page, transactionPagination.limit),
+  ]);
+};
 
   useEffect(() => {
     fetchFinanceData();
@@ -1458,147 +1476,514 @@ function Finance() {
       )}
 
       {activeTab === "reports" && (
-        <div
-          style={{ display: "grid", gridTemplateColumns: "1fr", gap: "24px" }}
+  <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "24px" }}>
+    <div
+      style={{
+        ...cardStyle,
+        display: "grid",
+        gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+        gap: "16px",
+        alignItems: "end",
+      }}
+    >
+      <div>
+        <h2 style={{ marginTop: 0, marginBottom: "8px", color: ROYAL_BLUE }}>
+          Financial Reports
+        </h2>
+        <p style={{ margin: 0, color: MUTED }}>
+          Review profit, cash flow, balances, expense categories, and monthly
+          business trends.
+        </p>
+      </div>
+
+      <div>
+        <label
+          style={{
+            display: "block",
+            fontWeight: "bold",
+            marginBottom: "6px",
+            color: "#334155",
+          }}
         >
-          <div style={cardStyle}>
-            <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>
-              Profit and Loss Statement
-            </h2>
-            <table
-              border="1"
-              cellPadding="12"
-              style={{ width: "100%", borderCollapse: "collapse" }}
-            >
-              <tbody>
-                <tr>
-                  <td>
-                    <strong>Revenue</strong>
-                  </td>
-                  <td>{formatCurrency(reports?.profitAndLoss?.revenue)}</td>
-                </tr>
-                <tr>
-                  <td>
-                    <strong>Operating Expenses</strong>
-                  </td>
-                  <td>
-                    {formatCurrency(reports?.profitAndLoss?.operatingExpenses)}
-                  </td>
-                </tr>
-                <tr>
-                  <td>
-                    <strong>Payroll Expense</strong>
-                  </td>
-                  <td>
-                    {formatCurrency(reports?.profitAndLoss?.payrollExpense)}
-                  </td>
-                </tr>
-                <tr>
-                  <td>
-                    <strong>Total Expenses</strong>
-                  </td>
-                  <td>
-                    {formatCurrency(reports?.profitAndLoss?.totalExpenses)}
-                  </td>
-                </tr>
-                <tr>
-                  <td>
-                    <strong>Net Profit / Loss</strong>
-                  </td>
-                  <td>{formatCurrency(reports?.profitAndLoss?.netProfit)}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
+          From
+        </label>
+        <input
+          type="date"
+          value={reportFilters.from}
+          onChange={(e) =>
+            setReportFilters((prev) => ({ ...prev, from: e.target.value }))
+          }
+          style={{ padding: "10px", width: "100%" }}
+        />
+      </div>
 
-          <div style={cardStyle}>
-            <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>
-              Cash Flow Statement
-            </h2>
-            <table
-              border="1"
-              cellPadding="12"
-              style={{ width: "100%", borderCollapse: "collapse" }}
-            >
-              <tbody>
-                <tr>
-                  <td>
-                    <strong>Cash Inflows</strong>
-                  </td>
-                  <td>{formatCurrency(reports?.cashFlow?.cashInflows)}</td>
-                </tr>
-                <tr>
-                  <td>
-                    <strong>Cash Outflows</strong>
-                  </td>
-                  <td>{formatCurrency(reports?.cashFlow?.cashOutflows)}</td>
-                </tr>
-                <tr>
-                  <td>
-                    <strong>Net Cash Flow</strong>
-                  </td>
-                  <td>{formatCurrency(reports?.cashFlow?.netCashFlow)}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
+      <div>
+        <label
+          style={{
+            display: "block",
+            fontWeight: "bold",
+            marginBottom: "6px",
+            color: "#334155",
+          }}
+        >
+          To
+        </label>
+        <input
+          type="date"
+          value={reportFilters.to}
+          onChange={(e) =>
+            setReportFilters((prev) => ({ ...prev, to: e.target.value }))
+          }
+          style={{ padding: "10px", width: "100%" }}
+        />
+      </div>
 
-          <div style={cardStyle}>
-            <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>Balance Sheet</h2>
-            <table
-              border="1"
-              cellPadding="12"
-              style={{ width: "100%", borderCollapse: "collapse" }}
-            >
-              <tbody>
-                <tr>
-                  <td>
-                    <strong>Cash</strong>
-                  </td>
-                  <td>{formatCurrency(reports?.balanceSheet?.assets?.cash)}</td>
-                </tr>
-                <tr>
-                  <td>
-                    <strong>Accounts Receivable</strong>
-                  </td>
-                  <td>
-                    {formatCurrency(
-                      reports?.balanceSheet?.assets?.accountsReceivable
-                    )}
-                  </td>
-                </tr>
-                <tr>
-                  <td>
-                    <strong>Total Assets</strong>
-                  </td>
-                  <td>
-                    {formatCurrency(reports?.balanceSheet?.assets?.totalAssets)}
-                  </td>
-                </tr>
-                <tr>
-                  <td>
-                    <strong>Total Liabilities</strong>
-                  </td>
-                  <td>
-                    {formatCurrency(
-                      reports?.balanceSheet?.liabilities?.totalLiabilities
-                    )}
-                  </td>
-                </tr>
-                <tr>
-                  <td>
-                    <strong>Owner's Equity</strong>
-                  </td>
-                  <td>
-                    {formatCurrency(reports?.balanceSheet?.equity?.ownerEquity)}
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
+      <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+        <button
+          onClick={fetchReports}
+          style={{
+            backgroundColor: ROYAL_BLUE,
+            color: WHITE,
+            border: "none",
+            padding: "10px 16px",
+            borderRadius: "8px",
+            cursor: "pointer",
+            fontWeight: "bold",
+          }}
+        >
+          Apply Filters
+        </button>
+
+        <button
+          onClick={() => {
+            setReportFilters({ from: "", to: "" });
+            setTimeout(() => fetchReports("", ""), 0);
+          }}
+          style={{
+            backgroundColor: WHITE,
+            color: ROYAL_BLUE,
+            border: `1px solid ${ROYAL_BLUE}`,
+            padding: "10px 16px",
+            borderRadius: "8px",
+            cursor: "pointer",
+            fontWeight: "bold",
+          }}
+        >
+          Clear
+        </button>
+      </div>
+    </div>
+
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+        gap: "18px",
+      }}
+    >
+      <div style={metricCardStyle}>
+        <div
+          style={{
+            fontSize: "13px",
+            color: MUTED,
+            marginBottom: "6px",
+            fontWeight: "bold",
+          }}
+        >
+          Revenue
         </div>
-      )}
+        <div
+          style={{
+            fontSize: "30px",
+            fontWeight: "bold",
+            color: ROYAL_BLUE,
+          }}
+        >
+          {formatCurrency(reports?.profitAndLoss?.revenue)}
+        </div>
+      </div>
 
+      <div style={metricCardStyle}>
+        <div
+          style={{
+            fontSize: "13px",
+            color: MUTED,
+            marginBottom: "6px",
+            fontWeight: "bold",
+          }}
+        >
+          Total Expenses
+        </div>
+        <div
+          style={{
+            fontSize: "30px",
+            fontWeight: "bold",
+            color: "#dc2626",
+          }}
+        >
+          {formatCurrency(reports?.profitAndLoss?.totalExpenses)}
+        </div>
+      </div>
+
+      <div style={metricCardStyle}>
+        <div
+          style={{
+            fontSize: "13px",
+            color: MUTED,
+            marginBottom: "6px",
+            fontWeight: "bold",
+          }}
+        >
+          Net Profit / Loss
+        </div>
+        <div
+          style={{
+            fontSize: "30px",
+            fontWeight: "bold",
+            color:
+              Number(reports?.profitAndLoss?.netProfit || 0) >= 0
+                ? "#16a34a"
+                : "#dc2626",
+          }}
+        >
+          {formatCurrency(reports?.profitAndLoss?.netProfit)}
+        </div>
+      </div>
+
+      <div style={metricCardStyle}>
+        <div
+          style={{
+            fontSize: "13px",
+            color: MUTED,
+            marginBottom: "6px",
+            fontWeight: "bold",
+          }}
+        >
+          Accounts Receivable
+        </div>
+        <div
+          style={{
+            fontSize: "30px",
+            fontWeight: "bold",
+            color: GOLD,
+          }}
+        >
+          {formatCurrency(reports?.balanceSheet?.assets?.accountsReceivable)}
+        </div>
+      </div>
+
+      <div style={metricCardStyle}>
+        <div
+          style={{
+            fontSize: "13px",
+            color: MUTED,
+            marginBottom: "6px",
+            fontWeight: "bold",
+          }}
+        >
+          Cash On Hand
+        </div>
+        <div
+          style={{
+            fontSize: "30px",
+            fontWeight: "bold",
+            color: "#0f172a",
+          }}
+        >
+          {formatCurrency(reports?.balanceSheet?.assets?.cashOnHand)}
+        </div>
+      </div>
+
+      <div style={metricCardStyle}>
+        <div
+          style={{
+            fontSize: "13px",
+            color: MUTED,
+            marginBottom: "6px",
+            fontWeight: "bold",
+          }}
+        >
+          Paid Invoices
+        </div>
+        <div
+          style={{
+            fontSize: "30px",
+            fontWeight: "bold",
+            color: "#16a34a",
+          }}
+        >
+          {reports?.invoiceStats?.paidCount || 0}
+        </div>
+      </div>
+
+      <div style={metricCardStyle}>
+        <div
+          style={{
+            fontSize: "13px",
+            color: MUTED,
+            marginBottom: "6px",
+            fontWeight: "bold",
+          }}
+        >
+          Unpaid Invoices
+        </div>
+        <div
+          style={{
+            fontSize: "30px",
+            fontWeight: "bold",
+            color: "#dc2626",
+          }}
+        >
+          {reports?.invoiceStats?.unpaidCount || 0}
+        </div>
+      </div>
+
+      <div style={metricCardStyle}>
+        <div
+          style={{
+            fontSize: "13px",
+            color: MUTED,
+            marginBottom: "6px",
+            fontWeight: "bold",
+          }}
+        >
+          Report Generated
+        </div>
+        <div
+          style={{
+            fontSize: "16px",
+            fontWeight: "bold",
+            color: ROYAL_BLUE,
+            lineHeight: 1.5,
+          }}
+        >
+          {reports?.reportMeta?.generatedAt
+            ? formatDate(reports.reportMeta.generatedAt)
+            : "-"}
+        </div>
+      </div>
+    </div>
+
+    <div style={cardStyle}>
+      <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>
+        Profit and Loss Statement
+      </h2>
+      <table
+        border="1"
+        cellPadding="12"
+        style={{ width: "100%", borderCollapse: "collapse" }}
+      >
+        <tbody>
+          <tr>
+            <td>
+              <strong>Revenue</strong>
+            </td>
+            <td>{formatCurrency(reports?.profitAndLoss?.revenue)}</td>
+          </tr>
+          <tr>
+            <td>
+              <strong>Operating Expenses</strong>
+            </td>
+            <td>
+              {formatCurrency(reports?.profitAndLoss?.operatingExpenses)}
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <strong>Payroll Expense</strong>
+            </td>
+            <td>{formatCurrency(reports?.profitAndLoss?.payrollExpense)}</td>
+          </tr>
+          <tr>
+            <td>
+              <strong>Total Expenses</strong>
+            </td>
+            <td>{formatCurrency(reports?.profitAndLoss?.totalExpenses)}</td>
+          </tr>
+          <tr>
+            <td>
+              <strong>Net Profit / Loss</strong>
+            </td>
+            <td>{formatCurrency(reports?.profitAndLoss?.netProfit)}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div style={cardStyle}>
+      <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>Cash Flow Statement</h2>
+      <table
+        border="1"
+        cellPadding="12"
+        style={{ width: "100%", borderCollapse: "collapse" }}
+      >
+        <tbody>
+          <tr>
+            <td>
+              <strong>Collected Revenue</strong>
+            </td>
+            <td>{formatCurrency(reports?.cashFlow?.collectedRevenue)}</td>
+          </tr>
+          <tr>
+            <td>
+              <strong>Operating Expense Payments</strong>
+            </td>
+            <td>
+              {formatCurrency(reports?.cashFlow?.operatingExpensePayments)}
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <strong>Payroll Payments</strong>
+            </td>
+            <td>{formatCurrency(reports?.cashFlow?.payrollPayments)}</td>
+          </tr>
+          <tr>
+            <td>
+              <strong>Total Cash Outflows</strong>
+            </td>
+            <td>{formatCurrency(reports?.cashFlow?.totalCashOutflows)}</td>
+          </tr>
+          <tr>
+            <td>
+              <strong>Net Cash Flow</strong>
+            </td>
+            <td>{formatCurrency(reports?.cashFlow?.netCashFlow)}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div style={cardStyle}>
+      <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>Balance Sheet</h2>
+      <table
+        border="1"
+        cellPadding="12"
+        style={{ width: "100%", borderCollapse: "collapse" }}
+      >
+        <tbody>
+          <tr>
+            <td>
+              <strong>Cash On Hand</strong>
+            </td>
+            <td>{formatCurrency(reports?.balanceSheet?.assets?.cashOnHand)}</td>
+          </tr>
+          <tr>
+            <td>
+              <strong>Accounts Receivable</strong>
+            </td>
+            <td>
+              {formatCurrency(
+                reports?.balanceSheet?.assets?.accountsReceivable
+              )}
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <strong>Total Assets</strong>
+            </td>
+            <td>{formatCurrency(reports?.balanceSheet?.assets?.totalAssets)}</td>
+          </tr>
+          <tr>
+            <td>
+              <strong>Total Liabilities</strong>
+            </td>
+            <td>
+              {formatCurrency(
+                reports?.balanceSheet?.liabilities?.totalLiabilities
+              )}
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <strong>Owner's Equity</strong>
+            </td>
+            <td>{formatCurrency(reports?.balanceSheet?.equity?.ownerEquity)}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div style={cardStyle}>
+      <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>
+        Expense Category Breakdown
+      </h2>
+      <div style={{ overflowX: "auto" }}>
+        <table
+          border="1"
+          cellPadding="12"
+          style={{ width: "100%", borderCollapse: "collapse" }}
+        >
+          <thead style={{ backgroundColor: "#eef4ff" }}>
+            <tr>
+              <th>Category</th>
+              <th>Amount</th>
+            </tr>
+          </thead>
+          <tbody>
+            {reports?.expenseByCategory?.length > 0 ? (
+              reports.expenseByCategory.map((item, index) => (
+                <tr key={`${item.category}-${index}`}>
+                  <td>{item.category}</td>
+                  <td>{formatCurrency(item.amount)}</td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td colSpan="2">No expense data found for this period.</td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div style={cardStyle}>
+      <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>Monthly Trend</h2>
+      <div style={{ overflowX: "auto" }}>
+        <table
+          border="1"
+          cellPadding="12"
+          style={{ width: "100%", borderCollapse: "collapse", minWidth: "900px" }}
+        >
+          <thead style={{ backgroundColor: "#eef4ff" }}>
+            <tr>
+              <th>Month</th>
+              <th>Revenue</th>
+              <th>Operating Expenses</th>
+              <th>Payroll</th>
+              <th>Net</th>
+            </tr>
+          </thead>
+          <tbody>
+            {reports?.monthlyTrend?.length > 0 ? (
+              reports.monthlyTrend.map((item, index) => (
+                <tr key={`${item.month}-${index}`}>
+                  <td>{item.label || item.month}</td>
+                  <td>{formatCurrency(item.revenue)}</td>
+                  <td>{formatCurrency(item.expenses)}</td>
+                  <td>{formatCurrency(item.payroll)}</td>
+                  <td
+                    style={{
+                      fontWeight: "bold",
+                      color: Number(item.net || 0) >= 0 ? "#16a34a" : "#dc2626",
+                    }}
+                  >
+                    {formatCurrency(item.net)}
+                  </td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td colSpan="5">No monthly trend data found for this period.</td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+)}
       {activeTab === "accounts" && (
         <>
           <div style={{ ...cardStyle, marginBottom: "24px" }}>
