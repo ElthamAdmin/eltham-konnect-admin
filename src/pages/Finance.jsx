@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import api from "../api";
+import { jsPDF } from "jspdf";
+import { autoTable } from "jspdf-autotable";
 
 function Finance() {
   const [activeTab, setActiveTab] = useState("dashboard");
@@ -14,7 +16,114 @@ function Finance() {
   const [reportFilters, setReportFilters] = useState({
   from: "",
   to: "",
+  
 });
+
+const downloadReportsPdf = () => {
+  try {
+    const doc = new jsPDF("p", "mm", "a4");
+
+    const reportTitle = reports?.reportMeta?.reportTitle || "Financial Reports";
+    const generatedAt = reports?.reportMeta?.generatedAt
+      ? formatDate(reports.reportMeta.generatedAt)
+      : formatDate(new Date());
+
+    const fromText = reportFilters?.from || "Beginning";
+    const toText = reportFilters?.to || "Today";
+
+    doc.setFontSize(18);
+    doc.text("Eltham Konnect", 14, 16);
+
+    doc.setFontSize(13);
+    doc.text(reportTitle, 14, 24);
+
+    doc.setFontSize(10);
+    doc.text(`Period: ${fromText} to ${toText}`, 14, 30);
+    doc.text(`Generated: ${generatedAt}`, 14, 35);
+
+    autoTable(doc, {
+      startY: 42,
+      head: [["Profit and Loss", "Amount"]],
+      body: [
+        ["Revenue", formatCurrency(reports?.profitAndLoss?.revenue)],
+        ["Operating Expenses", formatCurrency(reports?.profitAndLoss?.operatingExpenses)],
+        ["Payroll Expense", formatCurrency(reports?.profitAndLoss?.payrollExpense)],
+        ["Total Expenses", formatCurrency(reports?.profitAndLoss?.totalExpenses)],
+        ["Net Profit / Loss", formatCurrency(reports?.profitAndLoss?.netProfit)],
+      ],
+      styles: { fontSize: 10 },
+      headStyles: { fillColor: [11, 61, 145] },
+    });
+
+    autoTable(doc, {
+      startY: doc.lastAutoTable.finalY + 8,
+      head: [["Cash Flow", "Amount"]],
+      body: [
+        ["Collected Revenue", formatCurrency(reports?.cashFlow?.collectedRevenue)],
+        ["Operating Expense Payments", formatCurrency(reports?.cashFlow?.operatingExpensePayments)],
+        ["Payroll Payments", formatCurrency(reports?.cashFlow?.payrollPayments)],
+        ["Total Cash Outflows", formatCurrency(reports?.cashFlow?.totalCashOutflows)],
+        ["Net Cash Flow", formatCurrency(reports?.cashFlow?.netCashFlow)],
+      ],
+      styles: { fontSize: 10 },
+      headStyles: { fillColor: [11, 61, 145] },
+    });
+
+    autoTable(doc, {
+      startY: doc.lastAutoTable.finalY + 8,
+      head: [["Balance Sheet", "Amount"]],
+      body: [
+        ["Cash On Hand", formatCurrency(reports?.balanceSheet?.assets?.cashOnHand)],
+        ["Accounts Receivable", formatCurrency(reports?.balanceSheet?.assets?.accountsReceivable)],
+        ["Total Assets", formatCurrency(reports?.balanceSheet?.assets?.totalAssets)],
+        ["Total Liabilities", formatCurrency(reports?.balanceSheet?.liabilities?.totalLiabilities)],
+        ["Owner's Equity", formatCurrency(reports?.balanceSheet?.equity?.ownerEquity)],
+      ],
+      styles: { fontSize: 10 },
+      headStyles: { fillColor: [11, 61, 145] },
+    });
+
+    const expenseRows =
+      reports?.expenseByCategory?.length > 0
+        ? reports.expenseByCategory.map((item) => [
+            item.category,
+            formatCurrency(item.amount),
+          ])
+        : [["No expense data found for this period.", ""]];
+
+    autoTable(doc, {
+      startY: doc.lastAutoTable.finalY + 8,
+      head: [["Expense Category Breakdown", "Amount"]],
+      body: expenseRows,
+      styles: { fontSize: 10 },
+      headStyles: { fillColor: [11, 61, 145] },
+    });
+
+    const monthlyRows =
+      reports?.monthlyTrend?.length > 0
+        ? reports.monthlyTrend.map((item) => [
+            item.label || item.month,
+            formatCurrency(item.revenue),
+            formatCurrency(item.expenses),
+            formatCurrency(item.payroll),
+            formatCurrency(item.net),
+          ])
+        : [["No monthly trend data found for this period.", "", "", "", ""]];
+
+    autoTable(doc, {
+      startY: doc.lastAutoTable.finalY + 8,
+      head: [["Monthly Trend", "Revenue", "Operating Expenses", "Payroll", "Net"]],
+      body: monthlyRows,
+      styles: { fontSize: 9 },
+      headStyles: { fillColor: [11, 61, 145] },
+    });
+
+    doc.save(`eltham-konnect-financial-reports-${generatedAt}.pdf`);
+  } catch (error) {
+    console.error("Error generating PDF:", error);
+    alert("Could not download PDF report.");
+  }
+};
   const [expensePagination, setExpensePagination] = useState({
     page: 1,
     limit: 10,
@@ -1571,6 +1680,22 @@ const fetchReports = async (from = reportFilters.from, to = reportFilters.to) =>
         >
           Clear
         </button>
+
+        <button
+  onClick={downloadReportsPdf}
+  style={{
+    backgroundColor: "#16a34a",
+    color: WHITE,
+    border: "none",
+    padding: "10px 16px",
+    borderRadius: "8px",
+    cursor: "pointer",
+    fontWeight: "bold",
+  }}
+>
+  Download PDF
+</button>
+
       </div>
     </div>
 
