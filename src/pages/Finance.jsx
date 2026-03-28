@@ -328,7 +328,6 @@ const fetchReports = async (from = reportFilters.from, to = reportFilters.to) =>
 
       setInvoices(invoicesRes.data.data || []);
       setSummary(summaryRes.data.data || null);
-      setReports(reportsRes.data.data || null);
       setAccounts(accountsRes.data.data || []);
     } catch (error) {
       console.error("Error loading finance summary data:", error);
