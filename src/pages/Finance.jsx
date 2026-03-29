@@ -2,7 +2,16 @@ import { useEffect, useMemo, useState } from "react";
 import api from "../api";
 import { jsPDF } from "jspdf";
 import { autoTable } from "jspdf-autotable";
-
+import {
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  CartesianGrid,
+  XAxis,
+  YAxis,
+  Tooltip,
+  Legend,
+} from "recharts";
 function Finance() {
   const [activeTab, setActiveTab] = useState("dashboard");
   const [invoices, setInvoices] = useState([]);
@@ -2079,6 +2088,47 @@ const fetchReports = async (from = reportFilters.from, to = reportFilters.to) =>
               <th>Net</th>
             </tr>
           </thead>
+          <div style={cardStyle}>
+  <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>Monthly Trend Chart</h2>
+
+  <div style={{ width: "100%", height: 380 }}>
+    {reports?.monthlyTrend?.length > 0 ? (
+      <ResponsiveContainer>
+        <BarChart
+          data={reports.monthlyTrend.map((item) => ({
+            ...item,
+            monthLabel: item.label || item.month,
+          }))}
+          margin={{ top: 10, right: 20, left: 10, bottom: 10 }}
+        >
+          <CartesianGrid strokeDasharray="3 3" />
+          <XAxis dataKey="monthLabel" />
+          <YAxis />
+          <Tooltip
+            formatter={(value) => formatCurrency(value)}
+          />
+          <Legend />
+          <Bar dataKey="revenue" name="Revenue" fill="#0B3D91" radius={[6, 6, 0, 0]} />
+          <Bar dataKey="expenses" name="Operating Expenses" fill="#D4AF37" radius={[6, 6, 0, 0]} />
+          <Bar dataKey="payroll" name="Payroll" fill="#dc2626" radius={[6, 6, 0, 0]} />
+        </BarChart>
+      </ResponsiveContainer>
+    ) : (
+      <div
+        style={{
+          height: "100%",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          color: MUTED,
+          fontWeight: "bold",
+        }}
+      >
+        No monthly trend data found for this period.
+      </div>
+    )}
+  </div>
+</div>
           <tbody>
             {reports?.monthlyTrend?.length > 0 ? (
               reports.monthlyTrend.map((item, index) => (
