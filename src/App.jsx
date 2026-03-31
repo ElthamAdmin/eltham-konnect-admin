@@ -20,9 +20,93 @@ import WarehouseManagement from "./pages/WarehouseManagement";
 import Settings from "./pages/Settings";
 import AuditLogs from "./pages/AuditLogs";
 import PreAlerts from "./pages/PreAlerts";
-
+import HR from "./pages/HR";
 import Login from "./pages/Login";
 import DutyMonitor from "./pages/DutyMonitor";
+
+function HRModulePlaceholder() {
+  return (
+    <div
+      style={{
+        backgroundColor: "white",
+        borderRadius: "12px",
+        padding: "24px",
+        border: "1px solid #e5e7eb",
+      }}
+    >
+      <h1 style={{ marginTop: 0, color: "#0B3D91" }}>HR Module</h1>
+      <p style={{ color: "#475569", lineHeight: 1.6 }}>
+        The HR module has been added to the admin system and backend. The next
+        step is building the full HR page interface.
+      </p>
+
+      <div
+        style={{
+          marginTop: "18px",
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+          gap: "16px",
+        }}
+      >
+        <div
+          style={{
+            backgroundColor: "#f8fafc",
+            border: "1px solid #e2e8f0",
+            borderRadius: "10px",
+            padding: "16px",
+          }}
+        >
+          <strong style={{ color: "#0B3D91" }}>Employees</strong>
+          <p style={{ margin: "8px 0 0 0", color: "#64748b" }}>
+            Add, edit, and manage staff records.
+          </p>
+        </div>
+
+        <div
+          style={{
+            backgroundColor: "#f8fafc",
+            border: "1px solid #e2e8f0",
+            borderRadius: "10px",
+            padding: "16px",
+          }}
+        >
+          <strong style={{ color: "#0B3D91" }}>Attendance</strong>
+          <p style={{ margin: "8px 0 0 0", color: "#64748b" }}>
+            Track employee duty status and attendance history.
+          </p>
+        </div>
+
+        <div
+          style={{
+            backgroundColor: "#f8fafc",
+            border: "1px solid #e2e8f0",
+            borderRadius: "10px",
+            padding: "16px",
+          }}
+        >
+          <strong style={{ color: "#0B3D91" }}>Leave</strong>
+          <p style={{ margin: "8px 0 0 0", color: "#64748b" }}>
+            Manage leave balances and staff leave requests.
+          </p>
+        </div>
+
+        <div
+          style={{
+            backgroundColor: "#f8fafc",
+            border: "1px solid #e2e8f0",
+            borderRadius: "10px",
+            padding: "16px",
+          }}
+        >
+          <strong style={{ color: "#0B3D91" }}>Payroll Link</strong>
+          <p style={{ margin: "8px 0 0 0", color: "#64748b" }}>
+            Connect employee records to finance payroll data.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function AppShell() {
   const { user, logout, refreshMyDuty } = useAuth();
@@ -139,24 +223,137 @@ function AppShell() {
           Eltham Konnect
         </div>
 
-        <Link to="/" style={navItemStyle(location.pathname === "/")}>Dashboard</Link>
+        <Link to="/" style={navItemStyle(location.pathname === "/")}>
+          Dashboard
+        </Link>
 
-        {can("pos") && <Link to="/pos" style={navItemStyle(location.pathname === "/pos")}>POS</Link>}
-        {can("customers") && <Link to="/customers" style={navItemStyle(location.pathname === "/customers")}>Customers</Link>}
-        {can("manifests") && <Link to="/manifests" style={navItemStyle(location.pathname === "/manifests")}>Manifests</Link>}
-        {can("packages") && <Link to="/packages" style={navItemStyle(location.pathname === "/packages")}>Packages</Link>}
-        {can("invoices") && <Link to="/invoices" style={navItemStyle(location.pathname === "/invoices")}>Invoices</Link>}
-        {can("packages") && <Link to="/prealerts" style={navItemStyle(location.pathname === "/prealerts")}>PreAlerts</Link>}
-        {can("support") && <Link to="/support-tickets" style={navItemStyle(location.pathname === "/support-tickets")}>Support Tickets</Link>}
-        {can("finance") && <Link to="/finance" style={navItemStyle(location.pathname === "/finance")}>Finance</Link>}
-        {can("communication") && <Link to="/communication" style={navItemStyle(location.pathname === "/communication")}>Communication</Link>}
-        {can("marketing") && <Link to="/marketing" style={navItemStyle(location.pathname === "/marketing")}>Marketing Info</Link>}
-        {can("users") && <Link to="/users" style={navItemStyle(location.pathname === "/users")}>System Users</Link>}
-        {can("users") && <Link to="/duty-monitor" style={navItemStyle(location.pathname === "/duty-monitor")}>Duty Monitor</Link>}
-        {can("users") && <Link to="/audit-logs" style={navItemStyle(location.pathname === "/audit-logs")}>Audit Logs</Link>}
-        {can("settings") && <Link to="/settings" style={navItemStyle(location.pathname === "/settings")}>Settings</Link>}
-        {can("warehouse") && <Link to="/warehouse-management" style={navItemStyle(location.pathname === "/warehouse-management")}>Warehouse Management</Link>}
-        {can("pointsHistory") && <Link to="/points-history" style={navItemStyle(location.pathname === "/points-history")}>Points History</Link>}
+        {can("pos") && (
+          <Link to="/pos" style={navItemStyle(location.pathname === "/pos")}>
+            POS
+          </Link>
+        )}
+        {can("customers") && (
+          <Link
+            to="/customers"
+            style={navItemStyle(location.pathname === "/customers")}
+          >
+            Customers
+          </Link>
+        )}
+        {can("manifests") && (
+          <Link
+            to="/manifests"
+            style={navItemStyle(location.pathname === "/manifests")}
+          >
+            Manifests
+          </Link>
+        )}
+        {can("packages") && (
+          <Link
+            to="/packages"
+            style={navItemStyle(location.pathname === "/packages")}
+          >
+            Packages
+          </Link>
+        )}
+        {can("invoices") && (
+          <Link
+            to="/invoices"
+            style={navItemStyle(location.pathname === "/invoices")}
+          >
+            Invoices
+          </Link>
+        )}
+        {can("packages") && (
+          <Link
+            to="/prealerts"
+            style={navItemStyle(location.pathname === "/prealerts")}
+          >
+            PreAlerts
+          </Link>
+        )}
+        {can("support") && (
+          <Link
+            to="/support-tickets"
+            style={navItemStyle(location.pathname === "/support-tickets")}
+          >
+            Support Tickets
+          </Link>
+        )}
+        {can("finance") && (
+          <Link
+            to="/finance"
+            style={navItemStyle(location.pathname === "/finance")}
+          >
+            Finance
+          </Link>
+        )}
+        {can("hr") && (
+          <Link to="/hr" style={navItemStyle(location.pathname === "/hr")}>
+            HR
+          </Link>
+        )}
+        {can("communication") && (
+          <Link
+            to="/communication"
+            style={navItemStyle(location.pathname === "/communication")}
+          >
+            Communication
+          </Link>
+        )}
+        {can("marketing") && (
+          <Link
+            to="/marketing"
+            style={navItemStyle(location.pathname === "/marketing")}
+          >
+            Marketing Info
+          </Link>
+        )}
+        {can("users") && (
+          <Link to="/users" style={navItemStyle(location.pathname === "/users")}>
+            System Users
+          </Link>
+        )}
+        {can("users") && (
+          <Link
+            to="/duty-monitor"
+            style={navItemStyle(location.pathname === "/duty-monitor")}
+          >
+            Duty Monitor
+          </Link>
+        )}
+        {can("users") && (
+          <Link
+            to="/audit-logs"
+            style={navItemStyle(location.pathname === "/audit-logs")}
+          >
+            Audit Logs
+          </Link>
+        )}
+        {can("settings") && (
+          <Link
+            to="/settings"
+            style={navItemStyle(location.pathname === "/settings")}
+          >
+            Settings
+          </Link>
+        )}
+        {can("warehouse") && (
+          <Link
+            to="/warehouse-management"
+            style={navItemStyle(location.pathname === "/warehouse-management")}
+          >
+            Warehouse Management
+          </Link>
+        )}
+        {can("pointsHistory") && (
+          <Link
+            to="/points-history"
+            style={navItemStyle(location.pathname === "/points-history")}
+          >
+            Points History
+          </Link>
+        )}
       </div>
 
       <div style={{ flex: 1 }}>
@@ -174,7 +371,15 @@ function AppShell() {
         >
           <div style={{ fontSize: "22px", color: "#64748b" }}>☰</div>
 
-          <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap", justifyContent: "flex-end" }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "10px",
+              flexWrap: "wrap",
+              justifyContent: "flex-end",
+            }}
+          >
             {dutyBadge(dutyStatus)}
 
             <button
@@ -257,9 +462,19 @@ function AppShell() {
               {initials}
             </div>
 
-            <div style={{ display: "flex", flexDirection: "column", lineHeight: 1.1 }}>
-              <span style={{ color: "#334155", fontWeight: "bold" }}>{user?.fullName}</span>
-              <span style={{ color: "#64748b", fontSize: "12px" }}>{user?.role} • {user?.branch}</span>
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                lineHeight: 1.1,
+              }}
+            >
+              <span style={{ color: "#334155", fontWeight: "bold" }}>
+                {user?.fullName}
+              </span>
+              <span style={{ color: "#64748b", fontSize: "12px" }}>
+                {user?.role} • {user?.branch}
+              </span>
             </div>
 
             <button
@@ -282,22 +497,74 @@ function AppShell() {
         <div style={{ padding: "26px" }}>
           <Routes>
             <Route path="/" element={<Dashboard />} />
-            <Route path="/pos" element={can("pos") ? <POS /> : <Navigate to="/" replace />} />
-            <Route path="/customers" element={can("customers") ? <Customers /> : <Navigate to="/" replace />} />
-            <Route path="/manifests" element={can("manifests") ? <Manifests /> : <Navigate to="/" replace />} />
-            <Route path="/packages" element={can("packages") ? <Packages /> : <Navigate to="/" replace />} />
-            <Route path="/invoices" element={can("invoices") ? <Invoices /> : <Navigate to="/" replace />} />
-            <Route path="/prealerts" element={can("packages") ? <PreAlerts /> : <Navigate to="/" replace />} />
-            <Route path="/support-tickets" element={can("support") ? <SupportTickets /> : <Navigate to="/" replace />} />
-            <Route path="/finance" element={can("finance") ? <Finance /> : <Navigate to="/" replace />} />
-            <Route path="/communication" element={can("communication") ? <Communication /> : <Navigate to="/" replace />} />
-            <Route path="/marketing" element={can("marketing") ? <MarketingInfo /> : <Navigate to="/" replace />} />
-            <Route path="/users" element={can("users") ? <SystemUsers /> : <Navigate to="/" replace />} />
-            <Route path="/duty-monitor" element={can("users") ? <DutyMonitor /> : <Navigate to="/" replace />} />
-            <Route path="/audit-logs" element={can("users") ? <AuditLogs /> : <Navigate to="/" replace />} />
-            <Route path="/settings" element={can("settings") ? <Settings /> : <Navigate to="/" replace />} />
-            <Route path="/warehouse-management" element={can("warehouse") ? <WarehouseManagement /> : <Navigate to="/" replace />} />
-            <Route path="/points-history" element={can("pointsHistory") ? <PointsHistory /> : <Navigate to="/" replace />} />
+            <Route
+              path="/pos"
+              element={can("pos") ? <POS /> : <Navigate to="/" replace />}
+            />
+            <Route
+              path="/customers"
+              element={can("customers") ? <Customers /> : <Navigate to="/" replace />}
+            />
+            <Route
+              path="/manifests"
+              element={can("manifests") ? <Manifests /> : <Navigate to="/" replace />}
+            />
+            <Route
+              path="/packages"
+              element={can("packages") ? <Packages /> : <Navigate to="/" replace />}
+            />
+            <Route
+              path="/invoices"
+              element={can("invoices") ? <Invoices /> : <Navigate to="/" replace />}
+            />
+            <Route
+              path="/prealerts"
+              element={can("packages") ? <PreAlerts /> : <Navigate to="/" replace />}
+            />
+            <Route
+              path="/support-tickets"
+              element={can("support") ? <SupportTickets /> : <Navigate to="/" replace />}
+            />
+            <Route
+              path="/finance"
+              element={can("finance") ? <Finance /> : <Navigate to="/" replace />}
+            />
+            <Route
+  path="/hr"
+  element={can("hr") ? <HR /> : <Navigate to="/" replace />}
+/>
+            <Route
+              path="/communication"
+              element={can("communication") ? <Communication /> : <Navigate to="/" replace />}
+            />
+            <Route
+              path="/marketing"
+              element={can("marketing") ? <MarketingInfo /> : <Navigate to="/" replace />}
+            />
+            <Route
+              path="/users"
+              element={can("users") ? <SystemUsers /> : <Navigate to="/" replace />}
+            />
+            <Route
+              path="/duty-monitor"
+              element={can("users") ? <DutyMonitor /> : <Navigate to="/" replace />}
+            />
+            <Route
+              path="/audit-logs"
+              element={can("users") ? <AuditLogs /> : <Navigate to="/" replace />}
+            />
+            <Route
+              path="/settings"
+              element={can("settings") ? <Settings /> : <Navigate to="/" replace />}
+            />
+            <Route
+              path="/warehouse-management"
+              element={can("warehouse") ? <WarehouseManagement /> : <Navigate to="/" replace />}
+            />
+            <Route
+              path="/points-history"
+              element={can("pointsHistory") ? <PointsHistory /> : <Navigate to="/" replace />}
+            />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </div>

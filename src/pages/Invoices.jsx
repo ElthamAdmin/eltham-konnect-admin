@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { jsPDF } from "jspdf";
 import api from "../api";
 
 function Invoices() {
@@ -165,6 +166,157 @@ function Invoices() {
     );
   };
 
+  const downloadInvoicePdf = (inv) => {
+    try {
+      const doc = new jsPDF("p", "mm", "a4");
+      const pageWidth = doc.internal.pageSize.getWidth();
+
+      let y = 18;
+
+      const addLine = (text, x = 15, size = 11, color = [15, 23, 42], style = "normal") => {
+        doc.setFont("helvetica", style);
+        doc.setFontSize(size);
+        doc.setTextColor(...color);
+        doc.text(String(text), x, y);
+        y += 7;
+      };
+
+      const addWrappedText = (
+        label,
+        value,
+        x = 15,
+        maxWidth = 180,
+        size = 10,
+        color = [51, 65, 85]
+      ) => {
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(size);
+        doc.setTextColor(...color);
+        doc.text(`${label}`, x, y);
+
+        y += 5;
+
+        doc.setFont("helvetica", "normal");
+        const lines = doc.splitTextToSize(String(value || ""), maxWidth);
+        doc.text(lines, x, y);
+        y += lines.length * 5 + 2;
+      };
+
+      doc.setFillColor(11, 61, 145);
+      doc.rect(0, 0, pageWidth, 20, "F");
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(22);
+      doc.setTextColor(255, 255, 255);
+      doc.text("ELTHAM KONNECT", 15, 13);
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+      doc.text("Your Konnection, Our Priority", pageWidth - 15, 13, {
+        align: "right",
+      });
+
+      y = 30;
+
+      doc.setDrawColor(212, 175, 55);
+      doc.setLineWidth(0.8);
+      doc.line(15, y, pageWidth - 15, y);
+      y += 10;
+
+      addLine("INVOICE", 15, 18, [11, 61, 145], "bold");
+
+      doc.setDrawColor(219, 227, 239);
+      doc.setLineWidth(0.3);
+      doc.line(15, y - 2, pageWidth - 15, y - 2);
+
+      addLine(`Invoice Number: ${inv.invoiceNumber || ""}`, 15, 11, [15, 23, 42], "bold");
+      addLine(`Date Issued: ${formatDate(inv.createdAt) || ""}`, 15, 11, [51, 65, 85]);
+      addLine(`Customer Name: ${inv.customerName || ""}`, 15, 11, [51, 65, 85]);
+      addLine(`Customer EKON ID: ${inv.customerEkonId || ""}`, 15, 11, [51, 65, 85]);
+
+      y += 3;
+      addLine("PACKAGE SUMMARY", 15, 13, [11, 61, 145], "bold");
+      addLine(`Total Packages: ${Number(inv.packageCount || 0).toLocaleString()}`, 15, 11, [51, 65, 85]);
+      addLine(`Invoice Status: ${inv.status || ""}`, 15, 11, [51, 65, 85]);
+      addLine(
+        `Paid Date: ${inv.paidDate ? formatDate(inv.paidDate) : "Not paid yet"}`,
+        15,
+        11,
+        [51, 65, 85]
+      );
+
+      y += 3;
+      addLine("CHARGES", 15, 13, [11, 61, 145], "bold");
+
+      const leftX = 15;
+      const rightX = 140;
+      const rowHeight = 9;
+
+      const chargeRows = [
+        ["Subtotal", formatCurrency(inv.subtotal)],
+        ["Points Redeemed", Number(inv.pointsRedeemed || 0).toLocaleString()],
+        ["Final Total", formatCurrency(inv.finalTotal)],
+      ];
+
+      chargeRows.forEach((row, index) => {
+        if (index === chargeRows.length - 1) {
+          doc.setFillColor(238, 244, 255);
+          doc.rect(leftX, y - 5.5, 180, rowHeight, "F");
+        }
+
+        doc.setFont("helvetica", index === chargeRows.length - 1 ? "bold" : "normal");
+        doc.setFontSize(11);
+        doc.setTextColor(15, 23, 42);
+        doc.text(row[0], leftX, y);
+        doc.text(row[1], rightX, y);
+        y += rowHeight;
+      });
+
+      y += 2;
+      addLine("PAYMENT DETAILS", 15, 13, [11, 61, 145], "bold");
+      addLine(`Payment Status: ${inv.status || ""}`, 15, 11, [51, 65, 85]);
+
+      const paymentLink = paymentLinkByInvoice[inv.invoiceNumber] || inv.paymentLink || "No payment link added";
+      addWrappedText("Fygaro Payment Link:", paymentLink, 15, 180, 10, [51, 65, 85]);
+
+      y += 2;
+      addLine("NOTES", 15, 13, [11, 61, 145], "bold");
+
+      const notes = [
+        "Charges are calculated per package and then summed for the invoice.",
+        "Ready packages are the packages included in invoice billing.",
+        "EK points are redeemable starting at 500 points.",
+        "All payments should be completed before final package release.",
+      ];
+
+      notes.forEach((note) => {
+        const wrapped = doc.splitTextToSize(`• ${note}`, 180);
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(10);
+        doc.setTextColor(51, 65, 85);
+        doc.text(wrapped, 15, y);
+        y += wrapped.length * 5 + 1;
+      });
+
+      y += 4;
+      doc.setDrawColor(212, 175, 55);
+      doc.line(15, y, pageWidth - 15, y);
+      y += 8;
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(12);
+      doc.setTextColor(11, 61, 145);
+      doc.text("Thank you for shipping with Eltham Konnect", pageWidth / 2, y, {
+        align: "center",
+      });
+
+      doc.save(`${inv.invoiceNumber || "invoice"}.pdf`);
+    } catch (error) {
+      console.error("Error generating PDF:", error);
+      alert("Could not generate PDF for this invoice.");
+    }
+  };
+
   const metricCardStyle = {
     backgroundColor: WHITE,
     borderRadius: "12px",
@@ -172,6 +324,16 @@ function Invoices() {
     border: `1px solid ${BORDER}`,
     boxShadow: "0 2px 8px rgba(15,23,42,0.04)",
     minHeight: "115px",
+  };
+
+  const actionButtonStyle = {
+    color: WHITE,
+    border: "none",
+    padding: "10px 14px",
+    borderRadius: "8px",
+    cursor: "pointer",
+    fontWeight: "bold",
+    minWidth: "130px",
   };
 
   const paginationControls = (
@@ -276,7 +438,7 @@ function Invoices() {
       <div style={{ marginBottom: "20px" }}>
         <h1 style={{ margin: 0, color: "#0f172a" }}>Invoices</h1>
         <p style={{ margin: "6px 0 0 0", color: MUTED }}>
-          Manage invoice balances, payment links, and payment posting.
+          Manage invoice balances, payment links, payment posting, and PDF downloads.
         </p>
       </div>
 
@@ -396,7 +558,7 @@ function Invoices() {
             border="1"
             cellPadding="10"
             style={{
-              minWidth: "1900px",
+              minWidth: "2100px",
               width: "100%",
               borderCollapse: "collapse",
               borderColor: BORDER,
@@ -520,26 +682,41 @@ function Invoices() {
                     </td>
 
                     <td>
-                      <button
-                        onClick={() => markInvoicePaid(inv.invoiceNumber)}
-                        disabled={inv.status === "Paid"}
+                      <div
                         style={{
-                          backgroundColor:
-                            inv.status === "Paid" ? "#94a3b8" : "#16a34a",
-                          color: WHITE,
-                          border: "none",
-                          padding: "10px 14px",
-                          borderRadius: "8px",
-                          cursor:
-                            inv.status === "Paid"
-                              ? "not-allowed"
-                              : "pointer",
-                          fontWeight: "bold",
-                          minWidth: "110px",
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: "8px",
+                          minWidth: "150px",
                         }}
                       >
-                        Mark Paid
-                      </button>
+                        <button
+                          onClick={() => markInvoicePaid(inv.invoiceNumber)}
+                          disabled={inv.status === "Paid"}
+                          style={{
+                            ...actionButtonStyle,
+                            backgroundColor:
+                              inv.status === "Paid" ? "#94a3b8" : "#16a34a",
+                            cursor:
+                              inv.status === "Paid"
+                                ? "not-allowed"
+                                : "pointer",
+                          }}
+                        >
+                          Mark Paid
+                        </button>
+
+                        <button
+                          onClick={() => downloadInvoicePdf(inv)}
+                          style={{
+                            ...actionButtonStyle,
+                            backgroundColor: GOLD,
+                            color: "#1e293b",
+                          }}
+                        >
+                          Download PDF
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))
