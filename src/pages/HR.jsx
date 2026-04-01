@@ -7,7 +7,8 @@ function HR() {
   const [summary, setSummary] = useState(null);
   const [systemUsers, setSystemUsers] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
-
+  const [isEditing, setIsEditing] = useState(false);
+  const [editingEmployeeId, setEditingEmployeeId] = useState("");
   const [employeeForm, setEmployeeForm] = useState({
     fullName: "",
     firstName: "",
@@ -98,6 +99,46 @@ function HR() {
   const handleEmployeeChange = (e) => {
     const { name, value, type, checked } = e.target;
 
+    const loadEmployeeForEdit = (employee) => {
+  setEmployeeForm({
+    fullName: employee.fullName || "",
+    firstName: employee.firstName || "",
+    lastName: employee.lastName || "",
+    gender: employee.gender || "",
+    dateOfBirth: employee.dateOfBirth || "",
+    trn: employee.trn || "",
+    nisNumber: employee.nisNumber || "",
+    email: employee.email || "",
+    phone: employee.phone || "",
+    alternatePhone: employee.alternatePhone || "",
+    address: employee.address || "",
+    emergencyContactName: employee.emergencyContactName || "",
+    emergencyContactPhone: employee.emergencyContactPhone || "",
+    emergencyContactRelationship: employee.emergencyContactRelationship || "",
+    department: employee.department || "Operations",
+    jobTitle: employee.jobTitle || "",
+    branch: employee.branch || "Eltham Park Mainstore",
+    employmentType: employee.employmentType || "Temporary",
+    startDate: employee.startDate || "",
+    endDate: employee.endDate || "",
+    employmentStatus: employee.employmentStatus || "Active",
+    payType: employee.payType || "Monthly Salary",
+    payRate: employee.payRate || "",
+    payrollEnabled:
+      employee.payrollEnabled === false ? false : true,
+    linkedUserId: employee.linkedUserId || "",
+    attendanceRequired:
+      employee.attendanceRequired === false ? false : true,
+    leaveBalanceVacation: employee.leaveBalanceVacation || "",
+    leaveBalanceSick: employee.leaveBalanceSick || "",
+    leaveBalanceUnpaid: employee.leaveBalanceUnpaid || "",
+    notes: employee.notes || "",
+  });
+
+  setEditingEmployeeId(employee.employeeId);
+  setIsEditing(true);
+  setActiveTab("addEmployee");
+};
     setEmployeeForm((prev) => ({
       ...prev,
       [name]: type === "checkbox" ? checked : value,
@@ -110,6 +151,109 @@ function HR() {
         alert("Please complete full name and job title.");
         return;
       }
+
+      const updateEmployee = async () => {
+  try {
+    if (!editingEmployeeId) {
+      alert("No employee selected for update.");
+      return;
+    }
+const cancelEdit = () => {
+  setEmployeeForm({
+    fullName: "",
+    firstName: "",
+    lastName: "",
+    gender: "",
+    dateOfBirth: "",
+    trn: "",
+    nisNumber: "",
+    email: "",
+    phone: "",
+    alternatePhone: "",
+    address: "",
+    emergencyContactName: "",
+    emergencyContactPhone: "",
+    emergencyContactRelationship: "",
+    department: "Operations",
+    jobTitle: "",
+    branch: "Eltham Park Mainstore",
+    employmentType: "Temporary",
+    startDate: "",
+    endDate: "",
+    employmentStatus: "Active",
+    payType: "Monthly Salary",
+    payRate: "",
+    payrollEnabled: true,
+    linkedUserId: "",
+    attendanceRequired: true,
+    leaveBalanceVacation: "",
+    leaveBalanceSick: "",
+    leaveBalanceUnpaid: "",
+    notes: "",
+  });
+
+  setIsEditing(false);
+  setEditingEmployeeId("");
+};
+    if (!employeeForm.fullName || !employeeForm.jobTitle) {
+      alert("Please complete full name and job title.");
+      return;
+    }
+
+    const payload = {
+      ...employeeForm,
+      payRate: Number(employeeForm.payRate || 0),
+      leaveBalanceVacation: Number(employeeForm.leaveBalanceVacation || 0),
+      leaveBalanceSick: Number(employeeForm.leaveBalanceSick || 0),
+      leaveBalanceUnpaid: Number(employeeForm.leaveBalanceUnpaid || 0),
+    };
+
+    const res = await api.put(`/api/hr/${editingEmployeeId}`, payload);
+
+    alert(res.data.message);
+
+    setEmployeeForm({
+      fullName: "",
+      firstName: "",
+      lastName: "",
+      gender: "",
+      dateOfBirth: "",
+      trn: "",
+      nisNumber: "",
+      email: "",
+      phone: "",
+      alternatePhone: "",
+      address: "",
+      emergencyContactName: "",
+      emergencyContactPhone: "",
+      emergencyContactRelationship: "",
+      department: "Operations",
+      jobTitle: "",
+      branch: "Eltham Park Mainstore",
+      employmentType: "Temporary",
+      startDate: "",
+      endDate: "",
+      employmentStatus: "Active",
+      payType: "Monthly Salary",
+      payRate: "",
+      payrollEnabled: true,
+      linkedUserId: "",
+      attendanceRequired: true,
+      leaveBalanceVacation: "",
+      leaveBalanceSick: "",
+      leaveBalanceUnpaid: "",
+      notes: "",
+    });
+
+    setIsEditing(false);
+    setEditingEmployeeId("");
+    await fetchHRData();
+    setActiveTab("employees");
+  } catch (error) {
+    console.error("Error updating employee:", error);
+    alert(error?.response?.data?.message || "Could not update employee.");
+  }
+};
 
       const payload = {
         ...employeeForm,
@@ -509,6 +653,20 @@ function HR() {
                               Active
                             </button>
                             <button
+  onClick={() => loadEmployeeForEdit(employee)}
+  style={{
+    backgroundColor: ROYAL_BLUE,
+    color: WHITE,
+    border: "none",
+    padding: "6px 10px",
+    borderRadius: "6px",
+    cursor: "pointer",
+    fontWeight: "bold",
+  }}
+>
+  Edit
+</button>
+                            <button
                               onClick={() =>
                                 updateEmployeeStatus(
                                   employee.employeeId,
@@ -527,6 +685,20 @@ function HR() {
                             >
                               Leave
                             </button>
+                            <button
+  onClick={() => loadEmployeeForEdit(employee)}
+  style={{
+    backgroundColor: ROYAL_BLUE,
+    color: WHITE,
+    border: "none",
+    padding: "6px 10px",
+    borderRadius: "6px",
+    cursor: "pointer",
+    fontWeight: "bold",
+  }}
+>
+  Edit
+</button>
                             <button
                               onClick={() =>
                                 updateEmployeeStatus(
@@ -564,8 +736,9 @@ function HR() {
 
       {activeTab === "addEmployee" && (
         <div style={cardStyle}>
-          <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>Add Employee</h2>
-
+         <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>
+  {isEditing ? "Edit Employee" : "Add Employee"}
+</h2>
           <div
             style={{
               display: "grid",
@@ -885,21 +1058,39 @@ function HR() {
             />
           </div>
 
-          <button
-            onClick={addEmployee}
-            style={{
-              marginTop: "20px",
-              backgroundColor: ROYAL_BLUE,
-              color: WHITE,
-              border: "none",
-              padding: "10px 16px",
-              borderRadius: "8px",
-              cursor: "pointer",
-              fontWeight: "bold",
-            }}
-          >
-            Save Employee
-          </button>
+          <div style={{ marginTop: "20px", display: "flex", gap: "12px", flexWrap: "wrap" }}>
+  <button
+    onClick={isEditing ? updateEmployee : addEmployee}
+    style={{
+      backgroundColor: ROYAL_BLUE,
+      color: WHITE,
+      border: "none",
+      padding: "10px 16px",
+      borderRadius: "8px",
+      cursor: "pointer",
+      fontWeight: "bold",
+    }}
+  >
+    {isEditing ? "Update Employee" : "Save Employee"}
+  </button>
+
+  {isEditing && (
+    <button
+      onClick={cancelEdit}
+      style={{
+        backgroundColor: "#64748b",
+        color: WHITE,
+        border: "none",
+        padding: "10px 16px",
+        borderRadius: "8px",
+        cursor: "pointer",
+        fontWeight: "bold",
+      }}
+    >
+      Cancel Edit
+    </button>
+  )}
+</div>
         </div>
       )}
 
