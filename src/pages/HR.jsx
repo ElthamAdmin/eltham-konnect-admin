@@ -11,44 +11,48 @@ function HR() {
   const [isEditing, setIsEditing] = useState(false);
   const [editingEmployeeId, setEditingEmployeeId] = useState("");
 
+  const ROYAL_BLUE = "#0B3D91";
+  const GOLD = "#D4AF37";
+  const WHITE = "#FFFFFF";
+  const LIGHT_BG = "#f4f7fb";
+  const BORDER = "#dbe3ef";
+  const MUTED = "#64748b";
+
   const emptyForm = {
     fullName: "",
-    firstName: "",
-    lastName: "",
-    gender: "",
-    dateOfBirth: "",
-    trn: "",
-    nisNumber: "",
-    email: "",
-    phone: "",
-    alternatePhone: "",
-    address: "",
-    emergencyContactName: "",
-    emergencyContactPhone: "",
-    emergencyContactRelationship: "",
-    department: "Operations",
     jobTitle: "",
-    branch: "Eltham Park Mainstore",
-    employmentType: "Temporary",
-    startDate: "",
-    endDate: "",
-    employmentStatus: "Active",
-    payType: "Monthly Salary",
     payRate: "",
-    payrollEnabled: true,
-    linkedUserId: "",
-    attendanceRequired: true,
-    leaveBalanceVacation: "",
-    leaveBalanceSick: "",
-    leaveBalanceUnpaid: "",
-    notes: "",
   };
 
   const [employeeForm, setEmployeeForm] = useState(emptyForm);
 
-  const ROYAL_BLUE = "#0B3D91";
-  const WHITE = "#FFFFFF";
-  const BORDER = "#dbe3ef";
+  const cardStyle = {
+    backgroundColor: WHITE,
+    borderRadius: "14px",
+    padding: "20px",
+    border: `1px solid ${BORDER}`,
+    boxShadow: "0 4px 14px rgba(15,23,42,0.05)",
+  };
+
+  const primaryButton = {
+    backgroundColor: ROYAL_BLUE,
+    color: WHITE,
+    border: "none",
+    padding: "8px 14px",
+    borderRadius: "8px",
+    fontWeight: "bold",
+    cursor: "pointer",
+  };
+
+  const secondaryButton = {
+    backgroundColor: "#64748b",
+    color: WHITE,
+    border: "none",
+    padding: "8px 14px",
+    borderRadius: "8px",
+    fontWeight: "bold",
+    cursor: "pointer",
+  };
 
   const fetchHRData = async () => {
     try {
@@ -61,7 +65,7 @@ function HR() {
       setEmployees(employeesRes.data.data || []);
       setSummary(summaryRes.data.data || null);
       setSystemUsers(usersRes.data.data || []);
-    } catch (error) {
+    } catch {
       alert("Failed to load HR data");
     }
   };
@@ -71,18 +75,15 @@ function HR() {
   }, []);
 
   const handleEmployeeChange = (e) => {
-    const { name, value, type, checked } = e.target;
-
-    setEmployeeForm((prev) => ({
-      ...prev,
-      [name]: type === "checkbox" ? checked : value,
-    }));
+    const { name, value } = e.target;
+    setEmployeeForm((prev) => ({ ...prev, [name]: value }));
   };
 
   const loadEmployeeForEdit = (employee) => {
     setEmployeeForm({
-      ...emptyForm,
-      ...employee,
+      fullName: employee.fullName || "",
+      jobTitle: employee.jobTitle || "",
+      payRate: employee.payRate || "",
     });
 
     setEditingEmployeeId(employee.employeeId);
@@ -98,16 +99,14 @@ function HR() {
 
   const addEmployee = async () => {
     try {
-      const payload = {
+      const res = await api.post("/api/hr", {
         ...employeeForm,
         payRate: Number(employeeForm.payRate || 0),
-      };
+      });
 
-      const res = await api.post("/api/hr", payload);
       alert(res.data.message);
-
       setEmployeeForm(emptyForm);
-      await fetchHRData();
+      fetchHRData();
       setActiveTab("employees");
     } catch {
       alert("Error adding employee");
@@ -116,31 +115,25 @@ function HR() {
 
   const updateEmployee = async () => {
     try {
-      const payload = {
+      const res = await api.put(`/api/hr/${editingEmployeeId}`, {
         ...employeeForm,
         payRate: Number(employeeForm.payRate || 0),
-      };
+      });
 
-      const res = await api.put(`/api/hr/${editingEmployeeId}`, payload);
       alert(res.data.message);
-
       cancelEdit();
-      await fetchHRData();
+      fetchHRData();
       setActiveTab("employees");
     } catch {
       alert("Error updating employee");
     }
   };
 
-  const updateEmployeeStatus = async (employeeId, status) => {
-    try {
-      await api.put(`/api/hr/${employeeId}/status`, {
-        employmentStatus: status,
-      });
-      fetchHRData();
-    } catch {
-      alert("Status update failed");
-    }
+  const updateEmployeeStatus = async (id, status) => {
+    await api.put(`/api/hr/${id}/status`, {
+      employmentStatus: status,
+    });
+    fetchHRData();
   };
 
   const filteredEmployees = useMemo(() => {
@@ -150,24 +143,29 @@ function HR() {
   }, [employees, searchTerm]);
 
   return (
-    <div>
-      <h1>HR Module</h1>
+    <div style={{ backgroundColor: LIGHT_BG, minHeight: "100vh", padding: "20px" }}>
+      <h1 style={{ color: ROYAL_BLUE }}>HR Module</h1>
 
-      <button onClick={() => setActiveTab("employees")}>Employees</button>
-      <button onClick={() => setActiveTab("addEmployee")}>
-        Add Employee
-      </button>
+      <div style={{ display: "flex", gap: "10px", marginBottom: "20px" }}>
+        <button style={primaryButton} onClick={() => setActiveTab("employees")}>
+          Employees
+        </button>
+        <button style={primaryButton} onClick={() => setActiveTab("addEmployee")}>
+          Add Employee
+        </button>
+      </div>
 
       {activeTab === "employees" && (
-        <div>
+        <div style={cardStyle}>
           <input
             placeholder="Search..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
+            style={{ padding: "10px", marginBottom: "15px", width: "100%" }}
           />
 
-          <table border="1" cellPadding="10">
-            <thead>
+          <table width="100%" cellPadding="10" style={{ borderCollapse: "collapse" }}>
+            <thead style={{ backgroundColor: "#eef4ff" }}>
               <tr>
                 <th>Name</th>
                 <th>Job</th>
@@ -183,25 +181,25 @@ function HR() {
                   <td>{e.jobTitle}</td>
                   <td>{e.employmentStatus}</td>
                   <td>
-                    <button onClick={() => loadEmployeeForEdit(e)}>
-                      Edit
-                    </button>
+                    <div style={{ display: "flex", gap: "8px" }}>
+                      <button style={primaryButton} onClick={() => loadEmployeeForEdit(e)}>
+                        Edit
+                      </button>
 
-                    <button
-                      onClick={() =>
-                        updateEmployeeStatus(e.employeeId, "Active")
-                      }
-                    >
-                      Active
-                    </button>
+                      <button
+                        style={primaryButton}
+                        onClick={() => updateEmployeeStatus(e.employeeId, "Active")}
+                      >
+                        Active
+                      </button>
 
-                    <button
-                      onClick={() =>
-                        updateEmployeeStatus(e.employeeId, "Inactive")
-                      }
-                    >
-                      Inactive
-                    </button>
+                      <button
+                        style={secondaryButton}
+                        onClick={() => updateEmployeeStatus(e.employeeId, "Inactive")}
+                      >
+                        Inactive
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -211,14 +209,17 @@ function HR() {
       )}
 
       {activeTab === "addEmployee" && (
-        <div>
-          <h2>{isEditing ? "Edit Employee" : "Add Employee"}</h2>
+        <div style={cardStyle}>
+          <h2 style={{ color: ROYAL_BLUE }}>
+            {isEditing ? "Edit Employee" : "Add Employee"}
+          </h2>
 
           <input
             name="fullName"
             placeholder="Full Name"
             value={employeeForm.fullName}
             onChange={handleEmployeeChange}
+            style={{ padding: "10px", marginBottom: "10px", width: "100%" }}
           />
 
           <input
@@ -226,6 +227,7 @@ function HR() {
             placeholder="Job Title"
             value={employeeForm.jobTitle}
             onChange={handleEmployeeChange}
+            style={{ padding: "10px", marginBottom: "10px", width: "100%" }}
           />
 
           <input
@@ -233,15 +235,20 @@ function HR() {
             placeholder="Pay Rate"
             value={employeeForm.payRate}
             onChange={handleEmployeeChange}
+            style={{ padding: "10px", marginBottom: "10px", width: "100%" }}
           />
 
-          <br />
+          <div style={{ display: "flex", gap: "10px" }}>
+            <button style={primaryButton} onClick={isEditing ? updateEmployee : addEmployee}>
+              {isEditing ? "Update" : "Save"}
+            </button>
 
-          <button onClick={isEditing ? updateEmployee : addEmployee}>
-            {isEditing ? "Update" : "Save"}
-          </button>
-
-          {isEditing && <button onClick={cancelEdit}>Cancel</button>}
+            {isEditing && (
+              <button style={secondaryButton} onClick={cancelEdit}>
+                Cancel
+              </button>
+            )}
+          </div>
         </div>
       )}
     </div>
