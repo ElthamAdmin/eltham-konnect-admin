@@ -24,97 +24,21 @@ import HR from "./pages/HR";
 import Login from "./pages/Login";
 import DutyMonitor from "./pages/DutyMonitor";
 
-function HRModulePlaceholder() {
-  return (
-    <div
-      style={{
-        backgroundColor: "white",
-        borderRadius: "12px",
-        padding: "24px",
-        border: "1px solid #e5e7eb",
-      }}
-    >
-      <h1 style={{ marginTop: 0, color: "#0B3D91" }}>HR Module</h1>
-      <p style={{ color: "#475569", lineHeight: 1.6 }}>
-        The HR module has been added to the admin system and backend. The next
-        step is building the full HR page interface.
-      </p>
-
-      <div
-        style={{
-          marginTop: "18px",
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-          gap: "16px",
-        }}
-      >
-        <div
-          style={{
-            backgroundColor: "#f8fafc",
-            border: "1px solid #e2e8f0",
-            borderRadius: "10px",
-            padding: "16px",
-          }}
-        >
-          <strong style={{ color: "#0B3D91" }}>Employees</strong>
-          <p style={{ margin: "8px 0 0 0", color: "#64748b" }}>
-            Add, edit, and manage staff records.
-          </p>
-        </div>
-
-        <div
-          style={{
-            backgroundColor: "#f8fafc",
-            border: "1px solid #e2e8f0",
-            borderRadius: "10px",
-            padding: "16px",
-          }}
-        >
-          <strong style={{ color: "#0B3D91" }}>Attendance</strong>
-          <p style={{ margin: "8px 0 0 0", color: "#64748b" }}>
-            Track employee duty status and attendance history.
-          </p>
-        </div>
-
-        <div
-          style={{
-            backgroundColor: "#f8fafc",
-            border: "1px solid #e2e8f0",
-            borderRadius: "10px",
-            padding: "16px",
-          }}
-        >
-          <strong style={{ color: "#0B3D91" }}>Leave</strong>
-          <p style={{ margin: "8px 0 0 0", color: "#64748b" }}>
-            Manage leave balances and staff leave requests.
-          </p>
-        </div>
-
-        <div
-          style={{
-            backgroundColor: "#f8fafc",
-            border: "1px solid #e2e8f0",
-            borderRadius: "10px",
-            padding: "16px",
-          }}
-        >
-          <strong style={{ color: "#0B3D91" }}>Payroll Link</strong>
-          <p style={{ margin: "8px 0 0 0", color: "#64748b" }}>
-            Connect employee records to finance payroll data.
-          </p>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 function AppShell() {
   const { user, logout, refreshMyDuty } = useAuth();
   const location = useLocation();
   const [attendance, setAttendance] = useState(null);
 
   const permissions = user?.permissions || [];
+
   const can = (key) => permissions.includes(key) || user?.role === "Admin";
+
+  const canAccessHR =
+    can("hr") ||
+    can("hrSelfService") ||
+    can("leaveSelfService") ||
+    can("documentSelfService") ||
+    can("payslipSelfService");
 
   const navItemStyle = (active) => ({
     color: "white",
@@ -232,6 +156,7 @@ function AppShell() {
             POS
           </Link>
         )}
+
         {can("customers") && (
           <Link
             to="/customers"
@@ -240,6 +165,7 @@ function AppShell() {
             Customers
           </Link>
         )}
+
         {can("manifests") && (
           <Link
             to="/manifests"
@@ -248,6 +174,7 @@ function AppShell() {
             Manifests
           </Link>
         )}
+
         {can("packages") && (
           <Link
             to="/packages"
@@ -256,6 +183,7 @@ function AppShell() {
             Packages
           </Link>
         )}
+
         {can("invoices") && (
           <Link
             to="/invoices"
@@ -264,6 +192,7 @@ function AppShell() {
             Invoices
           </Link>
         )}
+
         {can("packages") && (
           <Link
             to="/prealerts"
@@ -272,6 +201,7 @@ function AppShell() {
             PreAlerts
           </Link>
         )}
+
         {can("support") && (
           <Link
             to="/support-tickets"
@@ -280,6 +210,7 @@ function AppShell() {
             Support Tickets
           </Link>
         )}
+
         {can("finance") && (
           <Link
             to="/finance"
@@ -288,11 +219,13 @@ function AppShell() {
             Finance
           </Link>
         )}
-        {can("hr") && (
+
+        {canAccessHR && (
           <Link to="/hr" style={navItemStyle(location.pathname === "/hr")}>
             HR
           </Link>
         )}
+
         {can("communication") && (
           <Link
             to="/communication"
@@ -301,6 +234,7 @@ function AppShell() {
             Communication
           </Link>
         )}
+
         {can("marketing") && (
           <Link
             to="/marketing"
@@ -309,11 +243,13 @@ function AppShell() {
             Marketing Info
           </Link>
         )}
+
         {can("users") && (
           <Link to="/users" style={navItemStyle(location.pathname === "/users")}>
             System Users
           </Link>
         )}
+
         {can("users") && (
           <Link
             to="/duty-monitor"
@@ -322,6 +258,7 @@ function AppShell() {
             Duty Monitor
           </Link>
         )}
+
         {can("users") && (
           <Link
             to="/audit-logs"
@@ -330,6 +267,7 @@ function AppShell() {
             Audit Logs
           </Link>
         )}
+
         {can("settings") && (
           <Link
             to="/settings"
@@ -338,6 +276,7 @@ function AppShell() {
             Settings
           </Link>
         )}
+
         {can("warehouse") && (
           <Link
             to="/warehouse-management"
@@ -346,6 +285,7 @@ function AppShell() {
             Warehouse Management
           </Link>
         )}
+
         {can("pointsHistory") && (
           <Link
             to="/points-history"
@@ -497,74 +437,92 @@ function AppShell() {
         <div style={{ padding: "26px" }}>
           <Routes>
             <Route path="/" element={<Dashboard />} />
+
             <Route
               path="/pos"
               element={can("pos") ? <POS /> : <Navigate to="/" replace />}
             />
+
             <Route
               path="/customers"
               element={can("customers") ? <Customers /> : <Navigate to="/" replace />}
             />
+
             <Route
               path="/manifests"
               element={can("manifests") ? <Manifests /> : <Navigate to="/" replace />}
             />
+
             <Route
               path="/packages"
               element={can("packages") ? <Packages /> : <Navigate to="/" replace />}
             />
+
             <Route
               path="/invoices"
               element={can("invoices") ? <Invoices /> : <Navigate to="/" replace />}
             />
+
             <Route
               path="/prealerts"
               element={can("packages") ? <PreAlerts /> : <Navigate to="/" replace />}
             />
+
             <Route
               path="/support-tickets"
               element={can("support") ? <SupportTickets /> : <Navigate to="/" replace />}
             />
+
             <Route
               path="/finance"
               element={can("finance") ? <Finance /> : <Navigate to="/" replace />}
             />
+
             <Route
-  path="/hr"
-  element={can("hr") ? <HR /> : <Navigate to="/" replace />}
-/>
+              path="/hr"
+              element={canAccessHR ? <HR /> : <Navigate to="/" replace />}
+            />
+
             <Route
               path="/communication"
               element={can("communication") ? <Communication /> : <Navigate to="/" replace />}
             />
+
             <Route
               path="/marketing"
               element={can("marketing") ? <MarketingInfo /> : <Navigate to="/" replace />}
             />
+
             <Route
               path="/users"
               element={can("users") ? <SystemUsers /> : <Navigate to="/" replace />}
             />
+
             <Route
               path="/duty-monitor"
               element={can("users") ? <DutyMonitor /> : <Navigate to="/" replace />}
             />
+
             <Route
               path="/audit-logs"
               element={can("users") ? <AuditLogs /> : <Navigate to="/" replace />}
             />
+
             <Route
               path="/settings"
               element={can("settings") ? <Settings /> : <Navigate to="/" replace />}
             />
+
             <Route
               path="/warehouse-management"
               element={can("warehouse") ? <WarehouseManagement /> : <Navigate to="/" replace />}
             />
+
             <Route
               path="/points-history"
               element={can("pointsHistory") ? <PointsHistory /> : <Navigate to="/" replace />}
             />
+
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </div>
