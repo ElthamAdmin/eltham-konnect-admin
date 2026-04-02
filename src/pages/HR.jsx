@@ -6,6 +6,7 @@ function HR() {
   const [employees, setEmployees] = useState([]);
   const [summary, setSummary] = useState(null);
   const [systemUsers, setSystemUsers] = useState([]);
+  const [leaveRequests, setLeaveRequests] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
 
   const [isEditing, setIsEditing] = useState(false);
@@ -24,7 +25,17 @@ function HR() {
     payRate: "",
   };
 
+  const emptyLeaveForm = {
+    employeeId: "",
+    leaveType: "Vacation",
+    startDate: "",
+    endDate: "",
+    reason: "",
+  };
+
   const [employeeForm, setEmployeeForm] = useState(emptyForm);
+  const [leaveForm, setLeaveForm] = useState(emptyLeaveForm);
+  const [leaveAdminComment, setLeaveAdminComment] = useState("");
 
   const cardStyle = {
     backgroundColor: WHITE,
@@ -54,19 +65,52 @@ function HR() {
     cursor: "pointer",
   };
 
+  const successButton = {
+    backgroundColor: "#16a34a",
+    color: WHITE,
+    border: "none",
+    padding: "8px 14px",
+    borderRadius: "8px",
+    fontWeight: "bold",
+    cursor: "pointer",
+  };
+
+  const warningButton = {
+    backgroundColor: "#f59e0b",
+    color: WHITE,
+    border: "none",
+    padding: "8px 14px",
+    borderRadius: "8px",
+    fontWeight: "bold",
+    cursor: "pointer",
+  };
+
+  const dangerButton = {
+    backgroundColor: "#dc2626",
+    color: WHITE,
+    border: "none",
+    padding: "8px 14px",
+    borderRadius: "8px",
+    fontWeight: "bold",
+    cursor: "pointer",
+  };
+
   const fetchHRData = async () => {
     try {
-      const [employeesRes, summaryRes, usersRes] = await Promise.all([
+      const [employeesRes, summaryRes, usersRes, leaveRes] = await Promise.all([
         api.get("/api/hr"),
         api.get("/api/hr/summary"),
         api.get("/api/system-users"),
+        api.get("/api/leave-requests"),
       ]);
 
       setEmployees(employeesRes.data.data || []);
       setSummary(summaryRes.data.data || null);
       setSystemUsers(usersRes.data.data || []);
-    } catch {
-      alert("Failed to load HR data");
+      setLeaveRequests(leaveRes.data.data || []);
+    } catch (error) {
+      console.error("Failed to load HR data:", error);
+      alert(error?.response?.data?.message || "Failed to load HR data");
     }
   };
 
@@ -77,6 +121,11 @@ function HR() {
   const handleEmployeeChange = (e) => {
     const { name, value } = e.target;
     setEmployeeForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleLeaveChange = (e) => {
+    const { name, value } = e.target;
+    setLeaveForm((prev) => ({ ...prev, [name]: value }));
   };
 
   const loadEmployeeForEdit = (employee) => {
@@ -106,10 +155,11 @@ function HR() {
 
       alert(res.data.message);
       setEmployeeForm(emptyForm);
-      fetchHRData();
+      await fetchHRData();
       setActiveTab("employees");
-    } catch {
-      alert("Error adding employee");
+    } catch (error) {
+      console.error(error);
+      alert(error?.response?.data?.message || "Error adding employee");
     }
   };
 
@@ -122,18 +172,77 @@ function HR() {
 
       alert(res.data.message);
       cancelEdit();
-      fetchHRData();
+      await fetchHRData();
       setActiveTab("employees");
-    } catch {
-      alert("Error updating employee");
+    } catch (error) {
+      console.error(error);
+      alert(error?.response?.data?.message || "Error updating employee");
     }
   };
 
   const updateEmployeeStatus = async (id, status) => {
-    await api.put(`/api/hr/${id}/status`, {
-      employmentStatus: status,
-    });
-    fetchHRData();
+    try {
+      await api.put(`/api/hr/${id}/status`, {
+        employmentStatus: status,
+      });
+      await fetchHRData();
+    } catch (error) {
+      console.error(error);
+      alert(error?.response?.data?.message || "Status update failed");
+    }
+  };
+
+  const submitLeaveRequest = async () => {
+    try {
+      if (
+        !leaveForm.employeeId ||
+        !leaveForm.leaveType ||
+        !leaveForm.startDate ||
+        !leaveForm.endDate
+      ) {
+        alert("Please complete employee, leave type, start date, and end date.");
+        return;
+      }
+
+      const res = await api.post("/api/leave-requests", leaveForm);
+
+      alert(res.data.message);
+      setLeaveForm(emptyLeaveForm);
+      await fetchHRData();
+    } catch (error) {
+      console.error(error);
+      alert(error?.response?.data?.message || "Failed to submit leave request");
+    }
+  };
+
+  const approveLeaveRequest = async (leaveRequestId) => {
+    try {
+      const res = await api.put(`/api/leave-requests/${leaveRequestId}/approve`, {
+        adminComment: leaveAdminComment,
+      });
+
+      alert(res.data.message);
+      setLeaveAdminComment("");
+      await fetchHRData();
+    } catch (error) {
+      console.error(error);
+      alert(error?.response?.data?.message || "Failed to approve leave request");
+    }
+  };
+
+  const rejectLeaveRequest = async (leaveRequestId) => {
+    try {
+      const res = await api.put(`/api/leave-requests/${leaveRequestId}/reject`, {
+        adminComment: leaveAdminComment,
+      });
+
+      alert(res.data.message);
+      setLeaveAdminComment("");
+      await fetchHRData();
+    } catch (error) {
+      console.error(error);
+      alert(error?.response?.data?.message || "Failed to reject leave request");
+    }
   };
 
   const filteredEmployees = useMemo(() => {
@@ -142,69 +251,195 @@ function HR() {
     );
   }, [employees, searchTerm]);
 
+  const leaveStatusBadge = (status) => {
+    const backgroundColor =
+      status === "Approved"
+        ? "#16a34a"
+        : status === "Rejected"
+        ? "#dc2626"
+        : status === "Pending"
+        ? "#f59e0b"
+        : "#64748b";
+
+    return (
+      <span
+        style={{
+          backgroundColor,
+          color: WHITE,
+          padding: "4px 10px",
+          borderRadius: "999px",
+          fontWeight: "bold",
+          fontSize: "12px",
+        }}
+      >
+        {status}
+      </span>
+    );
+  };
+
   return (
     <div style={{ backgroundColor: LIGHT_BG, minHeight: "100vh", padding: "20px" }}>
-      <h1 style={{ color: ROYAL_BLUE }}>HR Module</h1>
+      <h1 style={{ color: ROYAL_BLUE, marginTop: 0 }}>HR Module</h1>
 
-      <div style={{ display: "flex", gap: "10px", marginBottom: "20px" }}>
+      <div style={{ display: "flex", gap: "10px", marginBottom: "20px", flexWrap: "wrap" }}>
         <button style={primaryButton} onClick={() => setActiveTab("employees")}>
           Employees
         </button>
         <button style={primaryButton} onClick={() => setActiveTab("addEmployee")}>
           Add Employee
         </button>
+        <button style={primaryButton} onClick={() => setActiveTab("leaveRequests")}>
+          Leave Requests
+        </button>
       </div>
 
       {activeTab === "employees" && (
         <div style={cardStyle}>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+              gap: "14px",
+              marginBottom: "20px",
+            }}
+          >
+            <div
+              style={{
+                backgroundColor: "#eef4ff",
+                borderRadius: "12px",
+                padding: "16px",
+                border: `1px solid ${BORDER}`,
+              }}
+            >
+              <div style={{ fontSize: "28px", fontWeight: "bold", color: ROYAL_BLUE }}>
+                {summary?.totalEmployees || 0}
+              </div>
+              <div style={{ color: MUTED }}>Total Employees</div>
+            </div>
+
+            <div
+              style={{
+                backgroundColor: "#f0fdf4",
+                borderRadius: "12px",
+                padding: "16px",
+                border: `1px solid ${BORDER}`,
+              }}
+            >
+              <div style={{ fontSize: "28px", fontWeight: "bold", color: "#16a34a" }}>
+                {summary?.activeEmployees || 0}
+              </div>
+              <div style={{ color: MUTED }}>Active</div>
+            </div>
+
+            <div
+              style={{
+                backgroundColor: "#fffbeb",
+                borderRadius: "12px",
+                padding: "16px",
+                border: `1px solid ${BORDER}`,
+              }}
+            >
+              <div style={{ fontSize: "28px", fontWeight: "bold", color: "#f59e0b" }}>
+                {summary?.onLeaveEmployees || 0}
+              </div>
+              <div style={{ color: MUTED }}>On Leave</div>
+            </div>
+
+            <div
+              style={{
+                backgroundColor: "#fef2f2",
+                borderRadius: "12px",
+                padding: "16px",
+                border: `1px solid ${BORDER}`,
+              }}
+            >
+              <div style={{ fontSize: "28px", fontWeight: "bold", color: "#dc2626" }}>
+                {summary?.terminatedEmployees || 0}
+              </div>
+              <div style={{ color: MUTED }}>Terminated</div>
+            </div>
+          </div>
+
           <input
             placeholder="Search..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            style={{ padding: "10px", marginBottom: "15px", width: "100%" }}
+            style={{
+              padding: "10px",
+              marginBottom: "15px",
+              width: "100%",
+              border: `1px solid ${BORDER}`,
+              borderRadius: "8px",
+            }}
           />
 
-          <table width="100%" cellPadding="10" style={{ borderCollapse: "collapse" }}>
-            <thead style={{ backgroundColor: "#eef4ff" }}>
-              <tr>
-                <th>Name</th>
-                <th>Job</th>
-                <th>Status</th>
-                <th>Action</th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {filteredEmployees.map((e) => (
-                <tr key={e.employeeId}>
-                  <td>{e.fullName}</td>
-                  <td>{e.jobTitle}</td>
-                  <td>{e.employmentStatus}</td>
-                  <td>
-                    <div style={{ display: "flex", gap: "8px" }}>
-                      <button style={primaryButton} onClick={() => loadEmployeeForEdit(e)}>
-                        Edit
-                      </button>
-
-                      <button
-                        style={primaryButton}
-                        onClick={() => updateEmployeeStatus(e.employeeId, "Active")}
-                      >
-                        Active
-                      </button>
-
-                      <button
-                        style={secondaryButton}
-                        onClick={() => updateEmployeeStatus(e.employeeId, "Inactive")}
-                      >
-                        Inactive
-                      </button>
-                    </div>
-                  </td>
+          <div style={{ overflowX: "auto" }}>
+            <table width="100%" cellPadding="10" style={{ borderCollapse: "collapse" }}>
+              <thead style={{ backgroundColor: "#eef4ff" }}>
+                <tr>
+                  <th align="left">Name</th>
+                  <th align="left">Job</th>
+                  <th align="left">Pay Rate</th>
+                  <th align="left">Status</th>
+                  <th align="left">Action</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+
+              <tbody>
+                {filteredEmployees.map((e) => (
+                  <tr key={e.employeeId}>
+                    <td>{e.fullName}</td>
+                    <td>{e.jobTitle}</td>
+                    <td>JMD {Number(e.payRate || 0).toLocaleString()}</td>
+                    <td>{e.employmentStatus}</td>
+                    <td>
+                      <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                        <button style={primaryButton} onClick={() => loadEmployeeForEdit(e)}>
+                          Edit
+                        </button>
+
+                        <button
+                          style={successButton}
+                          onClick={() => updateEmployeeStatus(e.employeeId, "Active")}
+                        >
+                          Active
+                        </button>
+
+                        <button
+                          style={warningButton}
+                          onClick={() => updateEmployeeStatus(e.employeeId, "On Leave")}
+                        >
+                          Leave
+                        </button>
+
+                        <button
+                          style={secondaryButton}
+                          onClick={() => updateEmployeeStatus(e.employeeId, "Inactive")}
+                        >
+                          Inactive
+                        </button>
+
+                        <button
+                          style={dangerButton}
+                          onClick={() => updateEmployeeStatus(e.employeeId, "Terminated")}
+                        >
+                          Terminate
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+
+                {filteredEmployees.length === 0 && (
+                  <tr>
+                    <td colSpan="5" style={{ textAlign: "center", padding: "20px", color: MUTED }}>
+                      No employees found
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
@@ -219,7 +454,13 @@ function HR() {
             placeholder="Full Name"
             value={employeeForm.fullName}
             onChange={handleEmployeeChange}
-            style={{ padding: "10px", marginBottom: "10px", width: "100%" }}
+            style={{
+              padding: "10px",
+              marginBottom: "10px",
+              width: "100%",
+              border: `1px solid ${BORDER}`,
+              borderRadius: "8px",
+            }}
           />
 
           <input
@@ -227,7 +468,13 @@ function HR() {
             placeholder="Job Title"
             value={employeeForm.jobTitle}
             onChange={handleEmployeeChange}
-            style={{ padding: "10px", marginBottom: "10px", width: "100%" }}
+            style={{
+              padding: "10px",
+              marginBottom: "10px",
+              width: "100%",
+              border: `1px solid ${BORDER}`,
+              borderRadius: "8px",
+            }}
           />
 
           <input
@@ -235,7 +482,13 @@ function HR() {
             placeholder="Pay Rate"
             value={employeeForm.payRate}
             onChange={handleEmployeeChange}
-            style={{ padding: "10px", marginBottom: "10px", width: "100%" }}
+            style={{
+              padding: "10px",
+              marginBottom: "10px",
+              width: "100%",
+              border: `1px solid ${BORDER}`,
+              borderRadius: "8px",
+            }}
           />
 
           <div style={{ display: "flex", gap: "10px" }}>
@@ -248,6 +501,178 @@ function HR() {
                 Cancel
               </button>
             )}
+          </div>
+        </div>
+      )}
+
+      {activeTab === "leaveRequests" && (
+        <div style={{ display: "grid", gap: "20px" }}>
+          <div style={cardStyle}>
+            <h2 style={{ color: ROYAL_BLUE, marginTop: 0 }}>Submit Leave Request</h2>
+
+            <select
+              name="employeeId"
+              value={leaveForm.employeeId}
+              onChange={handleLeaveChange}
+              style={{
+                padding: "10px",
+                marginBottom: "10px",
+                width: "100%",
+                border: `1px solid ${BORDER}`,
+                borderRadius: "8px",
+              }}
+            >
+              <option value="">Select Employee</option>
+              {employees.map((employee) => (
+                <option key={employee.employeeId} value={employee.employeeId}>
+                  {employee.fullName} ({employee.employeeId})
+                </option>
+              ))}
+            </select>
+
+            <select
+              name="leaveType"
+              value={leaveForm.leaveType}
+              onChange={handleLeaveChange}
+              style={{
+                padding: "10px",
+                marginBottom: "10px",
+                width: "100%",
+                border: `1px solid ${BORDER}`,
+                borderRadius: "8px",
+              }}
+            >
+              <option value="Vacation">Vacation</option>
+              <option value="Sick">Sick</option>
+              <option value="Unpaid">Unpaid</option>
+              <option value="Emergency">Emergency</option>
+            </select>
+
+            <input
+              type="date"
+              name="startDate"
+              value={leaveForm.startDate}
+              onChange={handleLeaveChange}
+              style={{
+                padding: "10px",
+                marginBottom: "10px",
+                width: "100%",
+                border: `1px solid ${BORDER}`,
+                borderRadius: "8px",
+              }}
+            />
+
+            <input
+              type="date"
+              name="endDate"
+              value={leaveForm.endDate}
+              onChange={handleLeaveChange}
+              style={{
+                padding: "10px",
+                marginBottom: "10px",
+                width: "100%",
+                border: `1px solid ${BORDER}`,
+                borderRadius: "8px",
+              }}
+            />
+
+            <textarea
+              name="reason"
+              placeholder="Reason"
+              value={leaveForm.reason}
+              onChange={handleLeaveChange}
+              style={{
+                padding: "10px",
+                marginBottom: "10px",
+                width: "100%",
+                minHeight: "100px",
+                border: `1px solid ${BORDER}`,
+                borderRadius: "8px",
+              }}
+            />
+
+            <button style={primaryButton} onClick={submitLeaveRequest}>
+              Submit Leave Request
+            </button>
+          </div>
+
+          <div style={cardStyle}>
+            <h2 style={{ color: ROYAL_BLUE, marginTop: 0 }}>Leave Requests</h2>
+
+            <textarea
+              placeholder="Admin comment for approve/reject actions"
+              value={leaveAdminComment}
+              onChange={(e) => setLeaveAdminComment(e.target.value)}
+              style={{
+                padding: "10px",
+                marginBottom: "15px",
+                width: "100%",
+                minHeight: "80px",
+                border: `1px solid ${BORDER}`,
+                borderRadius: "8px",
+              }}
+            />
+
+            <div style={{ overflowX: "auto" }}>
+              <table width="100%" cellPadding="10" style={{ borderCollapse: "collapse" }}>
+                <thead style={{ backgroundColor: "#eef4ff" }}>
+                  <tr>
+                    <th align="left">Request ID</th>
+                    <th align="left">Employee</th>
+                    <th align="left">Type</th>
+                    <th align="left">Dates</th>
+                    <th align="left">Days</th>
+                    <th align="left">Status</th>
+                    <th align="left">Reason</th>
+                    <th align="left">Action</th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {leaveRequests.map((request) => (
+                    <tr key={request.leaveRequestId}>
+                      <td>{request.leaveRequestId}</td>
+                      <td>{request.employeeName}</td>
+                      <td>{request.leaveType}</td>
+                      <td>
+                        {request.startDate} to {request.endDate}
+                      </td>
+                      <td>{request.totalDays}</td>
+                      <td>{leaveStatusBadge(request.status)}</td>
+                      <td>{request.reason || "-"}</td>
+                      <td>
+                        {request.status === "Pending" ? (
+                          <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                            <button
+                              style={successButton}
+                              onClick={() => approveLeaveRequest(request.leaveRequestId)}
+                            >
+                              Approve
+                            </button>
+                            <button
+                              style={dangerButton}
+                              onClick={() => rejectLeaveRequest(request.leaveRequestId)}
+                            >
+                              Reject
+                            </button>
+                          </div>
+                        ) : (
+                          <span style={{ color: MUTED }}>No action</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+
+                  {leaveRequests.length === 0 && (
+                    <tr>
+                      <td colSpan="8" style={{ textAlign: "center", padding: "20px", color: MUTED }}>
+                        No leave requests found
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       )}
