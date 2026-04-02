@@ -1,16 +1,29 @@
 import { useEffect, useMemo, useState } from "react";
 import api from "../api";
+import { useAuth } from "../context/AuthContext";
 
 function HR() {
+  const { user } = useAuth();
+
   const [activeTab, setActiveTab] = useState("employees");
   const [employees, setEmployees] = useState([]);
   const [summary, setSummary] = useState(null);
   const [systemUsers, setSystemUsers] = useState([]);
   const [leaveRequests, setLeaveRequests] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
+  const [myEmployee, setMyEmployee] = useState(null);
 
   const [isEditing, setIsEditing] = useState(false);
   const [editingEmployeeId, setEditingEmployeeId] = useState("");
+
+  const permissions = user?.permissions || [];
+  const isAdminHR = permissions.includes("hr") || user?.role === "Admin";
+  const canSelfServiceHR =
+    permissions.includes("hrSelfService") ||
+    permissions.includes("leaveSelfService") ||
+    permissions.includes("documentSelfService") ||
+    permissions.includes("payslipSelfService") ||
+    isAdminHR;
 
   const ROYAL_BLUE = "#0B3D91";
   const GOLD = "#D4AF37";
@@ -95,19 +108,75 @@ function HR() {
     cursor: "pointer",
   };
 
+  const findMyEmployeeRecord = (employeesList) => {
+    const linkedEmployeeId = user?.linkedEmployeeId || "";
+
+    if (linkedEmployeeId) {
+      return (
+        employeesList.find((employee) => employee.employeeId === linkedEmployeeId) ||
+        null
+      );
+    }
+
+    if (user?.userId) {
+      return (
+        employeesList.find((employee) => employee.linkedUserId === user.userId) ||
+        null
+      );
+    }
+
+    return null;
+  };
+
   const fetchHRData = async () => {
     try {
+      const employeeRequest = isAdminHR
+        ? api.get("/api/hr")
+        : api.get("/api/hr");
+
+      const summaryRequest = isAdminHR
+        ? api.get("/api/hr/summary")
+        : Promise.resolve({ data: { data: null } });
+
+      const usersRequest = isAdminHR
+        ? api.get("/api/system-users")
+        : Promise.resolve({ data: { data: [] } });
+
+      const leaveRequest = isAdminHR
+        ? api.get("/api/leave-requests")
+        : api.get("/api/leave-requests");
+
       const [employeesRes, summaryRes, usersRes, leaveRes] = await Promise.all([
-        api.get("/api/hr"),
-        api.get("/api/hr/summary"),
-        api.get("/api/system-users"),
-        api.get("/api/leave-requests"),
+        employeeRequest,
+        summaryRequest,
+        usersRequest,
+        leaveRequest,
       ]);
 
-      setEmployees(employeesRes.data.data || []);
+      const employeesData = employeesRes.data.data || [];
+      const allLeaveRequests = leaveRes.data.data || [];
+
+      const currentEmployee = findMyEmployeeRecord(employeesData);
+
+      setEmployees(employeesData);
       setSummary(summaryRes.data.data || null);
       setSystemUsers(usersRes.data.data || []);
-      setLeaveRequests(leaveRes.data.data || []);
+      setMyEmployee(currentEmployee);
+
+      if (isAdminHR) {
+        setLeaveRequests(allLeaveRequests);
+      } else {
+        const myEmployeeId = currentEmployee?.employeeId || "";
+        setLeaveRequests(
+          allLeaveRequests.filter((request) => request.employeeId === myEmployeeId)
+        );
+
+        setActiveTab("myLeave");
+        setLeaveForm((prev) => ({
+          ...prev,
+          employeeId: myEmployeeId,
+        }));
+      }
     } catch (error) {
       console.error("Failed to load HR data:", error);
       alert(error?.response?.data?.message || "Failed to load HR data");
@@ -194,8 +263,12 @@ function HR() {
 
   const submitLeaveRequest = async () => {
     try {
+      const employeeIdToUse = isAdminHR
+        ? leaveForm.employeeId
+        : myEmployee?.employeeId || "";
+
       if (
-        !leaveForm.employeeId ||
+        !employeeIdToUse ||
         !leaveForm.leaveType ||
         !leaveForm.startDate ||
         !leaveForm.endDate
@@ -204,10 +277,18 @@ function HR() {
         return;
       }
 
-      const res = await api.post("/api/leave-requests", leaveForm);
+      const payload = {
+        ...leaveForm,
+        employeeId: employeeIdToUse,
+      };
+
+      const res = await api.post("/api/leave-requests", payload);
 
       alert(res.data.message);
-      setLeaveForm(emptyLeaveForm);
+      setLeaveForm({
+        ...emptyLeaveForm,
+        employeeId: isAdminHR ? "" : myEmployee?.employeeId || "",
+      });
       await fetchHRData();
     } catch (error) {
       console.error(error);
@@ -217,9 +298,12 @@ function HR() {
 
   const approveLeaveRequest = async (leaveRequestId) => {
     try {
-      const res = await api.put(`/api/leave-requests/${leaveRequestId}/approve`, {
-        adminComment: leaveAdminComment,
-      });
+      const res = await api.put(
+        `/api/leave-requests/${leaveRequestId}/approve`,
+        {
+          adminComment: leaveAdminComment,
+        }
+      );
 
       alert(res.data.message);
       setLeaveAdminComment("");
@@ -277,23 +361,69 @@ function HR() {
     );
   };
 
+  const showEmployeesTab = isAdminHR;
+  const showAddEmployeeTab = isAdminHR;
+  const showLeaveRequestsTab = isAdminHR;
+  const showMyLeaveTab =
+    permissions.includes("leaveSelfService") ||
+    permissions.includes("hrSelfService") ||
+    isAdminHR;
+
   return (
     <div style={{ backgroundColor: LIGHT_BG, minHeight: "100vh", padding: "20px" }}>
-      <h1 style={{ color: ROYAL_BLUE, marginTop: 0 }}>HR Module</h1>
+      <h1 style={{ color: ROYAL_BLUE, marginTop: 0 }}>
+        {isAdminHR ? "HR Module" : "My HR"}
+      </h1>
+
+      {!isAdminHR && myEmployee && (
+        <div
+          style={{
+            ...cardStyle,
+            marginBottom: "20px",
+            backgroundColor: "#eef4ff",
+          }}
+        >
+          <div style={{ fontWeight: "bold", color: ROYAL_BLUE, fontSize: "18px" }}>
+            {myEmployee.fullName}
+          </div>
+          <div style={{ color: MUTED, marginTop: "6px" }}>
+            {myEmployee.jobTitle || "Employee"} • {myEmployee.employeeId}
+          </div>
+          <div style={{ color: MUTED, marginTop: "6px" }}>
+            Vacation Leave: {Number(myEmployee.leaveBalanceVacation || 0)} days | Sick
+            Leave: {Number(myEmployee.leaveBalanceSick || 0)} days | Unpaid Leave:{" "}
+            {Number(myEmployee.leaveBalanceUnpaid || 0)} days
+          </div>
+        </div>
+      )}
 
       <div style={{ display: "flex", gap: "10px", marginBottom: "20px", flexWrap: "wrap" }}>
-        <button style={primaryButton} onClick={() => setActiveTab("employees")}>
-          Employees
-        </button>
-        <button style={primaryButton} onClick={() => setActiveTab("addEmployee")}>
-          Add Employee
-        </button>
-        <button style={primaryButton} onClick={() => setActiveTab("leaveRequests")}>
-          Leave Requests
-        </button>
+        {showEmployeesTab && (
+          <button style={primaryButton} onClick={() => setActiveTab("employees")}>
+            Employees
+          </button>
+        )}
+
+        {showAddEmployeeTab && (
+          <button style={primaryButton} onClick={() => setActiveTab("addEmployee")}>
+            Add Employee
+          </button>
+        )}
+
+        {showLeaveRequestsTab && (
+          <button style={primaryButton} onClick={() => setActiveTab("leaveRequests")}>
+            Leave Requests
+          </button>
+        )}
+
+        {showMyLeaveTab && (
+          <button style={primaryButton} onClick={() => setActiveTab("myLeave")}>
+            My Leave
+          </button>
+        )}
       </div>
 
-      {activeTab === "employees" && (
+      {activeTab === "employees" && showEmployeesTab && (
         <div style={cardStyle}>
           <div
             style={{
@@ -443,7 +573,7 @@ function HR() {
         </div>
       )}
 
-      {activeTab === "addEmployee" && (
+      {activeTab === "addEmployee" && showAddEmployeeTab && (
         <div style={cardStyle}>
           <h2 style={{ color: ROYAL_BLUE }}>
             {isEditing ? "Edit Employee" : "Add Employee"}
@@ -505,7 +635,7 @@ function HR() {
         </div>
       )}
 
-      {activeTab === "leaveRequests" && (
+      {activeTab === "leaveRequests" && showLeaveRequestsTab && (
         <div style={{ display: "grid", gap: "20px" }}>
           <div style={cardStyle}>
             <h2 style={{ color: ROYAL_BLUE, marginTop: 0 }}>Submit Leave Request</h2>
@@ -666,6 +796,148 @@ function HR() {
                   {leaveRequests.length === 0 && (
                     <tr>
                       <td colSpan="8" style={{ textAlign: "center", padding: "20px", color: MUTED }}>
+                        No leave requests found
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {activeTab === "myLeave" && showMyLeaveTab && (
+        <div style={{ display: "grid", gap: "20px" }}>
+          <div style={cardStyle}>
+            <h2 style={{ color: ROYAL_BLUE, marginTop: 0 }}>Submit My Leave Request</h2>
+
+            {!myEmployee ? (
+              <div style={{ color: "#dc2626", fontWeight: "bold" }}>
+                Your account is not yet linked to an HR employee record. Please contact admin.
+              </div>
+            ) : (
+              <>
+                <div
+                  style={{
+                    backgroundColor: "#eef4ff",
+                    border: `1px solid ${BORDER}`,
+                    borderRadius: "10px",
+                    padding: "14px",
+                    marginBottom: "12px",
+                  }}
+                >
+                  <div style={{ color: ROYAL_BLUE, fontWeight: "bold" }}>
+                    {myEmployee.fullName}
+                  </div>
+                  <div style={{ color: MUTED, marginTop: "4px" }}>
+                    {myEmployee.jobTitle || "Employee"} • {myEmployee.employeeId}
+                  </div>
+                </div>
+
+                <select
+                  name="leaveType"
+                  value={leaveForm.leaveType}
+                  onChange={handleLeaveChange}
+                  style={{
+                    padding: "10px",
+                    marginBottom: "10px",
+                    width: "100%",
+                    border: `1px solid ${BORDER}`,
+                    borderRadius: "8px",
+                  }}
+                >
+                  <option value="Vacation">Vacation</option>
+                  <option value="Sick">Sick</option>
+                  <option value="Unpaid">Unpaid</option>
+                  <option value="Emergency">Emergency</option>
+                </select>
+
+                <input
+                  type="date"
+                  name="startDate"
+                  value={leaveForm.startDate}
+                  onChange={handleLeaveChange}
+                  style={{
+                    padding: "10px",
+                    marginBottom: "10px",
+                    width: "100%",
+                    border: `1px solid ${BORDER}`,
+                    borderRadius: "8px",
+                  }}
+                />
+
+                <input
+                  type="date"
+                  name="endDate"
+                  value={leaveForm.endDate}
+                  onChange={handleLeaveChange}
+                  style={{
+                    padding: "10px",
+                    marginBottom: "10px",
+                    width: "100%",
+                    border: `1px solid ${BORDER}`,
+                    borderRadius: "8px",
+                  }}
+                />
+
+                <textarea
+                  name="reason"
+                  placeholder="Reason"
+                  value={leaveForm.reason}
+                  onChange={handleLeaveChange}
+                  style={{
+                    padding: "10px",
+                    marginBottom: "10px",
+                    width: "100%",
+                    minHeight: "100px",
+                    border: `1px solid ${BORDER}`,
+                    borderRadius: "8px",
+                  }}
+                />
+
+                <button style={primaryButton} onClick={submitLeaveRequest}>
+                  Submit My Leave Request
+                </button>
+              </>
+            )}
+          </div>
+
+          <div style={cardStyle}>
+            <h2 style={{ color: ROYAL_BLUE, marginTop: 0 }}>My Leave Requests</h2>
+
+            <div style={{ overflowX: "auto" }}>
+              <table width="100%" cellPadding="10" style={{ borderCollapse: "collapse" }}>
+                <thead style={{ backgroundColor: "#eef4ff" }}>
+                  <tr>
+                    <th align="left">Request ID</th>
+                    <th align="left">Type</th>
+                    <th align="left">Dates</th>
+                    <th align="left">Days</th>
+                    <th align="left">Status</th>
+                    <th align="left">Reason</th>
+                    <th align="left">Admin Comment</th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {leaveRequests.map((request) => (
+                    <tr key={request.leaveRequestId}>
+                      <td>{request.leaveRequestId}</td>
+                      <td>{request.leaveType}</td>
+                      <td>
+                        {request.startDate} to {request.endDate}
+                      </td>
+                      <td>{request.totalDays}</td>
+                      <td>{leaveStatusBadge(request.status)}</td>
+                      <td>{request.reason || "-"}</td>
+                      <td>{request.adminComment || "-"}</td>
+                    </tr>
+                  ))}
+
+                  {leaveRequests.length === 0 && (
+                    <tr>
+                      <td colSpan="7" style={{ textAlign: "center", padding: "20px", color: MUTED }}>
                         No leave requests found
                       </td>
                     </tr>
