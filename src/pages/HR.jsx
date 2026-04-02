@@ -97,9 +97,15 @@ function HR() {
   }, []);
 
   const handleEmployeeChange = (e) => {
-    const { name, value, type, checked } = e.target;
+  const { name, value, type, checked } = e.target;
 
-    const loadEmployeeForEdit = (employee) => {
+  setEmployeeForm((prev) => ({
+    ...prev,
+    [name]: type === "checkbox" ? checked : value,
+  }));
+};
+
+const loadEmployeeForEdit = (employee) => {
   setEmployeeForm({
     fullName: employee.fullName || "",
     firstName: employee.firstName || "",
@@ -124,11 +130,9 @@ function HR() {
     employmentStatus: employee.employmentStatus || "Active",
     payType: employee.payType || "Monthly Salary",
     payRate: employee.payRate || "",
-    payrollEnabled:
-      employee.payrollEnabled === false ? false : true,
+    payrollEnabled: employee.payrollEnabled === false ? false : true,
     linkedUserId: employee.linkedUserId || "",
-    attendanceRequired:
-      employee.attendanceRequired === false ? false : true,
+    attendanceRequired: employee.attendanceRequired === false ? false : true,
     leaveBalanceVacation: employee.leaveBalanceVacation || "",
     leaveBalanceSick: employee.leaveBalanceSick || "",
     leaveBalanceUnpaid: employee.leaveBalanceUnpaid || "",
@@ -634,25 +638,74 @@ const cancelEdit = () => {
                             }}
                           >
                             <button
-                              onClick={() =>
-                                updateEmployeeStatus(
-                                  employee.employeeId,
-                                  "Active"
-                                )
-                              }
-                              style={{
-                                backgroundColor: "#16a34a",
-                                color: WHITE,
-                                border: "none",
-                                padding: "6px 10px",
-                                borderRadius: "6px",
-                                cursor: "pointer",
-                                fontWeight: "bold",
-                              }}
-                            >
-                              Active
-                            </button>
-                            <button
+  onClick={() =>
+    updateEmployeeStatus(employee.employeeId, "Active")
+  }
+  style={{
+    backgroundColor: "#16a34a",
+    color: WHITE,
+    border: "none",
+    padding: "6px 10px",
+    borderRadius: "6px",
+    cursor: "pointer",
+    fontWeight: "bold",
+  }}
+>
+  Active
+</button>
+
+<button
+  onClick={() =>
+    updateEmployeeStatus(employee.employeeId, "On Leave")
+  }
+  style={{
+    backgroundColor: "#f59e0b",
+    color: WHITE,
+    border: "none",
+    padding: "6px 10px",
+    borderRadius: "6px",
+    cursor: "pointer",
+    fontWeight: "bold",
+  }}
+>
+  Leave
+</button>
+
+<button
+  onClick={() =>
+    updateEmployeeStatus(employee.employeeId, "Inactive")
+  }
+  style={{
+    backgroundColor: "#64748b",
+    color: WHITE,
+    border: "none",
+    padding: "6px 10px",
+    borderRadius: "6px",
+    cursor: "pointer",
+    fontWeight: "bold",
+  }}
+>
+  Inactive
+</button>
+
+<button
+  onClick={() =>
+    updateEmployeeStatus(employee.employeeId, "Terminated")
+  }
+  style={{
+    backgroundColor: "#dc2626",
+    color: WHITE,
+    border: "none",
+    padding: "6px 10px",
+    borderRadius: "6px",
+    cursor: "pointer",
+    fontWeight: "bold",
+  }}
+>
+  Terminate
+</button>
+
+<button
   onClick={() => loadEmployeeForEdit(employee)}
   style={{
     backgroundColor: ROYAL_BLUE,
@@ -666,58 +719,6 @@ const cancelEdit = () => {
 >
   Edit
 </button>
-                            <button
-                              onClick={() =>
-                                updateEmployeeStatus(
-                                  employee.employeeId,
-                                  "On Leave"
-                                )
-                              }
-                              style={{
-                                backgroundColor: "#f59e0b",
-                                color: WHITE,
-                                border: "none",
-                                padding: "6px 10px",
-                                borderRadius: "6px",
-                                cursor: "pointer",
-                                fontWeight: "bold",
-                              }}
-                            >
-                              Leave
-                            </button>
-                            <button
-  onClick={() => loadEmployeeForEdit(employee)}
-  style={{
-    backgroundColor: ROYAL_BLUE,
-    color: WHITE,
-    border: "none",
-    padding: "6px 10px",
-    borderRadius: "6px",
-    cursor: "pointer",
-    fontWeight: "bold",
-  }}
->
-  Edit
-</button>
-                            <button
-                              onClick={() =>
-                                updateEmployeeStatus(
-                                  employee.employeeId,
-                                  "Inactive"
-                                )
-                              }
-                              style={{
-                                backgroundColor: "#64748b",
-                                color: WHITE,
-                                border: "none",
-                                padding: "6px 10px",
-                                borderRadius: "6px",
-                                cursor: "pointer",
-                                fontWeight: "bold",
-                              }}
-                            >
-                              Inactive
-                            </button>
                           </div>
                         </td>
                       </tr>
@@ -1179,6 +1180,6 @@ const cancelEdit = () => {
       )}
     </div>
   );
-}
+
 
 export default HR;
