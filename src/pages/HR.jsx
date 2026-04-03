@@ -5,17 +5,6 @@ import { useAuth } from "../context/AuthContext";
 function HR() {
   const { user } = useAuth();
 
-  const [activeTab, setActiveTab] = useState("employees");
-  const [employees, setEmployees] = useState([]);
-  const [summary, setSummary] = useState(null);
-  const [systemUsers, setSystemUsers] = useState([]);
-  const [leaveRequests, setLeaveRequests] = useState([]);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [myEmployee, setMyEmployee] = useState(null);
-
-  const [isEditing, setIsEditing] = useState(false);
-  const [editingEmployeeId, setEditingEmployeeId] = useState("");
-
   const permissions = user?.permissions || [];
   const isAdminHR = permissions.includes("hr") || user?.role === "Admin";
   const canSelfServiceHR =
@@ -32,10 +21,62 @@ function HR() {
   const BORDER = "#dbe3ef";
   const MUTED = "#64748b";
 
-  const emptyForm = {
+  const BRANCH_OPTIONS = ["Eltham Park Mainstore", "Brown's Town Square"];
+  const DEPARTMENT_OPTIONS = [
+    "Operations",
+    "Customer Service",
+    "Accounts",
+    "Marketing",
+    "Warehouse",
+    "Administration",
+  ];
+  const EMPLOYMENT_TYPE_OPTIONS = [
+    "Permanent",
+    "Temporary",
+    "Part-Time",
+    "Contract",
+    "Probation",
+  ];
+  const EMPLOYMENT_STATUS_OPTIONS = ["Active", "Inactive", "On Leave", "Terminated"];
+  const PAY_TYPE_OPTIONS = [
+    "Monthly Salary",
+    "Weekly Wage",
+    "Daily Rate",
+    "Hourly Rate",
+  ];
+  const LEAVE_TYPE_OPTIONS = ["Vacation", "Sick", "Unpaid", "Emergency"];
+
+  const emptyEmployeeForm = {
     fullName: "",
+    firstName: "",
+    lastName: "",
+    gender: "",
+    dateOfBirth: "",
+    trn: "",
+    nisNumber: "",
+    email: "",
+    phone: "",
+    alternatePhone: "",
+    address: "",
+    emergencyContactName: "",
+    emergencyContactPhone: "",
+    emergencyContactRelationship: "",
+    department: "Operations",
     jobTitle: "",
+    branch: "Eltham Park Mainstore",
+    employmentType: "Temporary",
+    startDate: "",
+    endDate: "",
+    employmentStatus: "Active",
+    payType: "Monthly Salary",
     payRate: "",
+    payrollEnabled: true,
+    linkedUserId: "",
+    attendanceRequired: true,
+    leaveBalanceVacation: 0,
+    leaveBalanceSick: 0,
+    leaveBalanceUnpaid: 0,
+    notes: "",
   };
 
   const emptyLeaveForm = {
@@ -46,9 +87,23 @@ function HR() {
     reason: "",
   };
 
-  const [employeeForm, setEmployeeForm] = useState(emptyForm);
+  const [activeTab, setActiveTab] = useState(
+    isAdminHR ? "employees" : "myProfile"
+  );
+  const [employees, setEmployees] = useState([]);
+  const [summary, setSummary] = useState(null);
+  const [systemUsers, setSystemUsers] = useState([]);
+  const [leaveRequests, setLeaveRequests] = useState([]);
+  const [myEmployee, setMyEmployee] = useState(null);
+  const [employeeForm, setEmployeeForm] = useState(emptyEmployeeForm);
   const [leaveForm, setLeaveForm] = useState(emptyLeaveForm);
   const [leaveAdminComment, setLeaveAdminComment] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("All");
+  const [departmentFilter, setDepartmentFilter] = useState("All");
+  const [isEditing, setIsEditing] = useState(false);
+  const [editingEmployeeId, setEditingEmployeeId] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const cardStyle = {
     backgroundColor: WHITE,
@@ -58,11 +113,28 @@ function HR() {
     boxShadow: "0 4px 14px rgba(15,23,42,0.05)",
   };
 
+  const inputStyle = {
+    padding: "10px",
+    width: "100%",
+    border: `1px solid ${BORDER}`,
+    borderRadius: "8px",
+    outline: "none",
+    boxSizing: "border-box",
+  };
+
+  const labelStyle = {
+    display: "block",
+    marginBottom: "6px",
+    color: "#334155",
+    fontWeight: "bold",
+    fontSize: "14px",
+  };
+
   const primaryButton = {
     backgroundColor: ROYAL_BLUE,
     color: WHITE,
     border: "none",
-    padding: "8px 14px",
+    padding: "10px 14px",
     borderRadius: "8px",
     fontWeight: "bold",
     cursor: "pointer",
@@ -72,7 +144,7 @@ function HR() {
     backgroundColor: "#64748b",
     color: WHITE,
     border: "none",
-    padding: "8px 14px",
+    padding: "10px 14px",
     borderRadius: "8px",
     fontWeight: "bold",
     cursor: "pointer",
@@ -82,7 +154,7 @@ function HR() {
     backgroundColor: "#16a34a",
     color: WHITE,
     border: "none",
-    padding: "8px 14px",
+    padding: "8px 12px",
     borderRadius: "8px",
     fontWeight: "bold",
     cursor: "pointer",
@@ -92,7 +164,7 @@ function HR() {
     backgroundColor: "#f59e0b",
     color: WHITE,
     border: "none",
-    padding: "8px 14px",
+    padding: "8px 12px",
     borderRadius: "8px",
     fontWeight: "bold",
     cursor: "pointer",
@@ -102,84 +174,99 @@ function HR() {
     backgroundColor: "#dc2626",
     color: WHITE,
     border: "none",
-    padding: "8px 14px",
+    padding: "8px 12px",
     borderRadius: "8px",
     fontWeight: "bold",
     cursor: "pointer",
   };
 
-  const findMyEmployeeRecord = (employeesList) => {
-    const linkedEmployeeId = user?.linkedEmployeeId || "";
-
-    if (linkedEmployeeId) {
-      return (
-        employeesList.find((employee) => employee.employeeId === linkedEmployeeId) ||
-        null
-      );
-    }
-
-    if (user?.userId) {
-      return (
-        employeesList.find((employee) => employee.linkedUserId === user.userId) ||
-        null
-      );
-    }
-
-    return null;
+  const neutralButton = {
+    backgroundColor: "#e2e8f0",
+    color: "#334155",
+    border: "none",
+    padding: "10px 14px",
+    borderRadius: "8px",
+    fontWeight: "bold",
+    cursor: "pointer",
   };
+
+  const tabButtonStyle = (tabKey) => ({
+    backgroundColor: activeTab === tabKey ? ROYAL_BLUE : "#e2e8f0",
+    color: activeTab === tabKey ? WHITE : "#334155",
+    border: "none",
+    padding: "10px 14px",
+    borderRadius: "10px",
+    fontWeight: "bold",
+    cursor: "pointer",
+  });
+
+  const statCardStyle = (bg) => ({
+    backgroundColor: bg,
+    borderRadius: "12px",
+    padding: "16px",
+    border: `1px solid ${BORDER}`,
+  });
 
   const fetchHRData = async () => {
     try {
-      const employeeRequest = isAdminHR
-        ? api.get("/api/hr")
-        : api.get("/api/hr");
-
-      const summaryRequest = isAdminHR
-        ? api.get("/api/hr/summary")
-        : Promise.resolve({ data: { data: null } });
-
-      const usersRequest = isAdminHR
-        ? api.get("/api/system-users")
-        : Promise.resolve({ data: { data: [] } });
-
-      const leaveRequest = isAdminHR
-        ? api.get("/api/leave-requests")
-        : api.get("/api/leave-requests");
-
-      const [employeesRes, summaryRes, usersRes, leaveRes] = await Promise.all([
-        employeeRequest,
-        summaryRequest,
-        usersRequest,
-        leaveRequest,
-      ]);
-
-      const employeesData = employeesRes.data.data || [];
-      const allLeaveRequests = leaveRes.data.data || [];
-
-      const currentEmployee = findMyEmployeeRecord(employeesData);
-
-      setEmployees(employeesData);
-      setSummary(summaryRes.data.data || null);
-      setSystemUsers(usersRes.data.data || []);
-      setMyEmployee(currentEmployee);
+      setLoading(true);
 
       if (isAdminHR) {
-        setLeaveRequests(allLeaveRequests);
-      } else {
-        const myEmployeeId = currentEmployee?.employeeId || "";
-        setLeaveRequests(
-          allLeaveRequests.filter((request) => request.employeeId === myEmployeeId)
-        );
+        const [employeesRes, summaryRes, usersRes, leaveRes] = await Promise.all([
+          api.get("/api/hr"),
+          api.get("/api/hr/summary"),
+          api.get("/api/system-users"),
+          api.get("/api/leave-requests"),
+        ]);
 
-        setActiveTab("myLeave");
+        setEmployees(employeesRes.data.data || []);
+        setSummary(summaryRes.data.data || null);
+        setSystemUsers(usersRes.data.data || []);
+        setLeaveRequests(leaveRes.data.data || []);
+        setMyEmployee(null);
+      } else {
+        const requests = [api.get("/api/leave-requests")];
+
+        if (canSelfServiceHR) {
+          requests.unshift(
+            api.get("/api/hr/me").catch((error) => {
+              if (error?.response?.status === 404) {
+                return { data: { data: null } };
+              }
+              throw error;
+            })
+          );
+        }
+
+        const responses = await Promise.all(requests);
+
+        let myProfileRes = { data: { data: null } };
+        let leaveRes = { data: { data: [] } };
+
+        if (responses.length === 2) {
+          myProfileRes = responses[0];
+          leaveRes = responses[1];
+        } else {
+          leaveRes = responses[0];
+        }
+
+        const myProfile = myProfileRes.data.data || null;
+
+        setEmployees([]);
+        setSummary(null);
+        setSystemUsers([]);
+        setMyEmployee(myProfile);
+        setLeaveRequests(leaveRes.data.data || []);
         setLeaveForm((prev) => ({
           ...prev,
-          employeeId: myEmployeeId,
+          employeeId: myProfile?.employeeId || "",
         }));
       }
     } catch (error) {
       console.error("Failed to load HR data:", error);
       alert(error?.response?.data?.message || "Failed to load HR data");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -188,8 +275,20 @@ function HR() {
   }, []);
 
   const handleEmployeeChange = (e) => {
-    const { name, value } = e.target;
-    setEmployeeForm((prev) => ({ ...prev, [name]: value }));
+    const { name, value, type, checked } = e.target;
+
+    setEmployeeForm((prev) => ({
+      ...prev,
+      [name]:
+        type === "checkbox"
+          ? checked
+          : name === "payRate" ||
+            name === "leaveBalanceVacation" ||
+            name === "leaveBalanceSick" ||
+            name === "leaveBalanceUnpaid"
+          ? value
+          : value,
+    }));
   };
 
   const handleLeaveChange = (e) => {
@@ -197,63 +296,90 @@ function HR() {
     setLeaveForm((prev) => ({ ...prev, [name]: value }));
   };
 
-  const loadEmployeeForEdit = (employee) => {
-    setEmployeeForm({
-      fullName: employee.fullName || "",
-      jobTitle: employee.jobTitle || "",
-      payRate: employee.payRate || "",
-    });
-
-    setEditingEmployeeId(employee.employeeId);
-    setIsEditing(true);
-    setActiveTab("addEmployee");
-  };
-
-  const cancelEdit = () => {
-    setEmployeeForm(emptyForm);
+  const resetEmployeeForm = () => {
+    setEmployeeForm(emptyEmployeeForm);
     setIsEditing(false);
     setEditingEmployeeId("");
   };
 
-  const addEmployee = async () => {
+  const loadEmployeeForEdit = (employee) => {
+    setEmployeeForm({
+      fullName: employee.fullName || "",
+      firstName: employee.firstName || "",
+      lastName: employee.lastName || "",
+      gender: employee.gender || "",
+      dateOfBirth: employee.dateOfBirth || "",
+      trn: employee.trn || "",
+      nisNumber: employee.nisNumber || "",
+      email: employee.email || "",
+      phone: employee.phone || "",
+      alternatePhone: employee.alternatePhone || "",
+      address: employee.address || "",
+      emergencyContactName: employee.emergencyContactName || "",
+      emergencyContactPhone: employee.emergencyContactPhone || "",
+      emergencyContactRelationship: employee.emergencyContactRelationship || "",
+      department: employee.department || "Operations",
+      jobTitle: employee.jobTitle || "",
+      branch: employee.branch || "Eltham Park Mainstore",
+      employmentType: employee.employmentType || "Temporary",
+      startDate: employee.startDate || "",
+      endDate: employee.endDate || "",
+      employmentStatus: employee.employmentStatus || "Active",
+      payType: employee.payType || "Monthly Salary",
+      payRate: employee.payRate ?? "",
+      payrollEnabled: Boolean(employee.payrollEnabled),
+      linkedUserId: employee.linkedUserId || "",
+      attendanceRequired: Boolean(employee.attendanceRequired),
+      leaveBalanceVacation: employee.leaveBalanceVacation ?? 0,
+      leaveBalanceSick: employee.leaveBalanceSick ?? 0,
+      leaveBalanceUnpaid: employee.leaveBalanceUnpaid ?? 0,
+      notes: employee.notes || "",
+    });
+
+    setEditingEmployeeId(employee.employeeId);
+    setIsEditing(true);
+    setActiveTab("employeeForm");
+  };
+
+  const saveEmployee = async () => {
     try {
-      const res = await api.post("/api/hr", {
+      const payload = {
         ...employeeForm,
         payRate: Number(employeeForm.payRate || 0),
-      });
+        leaveBalanceVacation: Number(employeeForm.leaveBalanceVacation || 0),
+        leaveBalanceSick: Number(employeeForm.leaveBalanceSick || 0),
+        leaveBalanceUnpaid: Number(employeeForm.leaveBalanceUnpaid || 0),
+      };
 
-      alert(res.data.message);
-      setEmployeeForm(emptyForm);
+      if (!payload.fullName || !payload.jobTitle) {
+        alert("Full name and job title are required.");
+        return;
+      }
+
+      const res = isEditing
+        ? await api.put(`/api/hr/${editingEmployeeId}`, payload)
+        : await api.post("/api/hr", payload);
+
+      alert(res.data.message || (isEditing ? "Employee updated" : "Employee added"));
+      resetEmployeeForm();
       await fetchHRData();
       setActiveTab("employees");
     } catch (error) {
       console.error(error);
-      alert(error?.response?.data?.message || "Error adding employee");
+      alert(
+        error?.response?.data?.message ||
+          (isEditing ? "Error updating employee" : "Error adding employee")
+      );
     }
   };
 
-  const updateEmployee = async () => {
+  const updateEmployeeStatus = async (employeeId, status) => {
     try {
-      const res = await api.put(`/api/hr/${editingEmployeeId}`, {
-        ...employeeForm,
-        payRate: Number(employeeForm.payRate || 0),
-      });
-
-      alert(res.data.message);
-      cancelEdit();
-      await fetchHRData();
-      setActiveTab("employees");
-    } catch (error) {
-      console.error(error);
-      alert(error?.response?.data?.message || "Error updating employee");
-    }
-  };
-
-  const updateEmployeeStatus = async (id, status) => {
-    try {
-      await api.put(`/api/hr/${id}/status`, {
+      const res = await api.put(`/api/hr/${employeeId}/status`, {
         employmentStatus: status,
       });
+
+      alert(res.data.message || "Status updated");
       await fetchHRData();
     } catch (error) {
       console.error(error);
@@ -263,28 +389,29 @@ function HR() {
 
   const submitLeaveRequest = async () => {
     try {
-      const employeeIdToUse = isAdminHR
-        ? leaveForm.employeeId
-        : myEmployee?.employeeId || "";
+      const payload = {
+        ...leaveForm,
+        employeeId: isAdminHR ? leaveForm.employeeId : myEmployee?.employeeId || "",
+      };
 
-      if (
-        !employeeIdToUse ||
-        !leaveForm.leaveType ||
-        !leaveForm.startDate ||
-        !leaveForm.endDate
-      ) {
-        alert("Please complete employee, leave type, start date, and end date.");
+      if (!payload.leaveType || !payload.startDate || !payload.endDate) {
+        alert("Leave type, start date, and end date are required.");
         return;
       }
 
-      const payload = {
-        ...leaveForm,
-        employeeId: employeeIdToUse,
-      };
+      if (isAdminHR && !payload.employeeId) {
+        alert("Please select an employee.");
+        return;
+      }
+
+      if (!isAdminHR && !myEmployee?.employeeId) {
+        alert("Your account is not linked to an HR employee record.");
+        return;
+      }
 
       const res = await api.post("/api/leave-requests", payload);
 
-      alert(res.data.message);
+      alert(res.data.message || "Leave request submitted");
       setLeaveForm({
         ...emptyLeaveForm,
         employeeId: isAdminHR ? "" : myEmployee?.employeeId || "",
@@ -298,14 +425,11 @@ function HR() {
 
   const approveLeaveRequest = async (leaveRequestId) => {
     try {
-      const res = await api.put(
-        `/api/leave-requests/${leaveRequestId}/approve`,
-        {
-          adminComment: leaveAdminComment,
-        }
-      );
+      const res = await api.put(`/api/leave-requests/${leaveRequestId}/approve`, {
+        adminComment: leaveAdminComment,
+      });
 
-      alert(res.data.message);
+      alert(res.data.message || "Leave request approved");
       setLeaveAdminComment("");
       await fetchHRData();
     } catch (error) {
@@ -320,7 +444,7 @@ function HR() {
         adminComment: leaveAdminComment,
       });
 
-      alert(res.data.message);
+      alert(res.data.message || "Leave request rejected");
       setLeaveAdminComment("");
       await fetchHRData();
     } catch (error) {
@@ -330,10 +454,22 @@ function HR() {
   };
 
   const filteredEmployees = useMemo(() => {
-    return employees.filter((e) =>
-      e.fullName?.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-  }, [employees, searchTerm]);
+    return employees.filter((employee) => {
+      const matchesSearch =
+        employee.fullName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        employee.employeeId?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        employee.jobTitle?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        employee.department?.toLowerCase().includes(searchTerm.toLowerCase());
+
+      const matchesStatus =
+        statusFilter === "All" || employee.employmentStatus === statusFilter;
+
+      const matchesDepartment =
+        departmentFilter === "All" || employee.department === departmentFilter;
+
+      return matchesSearch && matchesStatus && matchesDepartment;
+    });
+  }, [employees, searchTerm, statusFilter, departmentFilter]);
 
   const leaveStatusBadge = (status) => {
     const backgroundColor =
@@ -361,13 +497,21 @@ function HR() {
     );
   };
 
+  const renderField = (label, value) => (
+    <div>
+      <div style={{ color: MUTED, fontSize: "13px", marginBottom: "4px" }}>{label}</div>
+      <div style={{ color: "#0f172a", fontWeight: "bold" }}>{value || "-"}</div>
+    </div>
+  );
+
   const showEmployeesTab = isAdminHR;
-  const showAddEmployeeTab = isAdminHR;
+  const showEmployeeFormTab = isAdminHR;
   const showLeaveRequestsTab = isAdminHR;
   const showMyLeaveTab =
     permissions.includes("leaveSelfService") ||
     permissions.includes("hrSelfService") ||
     isAdminHR;
+  const showMyProfileTab = canSelfServiceHR && !isAdminHR;
 
   return (
     <div style={{ backgroundColor: LIGHT_BG, minHeight: "100vh", padding: "20px" }}>
@@ -375,262 +519,643 @@ function HR() {
         {isAdminHR ? "HR Module" : "My HR"}
       </h1>
 
-      {!isAdminHR && myEmployee && (
-        <div
-          style={{
-            ...cardStyle,
-            marginBottom: "20px",
-            backgroundColor: "#eef4ff",
-          }}
-        >
-          <div style={{ fontWeight: "bold", color: ROYAL_BLUE, fontSize: "18px" }}>
-            {myEmployee.fullName}
-          </div>
-          <div style={{ color: MUTED, marginTop: "6px" }}>
-            {myEmployee.jobTitle || "Employee"} • {myEmployee.employeeId}
-          </div>
-          <div style={{ color: MUTED, marginTop: "6px" }}>
-            Vacation Leave: {Number(myEmployee.leaveBalanceVacation || 0)} days | Sick
-            Leave: {Number(myEmployee.leaveBalanceSick || 0)} days | Unpaid Leave:{" "}
-            {Number(myEmployee.leaveBalanceUnpaid || 0)} days
-          </div>
-        </div>
-      )}
+      <div style={{ color: MUTED, marginBottom: "18px" }}>
+        {isAdminHR
+          ? "Manage employees, leave balances, employment records, and linked system users."
+          : "View your HR profile and manage your leave requests."}
+      </div>
 
       <div style={{ display: "flex", gap: "10px", marginBottom: "20px", flexWrap: "wrap" }}>
         {showEmployeesTab && (
-          <button style={primaryButton} onClick={() => setActiveTab("employees")}>
+          <button style={tabButtonStyle("employees")} onClick={() => setActiveTab("employees")}>
             Employees
           </button>
         )}
 
-        {showAddEmployeeTab && (
-          <button style={primaryButton} onClick={() => setActiveTab("addEmployee")}>
-            Add Employee
+        {showEmployeeFormTab && (
+          <button
+            style={tabButtonStyle("employeeForm")}
+            onClick={() => {
+              resetEmployeeForm();
+              setActiveTab("employeeForm");
+            }}
+          >
+            {isEditing ? "Edit Employee" : "Add Employee"}
           </button>
         )}
 
         {showLeaveRequestsTab && (
-          <button style={primaryButton} onClick={() => setActiveTab("leaveRequests")}>
+          <button
+            style={tabButtonStyle("leaveRequests")}
+            onClick={() => setActiveTab("leaveRequests")}
+          >
             Leave Requests
           </button>
         )}
 
+        {showMyProfileTab && (
+          <button style={tabButtonStyle("myProfile")} onClick={() => setActiveTab("myProfile")}>
+            My Profile
+          </button>
+        )}
+
         {showMyLeaveTab && (
-          <button style={primaryButton} onClick={() => setActiveTab("myLeave")}>
+          <button style={tabButtonStyle("myLeave")} onClick={() => setActiveTab("myLeave")}>
             My Leave
           </button>
         )}
       </div>
 
+      {loading && (
+        <div style={{ ...cardStyle, marginBottom: "20px", color: MUTED }}>
+          Loading HR data...
+        </div>
+      )}
+
       {activeTab === "employees" && showEmployeesTab && (
-        <div style={cardStyle}>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-              gap: "14px",
-              marginBottom: "20px",
-            }}
-          >
+        <div style={{ display: "grid", gap: "20px" }}>
+          <div style={cardStyle}>
             <div
               style={{
-                backgroundColor: "#eef4ff",
-                borderRadius: "12px",
-                padding: "16px",
-                border: `1px solid ${BORDER}`,
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+                gap: "14px",
+                marginBottom: "20px",
               }}
             >
-              <div style={{ fontSize: "28px", fontWeight: "bold", color: ROYAL_BLUE }}>
-                {summary?.totalEmployees || 0}
+              <div style={statCardStyle("#eef4ff")}>
+                <div style={{ fontSize: "28px", fontWeight: "bold", color: ROYAL_BLUE }}>
+                  {summary?.totalEmployees || 0}
+                </div>
+                <div style={{ color: MUTED }}>Total Employees</div>
               </div>
-              <div style={{ color: MUTED }}>Total Employees</div>
+
+              <div style={statCardStyle("#f0fdf4")}>
+                <div style={{ fontSize: "28px", fontWeight: "bold", color: "#16a34a" }}>
+                  {summary?.activeEmployees || 0}
+                </div>
+                <div style={{ color: MUTED }}>Active</div>
+              </div>
+
+              <div style={statCardStyle("#fffbeb")}>
+                <div style={{ fontSize: "28px", fontWeight: "bold", color: "#f59e0b" }}>
+                  {summary?.onLeaveEmployees || 0}
+                </div>
+                <div style={{ color: MUTED }}>On Leave</div>
+              </div>
+
+              <div style={statCardStyle("#fef2f2")}>
+                <div style={{ fontSize: "28px", fontWeight: "bold", color: "#dc2626" }}>
+                  {summary?.terminatedEmployees || 0}
+                </div>
+                <div style={{ color: MUTED }}>Terminated</div>
+              </div>
+
+              <div style={statCardStyle("#f8fafc")}>
+                <div style={{ fontSize: "28px", fontWeight: "bold", color: "#475569" }}>
+                  {summary?.payrollEnabledEmployees || 0}
+                </div>
+                <div style={{ color: MUTED }}>Payroll Enabled</div>
+              </div>
             </div>
 
             <div
               style={{
-                backgroundColor: "#f0fdf4",
-                borderRadius: "12px",
-                padding: "16px",
-                border: `1px solid ${BORDER}`,
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+                gap: "12px",
+                marginBottom: "15px",
               }}
             >
-              <div style={{ fontSize: "28px", fontWeight: "bold", color: "#16a34a" }}>
-                {summary?.activeEmployees || 0}
-              </div>
-              <div style={{ color: MUTED }}>Active</div>
-            </div>
+              <input
+                placeholder="Search by name, ID, job title, or department"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                style={inputStyle}
+              />
 
-            <div
-              style={{
-                backgroundColor: "#fffbeb",
-                borderRadius: "12px",
-                padding: "16px",
-                border: `1px solid ${BORDER}`,
-              }}
-            >
-              <div style={{ fontSize: "28px", fontWeight: "bold", color: "#f59e0b" }}>
-                {summary?.onLeaveEmployees || 0}
-              </div>
-              <div style={{ color: MUTED }}>On Leave</div>
-            </div>
-
-            <div
-              style={{
-                backgroundColor: "#fef2f2",
-                borderRadius: "12px",
-                padding: "16px",
-                border: `1px solid ${BORDER}`,
-              }}
-            >
-              <div style={{ fontSize: "28px", fontWeight: "bold", color: "#dc2626" }}>
-                {summary?.terminatedEmployees || 0}
-              </div>
-              <div style={{ color: MUTED }}>Terminated</div>
-            </div>
-          </div>
-
-          <input
-            placeholder="Search..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            style={{
-              padding: "10px",
-              marginBottom: "15px",
-              width: "100%",
-              border: `1px solid ${BORDER}`,
-              borderRadius: "8px",
-            }}
-          />
-
-          <div style={{ overflowX: "auto" }}>
-            <table width="100%" cellPadding="10" style={{ borderCollapse: "collapse" }}>
-              <thead style={{ backgroundColor: "#eef4ff" }}>
-                <tr>
-                  <th align="left">Name</th>
-                  <th align="left">Job</th>
-                  <th align="left">Pay Rate</th>
-                  <th align="left">Status</th>
-                  <th align="left">Action</th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {filteredEmployees.map((e) => (
-                  <tr key={e.employeeId}>
-                    <td>{e.fullName}</td>
-                    <td>{e.jobTitle}</td>
-                    <td>JMD {Number(e.payRate || 0).toLocaleString()}</td>
-                    <td>{e.employmentStatus}</td>
-                    <td>
-                      <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-                        <button style={primaryButton} onClick={() => loadEmployeeForEdit(e)}>
-                          Edit
-                        </button>
-
-                        <button
-                          style={successButton}
-                          onClick={() => updateEmployeeStatus(e.employeeId, "Active")}
-                        >
-                          Active
-                        </button>
-
-                        <button
-                          style={warningButton}
-                          onClick={() => updateEmployeeStatus(e.employeeId, "On Leave")}
-                        >
-                          Leave
-                        </button>
-
-                        <button
-                          style={secondaryButton}
-                          onClick={() => updateEmployeeStatus(e.employeeId, "Inactive")}
-                        >
-                          Inactive
-                        </button>
-
-                        <button
-                          style={dangerButton}
-                          onClick={() => updateEmployeeStatus(e.employeeId, "Terminated")}
-                        >
-                          Terminate
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                style={inputStyle}
+              >
+                <option value="All">All Statuses</option>
+                {EMPLOYMENT_STATUS_OPTIONS.map((status) => (
+                  <option key={status} value={status}>
+                    {status}
+                  </option>
                 ))}
+              </select>
 
-                {filteredEmployees.length === 0 && (
+              <select
+                value={departmentFilter}
+                onChange={(e) => setDepartmentFilter(e.target.value)}
+                style={inputStyle}
+              >
+                <option value="All">All Departments</option>
+                {DEPARTMENT_OPTIONS.map((department) => (
+                  <option key={department} value={department}>
+                    {department}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div style={{ overflowX: "auto" }}>
+              <table width="100%" cellPadding="10" style={{ borderCollapse: "collapse" }}>
+                <thead style={{ backgroundColor: "#eef4ff" }}>
                   <tr>
-                    <td colSpan="5" style={{ textAlign: "center", padding: "20px", color: MUTED }}>
-                      No employees found
-                    </td>
+                    <th align="left">Employee</th>
+                    <th align="left">Job</th>
+                    <th align="left">Department</th>
+                    <th align="left">Branch</th>
+                    <th align="left">Pay</th>
+                    <th align="left">Linked User</th>
+                    <th align="left">Status</th>
+                    <th align="left">Action</th>
                   </tr>
-                )}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {filteredEmployees.map((employee) => (
+                    <tr key={employee.employeeId} style={{ borderBottom: `1px solid ${BORDER}` }}>
+                      <td>
+                        <div style={{ fontWeight: "bold", color: "#0f172a" }}>
+                          {employee.fullName}
+                        </div>
+                        <div style={{ color: MUTED, fontSize: "12px" }}>
+                          {employee.employeeId}
+                        </div>
+                      </td>
+                      <td>{employee.jobTitle || "-"}</td>
+                      <td>{employee.department || "-"}</td>
+                      <td>{employee.branch || "-"}</td>
+                      <td>
+                        {employee.payType || "-"}
+                        <div style={{ color: MUTED, fontSize: "12px" }}>
+                          JMD {Number(employee.payRate || 0).toLocaleString()}
+                        </div>
+                      </td>
+                      <td>
+                        {employee.linkedUserName ? (
+                          <>
+                            <div>{employee.linkedUserName}</div>
+                            <div style={{ color: MUTED, fontSize: "12px" }}>
+                              {employee.linkedUserRole || ""}
+                            </div>
+                          </>
+                        ) : (
+                          "-"
+                        )}
+                      </td>
+                      <td>{employee.employmentStatus}</td>
+                      <td>
+                        <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                          <button style={primaryButton} onClick={() => loadEmployeeForEdit(employee)}>
+                            Edit
+                          </button>
+
+                          <button
+                            style={successButton}
+                            onClick={() => updateEmployeeStatus(employee.employeeId, "Active")}
+                          >
+                            Active
+                          </button>
+
+                          <button
+                            style={warningButton}
+                            onClick={() => updateEmployeeStatus(employee.employeeId, "On Leave")}
+                          >
+                            Leave
+                          </button>
+
+                          <button
+                            style={secondaryButton}
+                            onClick={() => updateEmployeeStatus(employee.employeeId, "Inactive")}
+                          >
+                            Inactive
+                          </button>
+
+                          <button
+                            style={dangerButton}
+                            onClick={() => updateEmployeeStatus(employee.employeeId, "Terminated")}
+                          >
+                            Terminate
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+
+                  {filteredEmployees.length === 0 && (
+                    <tr>
+                      <td colSpan="8" style={{ textAlign: "center", padding: "20px", color: MUTED }}>
+                        No employees found
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       )}
 
-      {activeTab === "addEmployee" && showAddEmployeeTab && (
-        <div style={cardStyle}>
-          <h2 style={{ color: ROYAL_BLUE }}>
-            {isEditing ? "Edit Employee" : "Add Employee"}
-          </h2>
+      {activeTab === "employeeForm" && showEmployeeFormTab && (
+        <div style={{ display: "grid", gap: "20px" }}>
+          <div style={cardStyle}>
+            <h2 style={{ color: ROYAL_BLUE, marginTop: 0 }}>
+              {isEditing ? "Edit Employee" : "Add Employee"}
+            </h2>
 
-          <input
-            name="fullName"
-            placeholder="Full Name"
-            value={employeeForm.fullName}
-            onChange={handleEmployeeChange}
-            style={{
-              padding: "10px",
-              marginBottom: "10px",
-              width: "100%",
-              border: `1px solid ${BORDER}`,
-              borderRadius: "8px",
-            }}
-          />
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+                gap: "14px",
+              }}
+            >
+              <div>
+                <label style={labelStyle}>Full Name</label>
+                <input
+                  name="fullName"
+                  value={employeeForm.fullName}
+                  onChange={handleEmployeeChange}
+                  style={inputStyle}
+                />
+              </div>
 
-          <input
-            name="jobTitle"
-            placeholder="Job Title"
-            value={employeeForm.jobTitle}
-            onChange={handleEmployeeChange}
-            style={{
-              padding: "10px",
-              marginBottom: "10px",
-              width: "100%",
-              border: `1px solid ${BORDER}`,
-              borderRadius: "8px",
-            }}
-          />
+              <div>
+                <label style={labelStyle}>First Name</label>
+                <input
+                  name="firstName"
+                  value={employeeForm.firstName}
+                  onChange={handleEmployeeChange}
+                  style={inputStyle}
+                />
+              </div>
 
-          <input
-            name="payRate"
-            placeholder="Pay Rate"
-            value={employeeForm.payRate}
-            onChange={handleEmployeeChange}
-            style={{
-              padding: "10px",
-              marginBottom: "10px",
-              width: "100%",
-              border: `1px solid ${BORDER}`,
-              borderRadius: "8px",
-            }}
-          />
+              <div>
+                <label style={labelStyle}>Last Name</label>
+                <input
+                  name="lastName"
+                  value={employeeForm.lastName}
+                  onChange={handleEmployeeChange}
+                  style={inputStyle}
+                />
+              </div>
 
-          <div style={{ display: "flex", gap: "10px" }}>
-            <button style={primaryButton} onClick={isEditing ? updateEmployee : addEmployee}>
-              {isEditing ? "Update" : "Save"}
-            </button>
+              <div>
+                <label style={labelStyle}>Gender</label>
+                <select
+                  name="gender"
+                  value={employeeForm.gender}
+                  onChange={handleEmployeeChange}
+                  style={inputStyle}
+                >
+                  <option value="">Select Gender</option>
+                  <option value="Male">Male</option>
+                  <option value="Female">Female</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
 
-            {isEditing && (
-              <button style={secondaryButton} onClick={cancelEdit}>
-                Cancel
+              <div>
+                <label style={labelStyle}>Date of Birth</label>
+                <input
+                  type="date"
+                  name="dateOfBirth"
+                  value={employeeForm.dateOfBirth}
+                  onChange={handleEmployeeChange}
+                  style={inputStyle}
+                />
+              </div>
+
+              <div>
+                <label style={labelStyle}>TRN</label>
+                <input
+                  name="trn"
+                  value={employeeForm.trn}
+                  onChange={handleEmployeeChange}
+                  style={inputStyle}
+                />
+              </div>
+
+              <div>
+                <label style={labelStyle}>NIS Number</label>
+                <input
+                  name="nisNumber"
+                  value={employeeForm.nisNumber}
+                  onChange={handleEmployeeChange}
+                  style={inputStyle}
+                />
+              </div>
+
+              <div>
+                <label style={labelStyle}>Email</label>
+                <input
+                  name="email"
+                  value={employeeForm.email}
+                  onChange={handleEmployeeChange}
+                  style={inputStyle}
+                />
+              </div>
+
+              <div>
+                <label style={labelStyle}>Phone</label>
+                <input
+                  name="phone"
+                  value={employeeForm.phone}
+                  onChange={handleEmployeeChange}
+                  style={inputStyle}
+                />
+              </div>
+
+              <div>
+                <label style={labelStyle}>Alternate Phone</label>
+                <input
+                  name="alternatePhone"
+                  value={employeeForm.alternatePhone}
+                  onChange={handleEmployeeChange}
+                  style={inputStyle}
+                />
+              </div>
+
+              <div style={{ gridColumn: "1 / -1" }}>
+                <label style={labelStyle}>Address</label>
+                <textarea
+                  name="address"
+                  value={employeeForm.address}
+                  onChange={handleEmployeeChange}
+                  style={{ ...inputStyle, minHeight: "90px" }}
+                />
+              </div>
+
+              <div>
+                <label style={labelStyle}>Emergency Contact Name</label>
+                <input
+                  name="emergencyContactName"
+                  value={employeeForm.emergencyContactName}
+                  onChange={handleEmployeeChange}
+                  style={inputStyle}
+                />
+              </div>
+
+              <div>
+                <label style={labelStyle}>Emergency Contact Phone</label>
+                <input
+                  name="emergencyContactPhone"
+                  value={employeeForm.emergencyContactPhone}
+                  onChange={handleEmployeeChange}
+                  style={inputStyle}
+                />
+              </div>
+
+              <div>
+                <label style={labelStyle}>Emergency Contact Relationship</label>
+                <input
+                  name="emergencyContactRelationship"
+                  value={employeeForm.emergencyContactRelationship}
+                  onChange={handleEmployeeChange}
+                  style={inputStyle}
+                />
+              </div>
+
+              <div>
+                <label style={labelStyle}>Department</label>
+                <select
+                  name="department"
+                  value={employeeForm.department}
+                  onChange={handleEmployeeChange}
+                  style={inputStyle}
+                >
+                  {DEPARTMENT_OPTIONS.map((department) => (
+                    <option key={department} value={department}>
+                      {department}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label style={labelStyle}>Job Title</label>
+                <input
+                  name="jobTitle"
+                  value={employeeForm.jobTitle}
+                  onChange={handleEmployeeChange}
+                  style={inputStyle}
+                />
+              </div>
+
+              <div>
+                <label style={labelStyle}>Branch</label>
+                <select
+                  name="branch"
+                  value={employeeForm.branch}
+                  onChange={handleEmployeeChange}
+                  style={inputStyle}
+                >
+                  {BRANCH_OPTIONS.map((branch) => (
+                    <option key={branch} value={branch}>
+                      {branch}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label style={labelStyle}>Employment Type</label>
+                <select
+                  name="employmentType"
+                  value={employeeForm.employmentType}
+                  onChange={handleEmployeeChange}
+                  style={inputStyle}
+                >
+                  {EMPLOYMENT_TYPE_OPTIONS.map((type) => (
+                    <option key={type} value={type}>
+                      {type}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label style={labelStyle}>Employment Status</label>
+                <select
+                  name="employmentStatus"
+                  value={employeeForm.employmentStatus}
+                  onChange={handleEmployeeChange}
+                  style={inputStyle}
+                >
+                  {EMPLOYMENT_STATUS_OPTIONS.map((status) => (
+                    <option key={status} value={status}>
+                      {status}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label style={labelStyle}>Start Date</label>
+                <input
+                  type="date"
+                  name="startDate"
+                  value={employeeForm.startDate}
+                  onChange={handleEmployeeChange}
+                  style={inputStyle}
+                />
+              </div>
+
+              <div>
+                <label style={labelStyle}>End Date</label>
+                <input
+                  type="date"
+                  name="endDate"
+                  value={employeeForm.endDate}
+                  onChange={handleEmployeeChange}
+                  style={inputStyle}
+                />
+              </div>
+
+              <div>
+                <label style={labelStyle}>Pay Type</label>
+                <select
+                  name="payType"
+                  value={employeeForm.payType}
+                  onChange={handleEmployeeChange}
+                  style={inputStyle}
+                >
+                  {PAY_TYPE_OPTIONS.map((type) => (
+                    <option key={type} value={type}>
+                      {type}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label style={labelStyle}>Pay Rate (JMD)</label>
+                <input
+                  type="number"
+                  name="payRate"
+                  value={employeeForm.payRate}
+                  onChange={handleEmployeeChange}
+                  style={inputStyle}
+                />
+              </div>
+
+              <div>
+                <label style={labelStyle}>Vacation Leave Balance</label>
+                <input
+                  type="number"
+                  name="leaveBalanceVacation"
+                  value={employeeForm.leaveBalanceVacation}
+                  onChange={handleEmployeeChange}
+                  style={inputStyle}
+                />
+              </div>
+
+              <div>
+                <label style={labelStyle}>Sick Leave Balance</label>
+                <input
+                  type="number"
+                  name="leaveBalanceSick"
+                  value={employeeForm.leaveBalanceSick}
+                  onChange={handleEmployeeChange}
+                  style={inputStyle}
+                />
+              </div>
+
+              <div>
+                <label style={labelStyle}>Unpaid Leave Balance</label>
+                <input
+                  type="number"
+                  name="leaveBalanceUnpaid"
+                  value={employeeForm.leaveBalanceUnpaid}
+                  onChange={handleEmployeeChange}
+                  style={inputStyle}
+                />
+              </div>
+
+              <div>
+                <label style={labelStyle}>Linked System User</label>
+                <select
+                  name="linkedUserId"
+                  value={employeeForm.linkedUserId}
+                  onChange={handleEmployeeChange}
+                  style={inputStyle}
+                >
+                  <option value="">Not Linked</option>
+                  {systemUsers.map((systemUser) => (
+                    <option key={systemUser.userId} value={systemUser.userId}>
+                      {systemUser.fullName} ({systemUser.role}) - {systemUser.userId}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div style={{ display: "flex", alignItems: "center", gap: "10px", paddingTop: "26px" }}>
+                <input
+                  id="payrollEnabled"
+                  type="checkbox"
+                  name="payrollEnabled"
+                  checked={employeeForm.payrollEnabled}
+                  onChange={handleEmployeeChange}
+                />
+                <label htmlFor="payrollEnabled" style={{ fontWeight: "bold", color: "#334155" }}>
+                  Payroll Enabled
+                </label>
+              </div>
+
+              <div style={{ display: "flex", alignItems: "center", gap: "10px", paddingTop: "26px" }}>
+                <input
+                  id="attendanceRequired"
+                  type="checkbox"
+                  name="attendanceRequired"
+                  checked={employeeForm.attendanceRequired}
+                  onChange={handleEmployeeChange}
+                />
+                <label htmlFor="attendanceRequired" style={{ fontWeight: "bold", color: "#334155" }}>
+                  Attendance Required
+                </label>
+              </div>
+
+              <div style={{ gridColumn: "1 / -1" }}>
+                <label style={labelStyle}>Notes</label>
+                <textarea
+                  name="notes"
+                  value={employeeForm.notes}
+                  onChange={handleEmployeeChange}
+                  style={{ ...inputStyle, minHeight: "100px" }}
+                />
+              </div>
+            </div>
+
+            <div style={{ display: "flex", gap: "10px", marginTop: "18px", flexWrap: "wrap" }}>
+              <button style={primaryButton} onClick={saveEmployee}>
+                {isEditing ? "Update Employee" : "Save Employee"}
               </button>
-            )}
+
+              <button
+                style={neutralButton}
+                onClick={() => {
+                  resetEmployeeForm();
+                }}
+              >
+                Reset Form
+              </button>
+
+              {isEditing && (
+                <button
+                  style={secondaryButton}
+                  onClick={() => {
+                    resetEmployeeForm();
+                    setActiveTab("employees");
+                  }}
+                >
+                  Cancel Edit
+                </button>
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -640,107 +1165,95 @@ function HR() {
           <div style={cardStyle}>
             <h2 style={{ color: ROYAL_BLUE, marginTop: 0 }}>Submit Leave Request</h2>
 
-            <select
-              name="employeeId"
-              value={leaveForm.employeeId}
-              onChange={handleLeaveChange}
+            <div
               style={{
-                padding: "10px",
-                marginBottom: "10px",
-                width: "100%",
-                border: `1px solid ${BORDER}`,
-                borderRadius: "8px",
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+                gap: "12px",
               }}
             >
-              <option value="">Select Employee</option>
-              {employees.map((employee) => (
-                <option key={employee.employeeId} value={employee.employeeId}>
-                  {employee.fullName} ({employee.employeeId})
-                </option>
-              ))}
-            </select>
+              <div>
+                <label style={labelStyle}>Employee</label>
+                <select
+                  name="employeeId"
+                  value={leaveForm.employeeId}
+                  onChange={handleLeaveChange}
+                  style={inputStyle}
+                >
+                  <option value="">Select Employee</option>
+                  {employees.map((employee) => (
+                    <option key={employee.employeeId} value={employee.employeeId}>
+                      {employee.fullName} ({employee.employeeId})
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-            <select
-              name="leaveType"
-              value={leaveForm.leaveType}
-              onChange={handleLeaveChange}
-              style={{
-                padding: "10px",
-                marginBottom: "10px",
-                width: "100%",
-                border: `1px solid ${BORDER}`,
-                borderRadius: "8px",
-              }}
-            >
-              <option value="Vacation">Vacation</option>
-              <option value="Sick">Sick</option>
-              <option value="Unpaid">Unpaid</option>
-              <option value="Emergency">Emergency</option>
-            </select>
+              <div>
+                <label style={labelStyle}>Leave Type</label>
+                <select
+                  name="leaveType"
+                  value={leaveForm.leaveType}
+                  onChange={handleLeaveChange}
+                  style={inputStyle}
+                >
+                  {LEAVE_TYPE_OPTIONS.map((type) => (
+                    <option key={type} value={type}>
+                      {type}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-            <input
-              type="date"
-              name="startDate"
-              value={leaveForm.startDate}
-              onChange={handleLeaveChange}
-              style={{
-                padding: "10px",
-                marginBottom: "10px",
-                width: "100%",
-                border: `1px solid ${BORDER}`,
-                borderRadius: "8px",
-              }}
-            />
+              <div>
+                <label style={labelStyle}>Start Date</label>
+                <input
+                  type="date"
+                  name="startDate"
+                  value={leaveForm.startDate}
+                  onChange={handleLeaveChange}
+                  style={inputStyle}
+                />
+              </div>
 
-            <input
-              type="date"
-              name="endDate"
-              value={leaveForm.endDate}
-              onChange={handleLeaveChange}
-              style={{
-                padding: "10px",
-                marginBottom: "10px",
-                width: "100%",
-                border: `1px solid ${BORDER}`,
-                borderRadius: "8px",
-              }}
-            />
+              <div>
+                <label style={labelStyle}>End Date</label>
+                <input
+                  type="date"
+                  name="endDate"
+                  value={leaveForm.endDate}
+                  onChange={handleLeaveChange}
+                  style={inputStyle}
+                />
+              </div>
 
-            <textarea
-              name="reason"
-              placeholder="Reason"
-              value={leaveForm.reason}
-              onChange={handleLeaveChange}
-              style={{
-                padding: "10px",
-                marginBottom: "10px",
-                width: "100%",
-                minHeight: "100px",
-                border: `1px solid ${BORDER}`,
-                borderRadius: "8px",
-              }}
-            />
+              <div style={{ gridColumn: "1 / -1" }}>
+                <label style={labelStyle}>Reason</label>
+                <textarea
+                  name="reason"
+                  value={leaveForm.reason}
+                  onChange={handleLeaveChange}
+                  style={{ ...inputStyle, minHeight: "90px" }}
+                />
+              </div>
+            </div>
 
-            <button style={primaryButton} onClick={submitLeaveRequest}>
-              Submit Leave Request
-            </button>
+            <div style={{ marginTop: "12px" }}>
+              <button style={primaryButton} onClick={submitLeaveRequest}>
+                Submit Leave Request
+              </button>
+            </div>
           </div>
 
           <div style={cardStyle}>
-            <h2 style={{ color: ROYAL_BLUE, marginTop: 0 }}>Leave Requests</h2>
+            <h2 style={{ color: ROYAL_BLUE, marginTop: 0 }}>All Leave Requests</h2>
 
+            <label style={labelStyle}>Admin Comment for Approve / Reject</label>
             <textarea
-              placeholder="Admin comment for approve/reject actions"
+              placeholder="Enter comment"
               value={leaveAdminComment}
               onChange={(e) => setLeaveAdminComment(e.target.value)}
-              style={{
-                padding: "10px",
-                marginBottom: "15px",
-                width: "100%",
-                minHeight: "80px",
-                border: `1px solid ${BORDER}`,
-                borderRadius: "8px",
-              }}
+              style={{ ...inputStyle, minHeight: "80px", marginBottom: "15px" }}
             />
 
             <div style={{ overflowX: "auto" }}>
@@ -749,6 +1262,7 @@ function HR() {
                   <tr>
                     <th align="left">Request ID</th>
                     <th align="left">Employee</th>
+                    <th align="left">Department</th>
                     <th align="left">Type</th>
                     <th align="left">Dates</th>
                     <th align="left">Days</th>
@@ -760,9 +1274,10 @@ function HR() {
 
                 <tbody>
                   {leaveRequests.map((request) => (
-                    <tr key={request.leaveRequestId}>
+                    <tr key={request.leaveRequestId} style={{ borderBottom: `1px solid ${BORDER}` }}>
                       <td>{request.leaveRequestId}</td>
                       <td>{request.employeeName}</td>
+                      <td>{request.department || "-"}</td>
                       <td>{request.leaveType}</td>
                       <td>
                         {request.startDate} to {request.endDate}
@@ -795,7 +1310,7 @@ function HR() {
 
                   {leaveRequests.length === 0 && (
                     <tr>
-                      <td colSpan="8" style={{ textAlign: "center", padding: "20px", color: MUTED }}>
+                      <td colSpan="9" style={{ textAlign: "center", padding: "20px", color: MUTED }}>
                         No leave requests found
                       </td>
                     </tr>
@@ -807,104 +1322,167 @@ function HR() {
         </div>
       )}
 
-      {activeTab === "myLeave" && showMyLeaveTab && (
+      {activeTab === "myProfile" && showMyProfileTab && (
         <div style={{ display: "grid", gap: "20px" }}>
           <div style={cardStyle}>
-            <h2 style={{ color: ROYAL_BLUE, marginTop: 0 }}>Submit My Leave Request</h2>
+            <h2 style={{ color: ROYAL_BLUE, marginTop: 0 }}>My Profile</h2>
 
             {!myEmployee ? (
               <div style={{ color: "#dc2626", fontWeight: "bold" }}>
                 Your account is not yet linked to an HR employee record. Please contact admin.
               </div>
             ) : (
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+                  gap: "18px",
+                }}
+              >
+                {renderField("Employee ID", myEmployee.employeeId)}
+                {renderField("Full Name", myEmployee.fullName)}
+                {renderField("Job Title", myEmployee.jobTitle)}
+                {renderField("Department", myEmployee.department)}
+                {renderField("Branch", myEmployee.branch)}
+                {renderField("Employment Type", myEmployee.employmentType)}
+                {renderField("Employment Status", myEmployee.employmentStatus)}
+                {renderField("Email", myEmployee.email)}
+                {renderField("Phone", myEmployee.phone)}
+                {renderField("TRN", myEmployee.trn)}
+                {renderField("NIS Number", myEmployee.nisNumber)}
+                {renderField("Start Date", myEmployee.startDate)}
+                {renderField("Pay Type", myEmployee.payType)}
+                {renderField(
+                  "Pay Rate",
+                  `JMD ${Number(myEmployee.payRate || 0).toLocaleString()}`
+                )}
+                {renderField(
+                  "Vacation Leave Balance",
+                  Number(myEmployee.leaveBalanceVacation || 0)
+                )}
+                {renderField(
+                  "Sick Leave Balance",
+                  Number(myEmployee.leaveBalanceSick || 0)
+                )}
+                {renderField(
+                  "Unpaid Leave Balance",
+                  Number(myEmployee.leaveBalanceUnpaid || 0)
+                )}
+                <div style={{ gridColumn: "1 / -1" }}>
+                  {renderField("Notes", myEmployee.notes)}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {activeTab === "myLeave" && showMyLeaveTab && (
+        <div style={{ display: "grid", gap: "20px" }}>
+          <div style={cardStyle}>
+            <h2 style={{ color: ROYAL_BLUE, marginTop: 0 }}>
+              {isAdminHR ? "Submit Leave Request" : "Submit My Leave Request"}
+            </h2>
+
+            {!isAdminHR && !myEmployee ? (
+              <div style={{ color: "#dc2626", fontWeight: "bold" }}>
+                Your account is not yet linked to an HR employee record. Please contact admin.
+              </div>
+            ) : (
               <>
+                {!isAdminHR && myEmployee && (
+                  <div
+                    style={{
+                      backgroundColor: "#eef4ff",
+                      border: `1px solid ${BORDER}`,
+                      borderRadius: "10px",
+                      padding: "14px",
+                      marginBottom: "12px",
+                    }}
+                  >
+                    <div style={{ color: ROYAL_BLUE, fontWeight: "bold" }}>
+                      {myEmployee.fullName}
+                    </div>
+                    <div style={{ color: MUTED, marginTop: "4px" }}>
+                      {myEmployee.jobTitle || "Employee"} • {myEmployee.employeeId}
+                    </div>
+                    <div style={{ color: MUTED, marginTop: "6px" }}>
+                      Vacation: {Number(myEmployee.leaveBalanceVacation || 0)} days | Sick:{" "}
+                      {Number(myEmployee.leaveBalanceSick || 0)} days | Unpaid:{" "}
+                      {Number(myEmployee.leaveBalanceUnpaid || 0)} days
+                    </div>
+                  </div>
+                )}
+
                 <div
                   style={{
-                    backgroundColor: "#eef4ff",
-                    border: `1px solid ${BORDER}`,
-                    borderRadius: "10px",
-                    padding: "14px",
-                    marginBottom: "12px",
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+                    gap: "12px",
                   }}
                 >
-                  <div style={{ color: ROYAL_BLUE, fontWeight: "bold" }}>
-                    {myEmployee.fullName}
+                  <div>
+                    <label style={labelStyle}>Leave Type</label>
+                    <select
+                      name="leaveType"
+                      value={leaveForm.leaveType}
+                      onChange={handleLeaveChange}
+                      style={inputStyle}
+                    >
+                      {LEAVE_TYPE_OPTIONS.map((type) => (
+                        <option key={type} value={type}>
+                          {type}
+                        </option>
+                      ))}
+                    </select>
                   </div>
-                  <div style={{ color: MUTED, marginTop: "4px" }}>
-                    {myEmployee.jobTitle || "Employee"} • {myEmployee.employeeId}
+
+                  <div>
+                    <label style={labelStyle}>Start Date</label>
+                    <input
+                      type="date"
+                      name="startDate"
+                      value={leaveForm.startDate}
+                      onChange={handleLeaveChange}
+                      style={inputStyle}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={labelStyle}>End Date</label>
+                    <input
+                      type="date"
+                      name="endDate"
+                      value={leaveForm.endDate}
+                      onChange={handleLeaveChange}
+                      style={inputStyle}
+                    />
+                  </div>
+
+                  <div style={{ gridColumn: "1 / -1" }}>
+                    <label style={labelStyle}>Reason</label>
+                    <textarea
+                      name="reason"
+                      value={leaveForm.reason}
+                      onChange={handleLeaveChange}
+                      style={{ ...inputStyle, minHeight: "90px" }}
+                    />
                   </div>
                 </div>
 
-                <select
-                  name="leaveType"
-                  value={leaveForm.leaveType}
-                  onChange={handleLeaveChange}
-                  style={{
-                    padding: "10px",
-                    marginBottom: "10px",
-                    width: "100%",
-                    border: `1px solid ${BORDER}`,
-                    borderRadius: "8px",
-                  }}
-                >
-                  <option value="Vacation">Vacation</option>
-                  <option value="Sick">Sick</option>
-                  <option value="Unpaid">Unpaid</option>
-                  <option value="Emergency">Emergency</option>
-                </select>
-
-                <input
-                  type="date"
-                  name="startDate"
-                  value={leaveForm.startDate}
-                  onChange={handleLeaveChange}
-                  style={{
-                    padding: "10px",
-                    marginBottom: "10px",
-                    width: "100%",
-                    border: `1px solid ${BORDER}`,
-                    borderRadius: "8px",
-                  }}
-                />
-
-                <input
-                  type="date"
-                  name="endDate"
-                  value={leaveForm.endDate}
-                  onChange={handleLeaveChange}
-                  style={{
-                    padding: "10px",
-                    marginBottom: "10px",
-                    width: "100%",
-                    border: `1px solid ${BORDER}`,
-                    borderRadius: "8px",
-                  }}
-                />
-
-                <textarea
-                  name="reason"
-                  placeholder="Reason"
-                  value={leaveForm.reason}
-                  onChange={handleLeaveChange}
-                  style={{
-                    padding: "10px",
-                    marginBottom: "10px",
-                    width: "100%",
-                    minHeight: "100px",
-                    border: `1px solid ${BORDER}`,
-                    borderRadius: "8px",
-                  }}
-                />
-
-                <button style={primaryButton} onClick={submitLeaveRequest}>
-                  Submit My Leave Request
-                </button>
+                <div style={{ marginTop: "12px" }}>
+                  <button style={primaryButton} onClick={submitLeaveRequest}>
+                    {isAdminHR ? "Submit Leave Request" : "Submit My Leave Request"}
+                  </button>
+                </div>
               </>
             )}
           </div>
 
           <div style={cardStyle}>
-            <h2 style={{ color: ROYAL_BLUE, marginTop: 0 }}>My Leave Requests</h2>
+            <h2 style={{ color: ROYAL_BLUE, marginTop: 0 }}>
+              {isAdminHR ? "Leave Requests" : "My Leave Requests"}
+            </h2>
 
             <div style={{ overflowX: "auto" }}>
               <table width="100%" cellPadding="10" style={{ borderCollapse: "collapse" }}>
@@ -922,7 +1500,7 @@ function HR() {
 
                 <tbody>
                   {leaveRequests.map((request) => (
-                    <tr key={request.leaveRequestId}>
+                    <tr key={request.leaveRequestId} style={{ borderBottom: `1px solid ${BORDER}` }}>
                       <td>{request.leaveRequestId}</td>
                       <td>{request.leaveType}</td>
                       <td>
