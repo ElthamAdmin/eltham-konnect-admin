@@ -1423,6 +1423,16 @@ const fetchReports = async (from = reportFilters.from, to = reportFilters.to) =>
   readOnly
   style={{ padding: "10px", backgroundColor: "#f8fafc" }}
 />
+
+<input
+  type="text"
+  name="employeeId"
+  placeholder="Employee ID (e.g. EMP0001)"
+  value={payrollForm.employeeId || ""}
+  onChange={handlePayrollChange}
+  style={{ padding: "10px" }}
+/>
+
 <input
   type="text"
   name="employeeName"
