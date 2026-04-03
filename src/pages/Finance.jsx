@@ -17,6 +17,7 @@ function Finance() {
   const [invoices, setInvoices] = useState([]);
   const [expenses, setExpenses] = useState([]);
   const [payroll, setPayroll] = useState([]);
+  const [hrEmployees, setHrEmployees] = useState([]);
   const [summary, setSummary] = useState(null);
   const [reports, setReports] = useState(null);
   const [accounts, setAccounts] = useState([]);
@@ -164,6 +165,7 @@ const downloadReportsPdf = () => {
   });
 
   const [payrollForm, setPayrollForm] = useState({
+    employeeId: "",
     employeeName: "",
     role: "",
     payPeriod: "",
@@ -327,26 +329,28 @@ const fetchReports = async (from = reportFilters.from, to = reportFilters.to) =>
   }
 };
   const fetchStaticFinanceData = async () => {
-    try {
-      const [invoicesRes, summaryRes, accountsRes] =
-  await Promise.all([
-    api.get("/api/invoices"),
-    api.get("/api/finance/summary"),
-    api.get("/api/financial-accounts"),
-  ]);
+  try {
+    const [invoicesRes, summaryRes, accountsRes, hrEmployeesRes] =
+      await Promise.all([
+        api.get("/api/invoices"),
+        api.get("/api/finance/summary"),
+        api.get("/api/financial-accounts"),
+        api.get("/api/hr"),
+      ]);
 
-      setInvoices(invoicesRes.data.data || []);
-      setSummary(summaryRes.data.data || null);
-      setAccounts(accountsRes.data.data || []);
-    } catch (error) {
-      console.error("Error loading finance summary data:", error);
-      alert(
-        error?.response?.data?.message ||
-          error?.message ||
-          "Could not load finance data."
-      );
-    }
-  };
+    setInvoices(invoicesRes.data.data || []);
+    setSummary(summaryRes.data.data || null);
+    setAccounts(accountsRes.data.data || []);
+    setHrEmployees(hrEmployeesRes.data.data || []);
+  } catch (error) {
+    console.error("Error loading finance summary data:", error);
+    alert(
+      error?.response?.data?.message ||
+        error?.message ||
+        "Could not load finance data."
+    );
+  }
+};
 
   const fetchExpenses = async (
     page = expensePagination.page,
@@ -563,13 +567,28 @@ const fetchReports = async (from = reportFilters.from, to = reportFilters.to) =>
   };
 
   const handlePayrollChange = (e) => {
-    const { name, value, type, checked } = e.target;
+  const { name, value, type, checked } = e.target;
+
+  if (name === "employeeId") {
+    const selectedEmployee = hrEmployees.find(
+      (employee) => employee.employeeId === value
+    );
 
     setPayrollForm((prev) => ({
       ...prev,
-      [name]: type === "checkbox" ? checked : value,
+      employeeId: value,
+      employeeName: selectedEmployee?.fullName || "",
+      role: selectedEmployee?.jobTitle || "",
+      grossPay: selectedEmployee?.payRate || "",
     }));
-  };
+    return;
+  }
+
+  setPayrollForm((prev) => ({
+    ...prev,
+    [name]: type === "checkbox" ? checked : value,
+  }));
+};
 
   const addPayroll = async () => {
     try {
@@ -584,15 +603,16 @@ const fetchReports = async (from = reportFilters.from, to = reportFilters.to) =>
       }
 
       const payload = {
-        employeeName: payrollForm.employeeName,
-        role: payrollForm.role,
-        payPeriod: payrollForm.payPeriod,
-        grossPay: Number(payrollForm.grossPay || 0),
-        status: payrollForm.status,
-        autoCalculateStatutoryDeductions:
-          payrollForm.autoCalculateStatutoryDeductions,
-        paidFromAccountNumber: payrollForm.paidFromAccountNumber,
-      };
+  employeeId: payrollForm.employeeId,
+  employeeName: payrollForm.employeeName,
+  role: payrollForm.role,
+  payPeriod: payrollForm.payPeriod,
+  grossPay: Number(payrollForm.grossPay || 0),
+  status: payrollForm.status,
+  autoCalculateStatutoryDeductions:
+    payrollForm.autoCalculateStatutoryDeductions,
+  paidFromAccountNumber: payrollForm.paidFromAccountNumber,
+};
 
       if (payrollForm.autoCalculateStatutoryDeductions) {
         payload.pensionEmployee = Number(payrollForm.pensionEmployee || 0);
@@ -609,6 +629,7 @@ const fetchReports = async (from = reportFilters.from, to = reportFilters.to) =>
       alert(res.data.message);
 
       setPayrollForm({
+        employeeId: "",
         employeeName: "",
         role: "",
         payPeriod: "",
@@ -1302,22 +1323,37 @@ const fetchReports = async (from = reportFilters.from, to = reportFilters.to) =>
                 gap: "15px",
               }}
             >
+              <select
+  name="employeeId"
+  value={payrollForm.employeeId}
+  onChange={handlePayrollChange}
+  style={{ padding: "10px" }}
+>
+  <option value="">Select Employee</option>
+  {hrEmployees
+    .filter((employee) => employee.employmentStatus === "Active")
+    .map((employee) => (
+      <option key={employee.employeeId} value={employee.employeeId}>
+        {employee.fullName} ({employee.employeeId})
+      </option>
+    ))}
+</select>
               <input
-                type="text"
-                name="employeeName"
-                placeholder="Employee Name"
-                value={payrollForm.employeeName}
-                onChange={handlePayrollChange}
-                style={{ padding: "10px" }}
-              />
-              <input
-                type="text"
-                name="role"
-                placeholder="Role"
-                value={payrollForm.role}
-                onChange={handlePayrollChange}
-                style={{ padding: "10px" }}
-              />
+  type="text"
+  name="role"
+  placeholder="Role"
+  value={payrollForm.role}
+  readOnly
+  style={{ padding: "10px", backgroundColor: "#f8fafc" }}
+/>
+<input
+  type="text"
+  name="employeeName"
+  placeholder="Employee Name"
+  value={payrollForm.employeeName}
+  readOnly
+  style={{ padding: "10px", backgroundColor: "#f8fafc" }}
+/>
               <input
                 type="month"
                 name="payPeriod"
@@ -1539,6 +1575,7 @@ const fetchReports = async (from = reportFilters.from, to = reportFilters.to) =>
                 <thead style={{ backgroundColor: "#eef4ff" }}>
                   <tr>
                     <th>Payroll Number</th>
+                    <th>Employee ID</th>
                     <th>Employee</th>
                     <th>Role</th>
                     <th>Pay Period</th>
@@ -1559,6 +1596,7 @@ const fetchReports = async (from = reportFilters.from, to = reportFilters.to) =>
                     payroll.map((item) => (
                       <tr key={item._id || item.id}>
                         <td>{item.payrollNumber}</td>
+                        <td>{item.employeeId || "-"}</td>
                         <td>{item.employeeName}</td>
                         <td>{item.role}</td>
                         <td>{item.payPeriod}</td>
@@ -1582,7 +1620,7 @@ const fetchReports = async (from = reportFilters.from, to = reportFilters.to) =>
                     ))
                   ) : (
                     <tr>
-                      <td colSpan="14">No payroll records found.</td>
+                      <td colSpan="15">No payroll records found.</td>
                     </tr>
                   )}
                 </tbody>
