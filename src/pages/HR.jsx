@@ -388,40 +388,52 @@ function HR() {
   };
 
   const submitLeaveRequest = async () => {
-    try {
-      const payload = {
-        ...leaveForm,
-        employeeId: isAdminHR ? leaveForm.employeeId : myEmployee?.employeeId || "",
-      };
-
-      if (!payload.leaveType || !payload.startDate || !payload.endDate) {
-        alert("Leave type, start date, and end date are required.");
-        return;
-      }
-
-      if (isAdminHR && !payload.employeeId) {
-        alert("Please select an employee.");
-        return;
-      }
-
-      if (!isAdminHR && !myEmployee?.employeeId) {
-        alert("Your account is not linked to an HR employee record.");
-        return;
-      }
-
-      const res = await api.post("/api/leave-requests", payload);
-
-      alert(res.data.message || "Leave request submitted");
-      setLeaveForm({
-        ...emptyLeaveForm,
-        employeeId: isAdminHR ? "" : myEmployee?.employeeId || "",
-      });
-      await fetchHRData();
-    } catch (error) {
-      console.error(error);
-      alert(error?.response?.data?.message || "Failed to submit leave request");
+  try {
+    if (!leaveForm.leaveType || !leaveForm.startDate || !leaveForm.endDate) {
+      alert("Leave type, start date, and end date are required.");
+      return;
     }
-  };
+
+    if (!isAdminHR && !myEmployee?.employeeId) {
+      alert("Your account is not linked to an HR employee record.");
+      return;
+    }
+
+    if (isAdminHR && !leaveForm.employeeId) {
+      alert("Please select an employee.");
+      return;
+    }
+
+    const payload = isAdminHR
+      ? {
+          employeeId: leaveForm.employeeId,
+          leaveType: leaveForm.leaveType,
+          startDate: leaveForm.startDate,
+          endDate: leaveForm.endDate,
+          reason: leaveForm.reason,
+        }
+      : {
+          leaveType: leaveForm.leaveType,
+          startDate: leaveForm.startDate,
+          endDate: leaveForm.endDate,
+          reason: leaveForm.reason,
+        };
+
+    const res = await api.post("/api/leave-requests", payload);
+
+    alert(res.data.message || "Leave request submitted");
+
+    setLeaveForm({
+      ...emptyLeaveForm,
+      employeeId: isAdminHR ? "" : myEmployee?.employeeId || "",
+    });
+
+    await fetchHRData();
+  } catch (error) {
+    console.error(error);
+    alert(error?.response?.data?.message || "Failed to submit leave request");
+  }
+};
 
   const approveLeaveRequest = async (leaveRequestId) => {
     try {
