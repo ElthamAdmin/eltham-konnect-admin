@@ -46,6 +46,19 @@ function HR() {
   ];
   const LEAVE_TYPE_OPTIONS = ["Vacation", "Sick", "Unpaid", "Emergency"];
 
+  const DOCUMENT_TYPE_OPTIONS = [
+  "Contract",
+  "Job Letter",
+  "Warning Letter",
+  "ID",
+  "TRN",
+  "NIS",
+  "Payslip",
+  "Policy",
+  "Handbook",
+  "Other",
+];
+
   const emptyEmployeeForm = {
     fullName: "",
     firstName: "",
@@ -87,6 +100,13 @@ function HR() {
     reason: "",
   };
 
+  const emptyDocumentForm = {
+  employeeId: "",
+  documentType: "Contract",
+  documentName: "",
+  file: null,
+};
+
   const [activeTab, setActiveTab] = useState(
     isAdminHR ? "employees" : "myProfile"
   );
@@ -98,12 +118,17 @@ function HR() {
   const [employeeForm, setEmployeeForm] = useState(emptyEmployeeForm);
   const [leaveForm, setLeaveForm] = useState(emptyLeaveForm);
   const [leaveAdminComment, setLeaveAdminComment] = useState("");
-  const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState("All");
-  const [departmentFilter, setDepartmentFilter] = useState("All");
-  const [isEditing, setIsEditing] = useState(false);
-  const [editingEmployeeId, setEditingEmployeeId] = useState("");
-  const [loading, setLoading] = useState(false);
+const [searchTerm, setSearchTerm] = useState("");
+const [statusFilter, setStatusFilter] = useState("All");
+const [departmentFilter, setDepartmentFilter] = useState("All");
+const [isEditing, setIsEditing] = useState(false);
+const [editingEmployeeId, setEditingEmployeeId] = useState("");
+const [loading, setLoading] = useState(false);
+
+const [documentForm, setDocumentForm] = useState(emptyDocumentForm);
+const [employeeDocuments, setEmployeeDocuments] = useState([]);
+const [documentEmployeeId, setDocumentEmployeeId] = useState("");
+const [documentsLoading, setDocumentsLoading] = useState(false);
 
   const cardStyle = {
     backgroundColor: WHITE,
@@ -219,11 +244,17 @@ function HR() {
           api.get("/api/leave-requests"),
         ]);
 
-        setEmployees(employeesRes.data.data || []);
-        setSummary(summaryRes.data.data || null);
-        setSystemUsers(usersRes.data.data || []);
-        setLeaveRequests(leaveRes.data.data || []);
-        setMyEmployee(null);
+        const employeesData = employeesRes.data.data || [];
+
+setEmployees(employeesData);
+setSummary(summaryRes.data.data || null);
+setSystemUsers(usersRes.data.data || []);
+setLeaveRequests(leaveRes.data.data || []);
+setMyEmployee(null);
+
+if (!documentEmployeeId && employeesData.length > 0) {
+  setDocumentEmployeeId(employeesData[0].employeeId);
+}
       } else {
         const requests = [api.get("/api/leave-requests")];
 
@@ -274,6 +305,20 @@ function HR() {
     fetchHRData();
   }, []);
 
+  useEffect(() => {
+  if (activeTab !== "documents") return;
+
+  const employeeIdToLoad = isAdminHR
+    ? documentEmployeeId
+    : myEmployee?.employeeId || "";
+
+  if (employeeIdToLoad) {
+    fetchEmployeeDocuments(employeeIdToLoad);
+  } else {
+    setEmployeeDocuments([]);
+  }
+}, [activeTab, documentEmployeeId, myEmployee, isAdminHR]);
+
   const handleEmployeeChange = (e) => {
     const { name, value, type, checked } = e.target;
 
@@ -295,6 +340,23 @@ function HR() {
     const { name, value } = e.target;
     setLeaveForm((prev) => ({ ...prev, [name]: value }));
   };
+
+  const handleDocumentInputChange = (e) => {
+  const { name, value, files } = e.target;
+
+  if (name === "file") {
+    setDocumentForm((prev) => ({
+      ...prev,
+      file: files && files[0] ? files[0] : null,
+    }));
+    return;
+  }
+
+  setDocumentForm((prev) => ({
+    ...prev,
+    [name]: value,
+  }));
+};
 
   const resetEmployeeForm = () => {
     setEmployeeForm(emptyEmployeeForm);
@@ -465,6 +527,91 @@ function HR() {
     }
   };
 
+  const fetchEmployeeDocuments = async (employeeIdToLoad) => {
+  try {
+    if (!employeeIdToLoad) {
+      setEmployeeDocuments([]);
+      return;
+    }
+
+    setDocumentsLoading(true);
+    const res = await api.get(`/api/documents/${employeeIdToLoad}`);
+    setEmployeeDocuments(res.data.data || []);
+  } catch (error) {
+    console.error(error);
+    alert(error?.response?.data?.message || "Failed to load documents");
+    setEmployeeDocuments([]);
+  } finally {
+    setDocumentsLoading(false);
+  }
+};
+
+const uploadEmployeeDocument = async () => {
+  try {
+    const employeeIdToUse = isAdminHR
+      ? documentEmployeeId
+      : myEmployee?.employeeId || "";
+
+    if (!employeeIdToUse) {
+      alert("Please select an employee.");
+      return;
+    }
+
+    if (!documentForm.file) {
+      alert("Please choose a file to upload.");
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append("file", documentForm.file);
+    formData.append("documentType", documentForm.documentType);
+    formData.append("documentName", documentForm.documentName);
+
+    const res = await api.post(`/api/documents/upload/${employeeIdToUse}`, formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    });
+
+    alert(res.data.message || "Document uploaded successfully");
+
+    setDocumentForm({
+      employeeId: "",
+      documentType: "Contract",
+      documentName: "",
+      file: null,
+    });
+
+    await fetchEmployeeDocuments(employeeIdToUse);
+    await fetchHRData();
+  } catch (error) {
+    console.error(error);
+    alert(error?.response?.data?.message || "Failed to upload document");
+  }
+};
+
+const deleteEmployeeDocument = async (index) => {
+  try {
+    const employeeIdToUse = isAdminHR
+      ? documentEmployeeId
+      : myEmployee?.employeeId || "";
+
+    if (!employeeIdToUse) {
+      alert("No employee selected.");
+      return;
+    }
+
+    const res = await api.delete(`/api/documents/${employeeIdToUse}/${index}`);
+
+    alert(res.data.message || "Document deleted successfully");
+    await fetchEmployeeDocuments(employeeIdToUse);
+    await fetchHRData();
+  } catch (error) {
+    console.error(error);
+    alert(error?.response?.data?.message || "Failed to delete document");
+  }
+};
+
   const filteredEmployees = useMemo(() => {
     return employees.filter((employee) => {
       const matchesSearch =
@@ -517,13 +664,17 @@ function HR() {
   );
 
   const showEmployeesTab = isAdminHR;
-  const showEmployeeFormTab = isAdminHR;
-  const showLeaveRequestsTab = isAdminHR;
-  const showMyLeaveTab =
-    permissions.includes("leaveSelfService") ||
-    permissions.includes("hrSelfService") ||
-    isAdminHR;
-  const showMyProfileTab = canSelfServiceHR && !isAdminHR;
+const showEmployeeFormTab = isAdminHR;
+const showLeaveRequestsTab = isAdminHR;
+const showDocumentsTab =
+  permissions.includes("documentSelfService") ||
+  permissions.includes("hrSelfService") ||
+  isAdminHR;
+const showMyLeaveTab =
+  permissions.includes("leaveSelfService") ||
+  permissions.includes("hrSelfService") ||
+  isAdminHR;
+const showMyProfileTab = canSelfServiceHR && !isAdminHR;
 
   return (
     <div style={{ backgroundColor: LIGHT_BG, minHeight: "100vh", padding: "20px" }}>
@@ -564,6 +715,20 @@ function HR() {
             Leave Requests
           </button>
         )}
+
+        {showDocumentsTab && (
+  <button
+    style={tabButtonStyle("documents")}
+    onClick={() => {
+      setActiveTab("documents");
+      if (isAdminHR && employees.length > 0 && !documentEmployeeId) {
+        setDocumentEmployeeId(employees[0].employeeId);
+      }
+    }}
+  >
+    Documents
+  </button>
+)}
 
         {showMyProfileTab && (
           <button style={tabButtonStyle("myProfile")} onClick={() => setActiveTab("myProfile")}>
@@ -1333,7 +1498,145 @@ function HR() {
           </div>
         </div>
       )}
+      {activeTab === "documents" && showDocumentsTab && (
+  <div style={{ display: "grid", gap: "20px" }}>
+    <div style={cardStyle}>
+      <h2 style={{ color: ROYAL_BLUE, marginTop: 0 }}>
+        {isAdminHR ? "Employee Documents" : "My Documents"}
+      </h2>
 
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+          gap: "12px",
+        }}
+      >
+        {isAdminHR && (
+          <div>
+            <label style={labelStyle}>Employee</label>
+            <select
+              value={documentEmployeeId}
+              onChange={(e) => setDocumentEmployeeId(e.target.value)}
+              style={inputStyle}
+            >
+              <option value="">Select Employee</option>
+              {employees.map((employee) => (
+                <option key={employee.employeeId} value={employee.employeeId}>
+                  {employee.fullName} ({employee.employeeId})
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        <div>
+          <label style={labelStyle}>Document Type</label>
+          <select
+            name="documentType"
+            value={documentForm.documentType}
+            onChange={handleDocumentInputChange}
+            style={inputStyle}
+          >
+            {DOCUMENT_TYPE_OPTIONS.map((type) => (
+              <option key={type} value={type}>
+                {type}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label style={labelStyle}>Document Name</label>
+          <input
+            name="documentName"
+            value={documentForm.documentName}
+            onChange={handleDocumentInputChange}
+            placeholder="e.g. Signed Contract"
+            style={inputStyle}
+          />
+        </div>
+
+        <div>
+          <label style={labelStyle}>Choose File</label>
+          <input
+            type="file"
+            name="file"
+            onChange={handleDocumentInputChange}
+            style={inputStyle}
+          />
+        </div>
+      </div>
+
+      <div style={{ marginTop: "14px" }}>
+        <button style={primaryButton} onClick={uploadEmployeeDocument}>
+          Upload Document
+        </button>
+      </div>
+    </div>
+
+    <div style={cardStyle}>
+      <h2 style={{ color: ROYAL_BLUE, marginTop: 0 }}>Document List</h2>
+
+      {documentsLoading ? (
+        <div style={{ color: MUTED }}>Loading documents...</div>
+      ) : employeeDocuments.length === 0 ? (
+        <div style={{ color: MUTED }}>No documents found.</div>
+      ) : (
+        <div style={{ overflowX: "auto" }}>
+          <table width="100%" cellPadding="10" style={{ borderCollapse: "collapse" }}>
+            <thead style={{ backgroundColor: "#eef4ff" }}>
+              <tr>
+                <th align="left">Document Name</th>
+                <th align="left">Type</th>
+                <th align="left">Uploaded</th>
+                <th align="left">File</th>
+                {isAdminHR && <th align="left">Action</th>}
+              </tr>
+            </thead>
+            <tbody>
+              {employeeDocuments.map((doc, index) => (
+                <tr key={`${doc.fileUrl}-${index}`} style={{ borderBottom: `1px solid ${BORDER}` }}>
+                  <td>{doc.documentName || "-"}</td>
+                  <td>{doc.documentType || "-"}</td>
+                  <td>
+                    {doc.uploadedAt
+                      ? new Date(doc.uploadedAt).toLocaleDateString()
+                      : "-"}
+                  </td>
+                  <td>
+                    {doc.fileUrl ? (
+                      <a
+                        href={`${api.defaults.baseURL}${doc.fileUrl}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        style={{ color: ROYAL_BLUE, fontWeight: "bold" }}
+                      >
+                        View File
+                      </a>
+                    ) : (
+                      "-"
+                    )}
+                  </td>
+                  {isAdminHR && (
+                    <td>
+                      <button
+                        style={dangerButton}
+                        onClick={() => deleteEmployeeDocument(index)}
+                      >
+                        Delete
+                      </button>
+                    </td>
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  </div>
+)}
       {activeTab === "myProfile" && showMyProfileTab && (
         <div style={{ display: "grid", gap: "20px" }}>
           <div style={cardStyle}>
