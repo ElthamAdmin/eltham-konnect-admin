@@ -114,6 +114,7 @@ function HR() {
   const [summary, setSummary] = useState(null);
   const [systemUsers, setSystemUsers] = useState([]);
   const [leaveRequests, setLeaveRequests] = useState([]);
+  const [myPayslips, setMyPayslips] = useState([]);
   const [myEmployee, setMyEmployee] = useState(null);
   const [employeeForm, setEmployeeForm] = useState(emptyEmployeeForm);
   const [leaveForm, setLeaveForm] = useState(emptyLeaveForm);
@@ -250,13 +251,22 @@ setEmployees(employeesData);
 setSummary(summaryRes.data.data || null);
 setSystemUsers(usersRes.data.data || []);
 setLeaveRequests(leaveRes.data.data || []);
+setMyPayslips(payrollRes.data.data || []);
 setMyEmployee(null);
 
 if (!documentEmployeeId && employeesData.length > 0) {
   setDocumentEmployeeId(employeesData[0].employeeId);
 }
       } else {
-        const requests = [api.get("/api/leave-requests")];
+        const requests = [
+  api.get("/api/leave-requests"),
+  api.get("/api/finance/payroll/my-records").catch((error) => {
+    if (error?.response?.status === 404) {
+      return { data: { data: [] } };
+    }
+    throw error;
+  }),
+];
 
         if (canSelfServiceHR) {
           requests.unshift(
@@ -272,14 +282,19 @@ if (!documentEmployeeId && employeesData.length > 0) {
         const responses = await Promise.all(requests);
 
         let myProfileRes = { data: { data: null } };
-        let leaveRes = { data: { data: [] } };
+let leaveRes = { data: { data: [] } };
+let payrollRes = { data: { data: [] } };
 
-        if (responses.length === 2) {
-          myProfileRes = responses[0];
-          leaveRes = responses[1];
-        } else {
-          leaveRes = responses[0];
-        }
+if (responses.length === 3) {
+  myProfileRes = responses[0];
+  leaveRes = responses[1];
+  payrollRes = responses[2];
+} else if (responses.length === 2) {
+  leaveRes = responses[0];
+  payrollRes = responses[1];
+} else {
+  leaveRes = responses[0];
+}
 
         const myProfile = myProfileRes.data.data || null;
 
@@ -655,7 +670,68 @@ const deleteEmployeeDocument = async (index) => {
       </span>
     );
   };
+  const downloadPayslipPdf = async (payslip) => {
+  try {
+    const { jsPDF } = await import("jspdf");
+    const { autoTable } = await import("jspdf-autotable");
 
+    const doc = new jsPDF("p", "mm", "a4");
+
+    doc.setFontSize(18);
+    doc.text("Eltham Konnect", 14, 16);
+
+    doc.setFontSize(12);
+    doc.text("Employee Payslip", 14, 24);
+
+    doc.setFontSize(10);
+    doc.text(`Payroll Number: ${payslip.payrollNumber || "-"}`, 14, 31);
+    doc.text(`Pay Period: ${payslip.payPeriod || "-"}`, 14, 36);
+
+    autoTable(doc, {
+      startY: 42,
+      head: [["Employee Details", "Value"]],
+      body: [
+        ["Employee ID", payslip.employeeId || myEmployee?.employeeId || "-"],
+        ["Employee Name", payslip.employeeName || myEmployee?.fullName || "-"],
+        ["Role", payslip.role || myEmployee?.jobTitle || "-"],
+      ],
+      styles: { fontSize: 10 },
+      headStyles: { fillColor: [11, 61, 145] },
+    });
+
+    autoTable(doc, {
+      startY: doc.lastAutoTable.finalY + 8,
+      head: [["Earnings & Deductions", "Amount"]],
+      body: [
+        ["Gross Pay", `JMD ${Number(payslip.grossPay || 0).toLocaleString()}`],
+        ["NIS", `JMD ${Number(payslip.nisEmployee || 0).toLocaleString()}`],
+        ["NHT", `JMD ${Number(payslip.nhtEmployee || 0).toLocaleString()}`],
+        ["Education Tax", `JMD ${Number(payslip.educationTax || 0).toLocaleString()}`],
+        ["Income Tax", `JMD ${Number(payslip.incomeTax || 0).toLocaleString()}`],
+        ["Pension", `JMD ${Number(payslip.pensionEmployee || 0).toLocaleString()}`],
+        [
+          "Total Deductions",
+          `JMD ${Number(
+            payslip.totalDeductions !== undefined
+              ? payslip.totalDeductions
+              : payslip.deductions || 0
+          ).toLocaleString()}`,
+        ],
+        ["Net Pay", `JMD ${Number(payslip.netPay || 0).toLocaleString()}`],
+      ],
+      styles: { fontSize: 10 },
+      headStyles: { fillColor: [22, 163, 74] },
+    });
+
+    const safeName = String(payslip.employeeName || "employee").replace(/\s+/g, "-");
+    const safePeriod = String(payslip.payPeriod || "period").replace(/\s+/g, "-");
+
+    doc.save(`payslip-${safeName}-${safePeriod}.pdf`);
+  } catch (error) {
+    console.error("Error generating payslip PDF:", error);
+    alert("Could not download payslip.");
+  }
+};
   const renderField = (label, value) => (
     <div>
       <div style={{ color: MUTED, fontSize: "13px", marginBottom: "4px" }}>{label}</div>
@@ -672,6 +748,10 @@ const showDocumentsTab =
   isAdminHR;
 const showMyLeaveTab =
   permissions.includes("leaveSelfService") ||
+  permissions.includes("hrSelfService") ||
+  isAdminHR;
+const showMyPayslipsTab =
+  permissions.includes("payslipSelfService") ||
   permissions.includes("hrSelfService") ||
   isAdminHR;
 const showMyProfileTab = canSelfServiceHR && !isAdminHR;
@@ -742,6 +822,15 @@ const showMyProfileTab = canSelfServiceHR && !isAdminHR;
           </button>
         )}
       </div>
+      
+      {showMyPayslipsTab && !isAdminHR && (
+  <button
+    style={tabButtonStyle("myPayslips")}
+    onClick={() => setActiveTab("myPayslips")}
+  >
+    My Payslips
+  </button>
+)}
 
       {loading && (
         <div style={{ ...cardStyle, marginBottom: "20px", color: MUTED }}>
@@ -1691,7 +1780,65 @@ const showMyProfileTab = canSelfServiceHR && !isAdminHR;
           </div>
         </div>
       )}
+      {activeTab === "myPayslips" && showMyPayslipsTab && !isAdminHR && (
+  <div style={{ display: "grid", gap: "20px" }}>
+    <div style={cardStyle}>
+      <h2 style={{ color: ROYAL_BLUE, marginTop: 0 }}>My Payslips</h2>
 
+      <div style={{ overflowX: "auto" }}>
+        <table width="100%" cellPadding="10" style={{ borderCollapse: "collapse" }}>
+          <thead style={{ backgroundColor: "#eef4ff" }}>
+            <tr>
+              <th align="left">Payroll Number</th>
+              <th align="left">Pay Period</th>
+              <th align="left">Gross Pay</th>
+              <th align="left">Total Deductions</th>
+              <th align="left">Net Pay</th>
+              <th align="left">Status</th>
+              <th align="left">Action</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            {myPayslips.length > 0 ? (
+              myPayslips.map((item) => (
+                <tr key={item._id || item.payrollNumber} style={{ borderBottom: `1px solid ${BORDER}` }}>
+                  <td>{item.payrollNumber}</td>
+                  <td>{item.payPeriod}</td>
+                  <td>JMD {Number(item.grossPay || 0).toLocaleString()}</td>
+                  <td>
+                    JMD{" "}
+                    {Number(
+                      item.totalDeductions !== undefined
+                        ? item.totalDeductions
+                        : item.deductions || 0
+                    ).toLocaleString()}
+                  </td>
+                  <td>JMD {Number(item.netPay || 0).toLocaleString()}</td>
+                  <td>{leaveStatusBadge(item.status || "Pending")}</td>
+                  <td>
+                    <button
+                      style={primaryButton}
+                      onClick={() => downloadPayslipPdf(item)}
+                    >
+                      Download PDF
+                    </button>
+                  </td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td colSpan="7" style={{ textAlign: "center", padding: "20px", color: MUTED }}>
+                  No payslips found
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+)}
       {activeTab === "myLeave" && showMyLeaveTab && (
         <div style={{ display: "grid", gap: "20px" }}>
           <div style={cardStyle}>
