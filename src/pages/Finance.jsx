@@ -134,6 +134,83 @@ const downloadReportsPdf = () => {
     alert("Could not download PDF report.");
   }
 };
+const generatePayslipPdf = (item) => {
+  try {
+    const doc = new jsPDF("p", "mm", "a4");
+
+    const generatedDate = formatDate(new Date());
+
+    doc.setFontSize(18);
+    doc.text("Eltham Konnect", 14, 16);
+
+    doc.setFontSize(13);
+    doc.text("Employee Payslip", 14, 24);
+
+    doc.setFontSize(10);
+    doc.text(`Generated: ${generatedDate}`, 14, 30);
+    doc.text(`Payroll Number: ${item.payrollNumber || "-"}`, 14, 35);
+
+    autoTable(doc, {
+      startY: 42,
+      head: [["Employee Details", "Value"]],
+      body: [
+        ["Employee ID", item.employeeId || "-"],
+        ["Employee Name", item.employeeName || "-"],
+        ["Role", item.role || "-"],
+        ["Pay Period", item.payPeriod || "-"],
+        ["Status", item.status || "-"],
+      ],
+      styles: { fontSize: 10 },
+      headStyles: { fillColor: [11, 61, 145] },
+    });
+
+    autoTable(doc, {
+      startY: doc.lastAutoTable.finalY + 8,
+      head: [["Earnings", "Amount"]],
+      body: [["Gross Pay", formatCurrency(item.grossPay)]],
+      styles: { fontSize: 10 },
+      headStyles: { fillColor: [11, 61, 145] },
+    });
+
+    autoTable(doc, {
+      startY: doc.lastAutoTable.finalY + 8,
+      head: [["Deductions", "Amount"]],
+      body: [
+        ["NIS", formatCurrency(item.nisEmployee)],
+        ["NHT", formatCurrency(item.nhtEmployee)],
+        ["Education Tax", formatCurrency(item.educationTax)],
+        ["Income Tax", formatCurrency(item.incomeTax)],
+        ["Pension", formatCurrency(item.pensionEmployee)],
+        [
+          "Total Deductions",
+          formatCurrency(
+            item.totalDeductions !== undefined
+              ? item.totalDeductions
+              : item.deductions
+          ),
+        ],
+      ],
+      styles: { fontSize: 10 },
+      headStyles: { fillColor: [11, 61, 145] },
+    });
+
+    autoTable(doc, {
+      startY: doc.lastAutoTable.finalY + 8,
+      head: [["Net Pay Summary", "Amount"]],
+      body: [["Net Pay", formatCurrency(item.netPay)]],
+      styles: { fontSize: 11, fontStyle: "bold" },
+      headStyles: { fillColor: [22, 163, 74] },
+    });
+
+    const safeEmployeeName = String(item.employeeName || "employee").replace(/\s+/g, "-");
+const safePayPeriod = String(item.payPeriod || "period").replace(/\s+/g, "-");
+
+doc.save(`payslip-${safeEmployeeName}-${safePayPeriod}.pdf`);
+  } catch (error) {
+    console.error("Error generating payslip PDF:", error);
+    alert("Could not generate payslip PDF.");
+  }
+};
   const [expensePagination, setExpensePagination] = useState({
     page: 1,
     limit: 10,
@@ -1589,38 +1666,56 @@ const fetchReports = async (from = reportFilters.from, to = reportFilters.to) =>
                     <th>Net Pay</th>
                     <th>Paid From Account</th>
                     <th>Status</th>
+                    <th>Action</th>
                   </tr>
                 </thead>
                 <tbody>
                   {payroll.length > 0 ? (
                     payroll.map((item) => (
                       <tr key={item._id || item.id}>
-                        <td>{item.payrollNumber}</td>
-                        <td>{item.employeeId || "-"}</td>
-                        <td>{item.employeeName}</td>
-                        <td>{item.role}</td>
-                        <td>{item.payPeriod}</td>
-                        <td>{formatCurrency(item.grossPay)}</td>
-                        <td>{formatCurrency(item.nisEmployee)}</td>
-                        <td>{formatCurrency(item.nhtEmployee)}</td>
-                        <td>{formatCurrency(item.educationTax)}</td>
-                        <td>{formatCurrency(item.incomeTax)}</td>
-                        <td>{formatCurrency(item.pensionEmployee)}</td>
-                        <td>
-                          {formatCurrency(
-                            item.totalDeductions !== undefined
-                              ? item.totalDeductions
-                              : item.deductions
-                          )}
-                        </td>
-                        <td>{formatCurrency(item.netPay)}</td>
-                        <td>{item.paidFromAccountName || item.paidFromAccountNumber || "-"}</td>
-                        <td>{statusBadge(item.status)}</td>
+                       <td>{item.payrollNumber}</td>
+<td>{item.employeeId || "-"}</td>
+<td>{item.employeeName}</td>
+<td>{item.role}</td>
+<td>{item.payPeriod}</td>
+<td>{formatCurrency(item.grossPay)}</td>
+<td>{formatCurrency(item.nisEmployee)}</td>
+<td>{formatCurrency(item.nhtEmployee)}</td>
+<td>{formatCurrency(item.educationTax)}</td>
+<td>{formatCurrency(item.incomeTax)}</td>
+<td>{formatCurrency(item.pensionEmployee)}</td>
+<td>
+  {formatCurrency(
+    item.totalDeductions !== undefined
+      ? item.totalDeductions
+      : item.deductions
+  )}
+</td>
+<td>{formatCurrency(item.netPay)}</td>
+<td>{item.paidFromAccountName || item.paidFromAccountNumber || "-"}</td>
+<td>{statusBadge(item.status)}</td>
+<td>
+  <button
+    onClick={() => generatePayslipPdf(item)}
+    style={{
+      backgroundColor: "#16a34a",
+      color: "white",
+      border: "none",
+      padding: "6px 10px",
+      borderRadius: "6px",
+      cursor: "pointer",
+      fontWeight: "bold",
+      whiteSpace: "nowrap",
+    }}
+  >
+    Generate Payslip
+  </button>
+</td>
                       </tr>
                     ))
                   ) : (
                     <tr>
-                      <td colSpan="15">No payroll records found.</td>
+                      <td colSpan="16">No payroll records found.</td>
                     </tr>
                   )}
                 </tbody>
