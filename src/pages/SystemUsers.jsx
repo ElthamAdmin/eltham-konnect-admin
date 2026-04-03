@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import axios from "axios";
+import api from "../api";
 
 const ALL_MODULES = [
   { key: "dashboard", label: "Dashboard" },
@@ -16,11 +16,18 @@ const ALL_MODULES = [
   { key: "settings", label: "Settings" },
   { key: "warehouse", label: "Warehouse Management" },
   { key: "pointsHistory", label: "Points History" },
+  { key: "hr", label: "HR Admin" },
+  { key: "hrSelfService", label: "HR Self Service" },
+  { key: "leaveSelfService", label: "Leave Self Service" },
+  { key: "documentSelfService", label: "Document Self Service" },
+  { key: "payslipSelfService", label: "Payslip Self Service" },
 ];
 
 function SystemUsers() {
   const [users, setUsers] = useState([]);
   const [showForm, setShowForm] = useState(false);
+  const [loading, setLoading] = useState(false);
+
   const [formData, setFormData] = useState({
     fullName: "",
     email: "",
@@ -30,14 +37,20 @@ function SystemUsers() {
     status: "Active",
     password: "",
     permissions: ["dashboard"],
+    linkedEmployeeId: "",
   });
 
   const fetchUsers = async () => {
     try {
-      const res = await axios.get("https://eltham-konnect-backend-c2sf.onrender.com/api/system-users");
+      setLoading(true);
+      const res = await api.get("/api/system-users");
       setUsers(res.data.data || []);
     } catch (error) {
       console.error("Error loading system users:", error);
+      alert(error?.response?.data?.message || "Could not load system users.");
+      setUsers([]);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -50,30 +63,30 @@ function SystemUsers() {
 
     if (name === "role") {
       if (value === "Admin") {
-        setFormData({
-          ...formData,
+        setFormData((prev) => ({
+          ...prev,
           role: value,
           permissions: ALL_MODULES.map((module) => module.key),
-        });
+        }));
       } else {
-        setFormData({
-          ...formData,
+        setFormData((prev) => ({
+          ...prev,
           role: value,
           permissions:
-            formData.role === "Admin"
+            prev.role === "Admin"
               ? ["dashboard"]
-              : formData.permissions.length > 0
-              ? formData.permissions
+              : prev.permissions.length > 0
+              ? prev.permissions
               : ["dashboard"],
-        });
+        }));
       }
       return;
     }
 
-    setFormData({
-      ...formData,
+    setFormData((prev) => ({
+      ...prev,
       [name]: value,
-    });
+    }));
   };
 
   const togglePermission = (permissionKey) => {
@@ -81,18 +94,14 @@ function SystemUsers() {
 
     const exists = formData.permissions.includes(permissionKey);
 
-    let updatedPermissions;
+    const updatedPermissions = exists
+      ? formData.permissions.filter((item) => item !== permissionKey)
+      : [...formData.permissions, permissionKey];
 
-    if (exists) {
-      updatedPermissions = formData.permissions.filter((item) => item !== permissionKey);
-    } else {
-      updatedPermissions = [...formData.permissions, permissionKey];
-    }
-
-    setFormData({
-      ...formData,
+    setFormData((prev) => ({
+      ...prev,
       permissions: updatedPermissions,
-    });
+    }));
   };
 
   const createUser = async () => {
@@ -115,10 +124,7 @@ function SystemUsers() {
             : formData.permissions,
       };
 
-      const res = await axios.post(
-        "https://eltham-konnect-backend-c2sf.onrender.com/api/system-users",
-        payload
-      );
+      const res = await api.post("/api/system-users", payload);
 
       alert(res.data.message);
 
@@ -131,6 +137,7 @@ function SystemUsers() {
         status: "Active",
         password: "",
         permissions: ["dashboard"],
+        linkedEmployeeId: "",
       });
 
       setShowForm(false);
@@ -143,11 +150,7 @@ function SystemUsers() {
 
   const updateStatus = async (userId, status) => {
     try {
-      const res = await axios.put(
-        `https://eltham-konnect-backend-c2sf.onrender.com/api/system-users/${userId}/status`,
-        { status }
-      );
-
+      const res = await api.put(`/api/system-users/${userId}/status`, { status });
       alert(res.data.message);
       await fetchUsers();
     } catch (error) {
@@ -165,10 +168,9 @@ function SystemUsers() {
     if (!newRole) return;
 
     try {
-      const res = await axios.put(
-        `https://eltham-konnect-backend-c2sf.onrender.com/api/system-users/${user.userId}/role`,
-        { role: newRole }
-      );
+      const res = await api.put(`/api/system-users/${user.userId}/role`, {
+        role: newRole,
+      });
 
       alert(res.data.message);
       await fetchUsers();
@@ -199,10 +201,9 @@ function SystemUsers() {
       .filter(Boolean);
 
     try {
-      const res = await axios.put(
-        `https://eltham-konnect-backend-c2sf.onrender.com/api/system-users/${user.userId}/permissions`,
-        { permissions }
-      );
+      const res = await api.put(`/api/system-users/${user.userId}/permissions`, {
+        permissions,
+      });
 
       alert(res.data.message);
       await fetchUsers();
@@ -213,18 +214,14 @@ function SystemUsers() {
   };
 
   const resetPassword = async (user) => {
-    const newPassword = prompt(
-      `Enter a new password for ${user.fullName}:`,
-      ""
-    );
+    const newPassword = prompt(`Enter a new password for ${user.fullName}:`, "");
 
     if (!newPassword) return;
 
     try {
-      const res = await axios.put(
-        `https://eltham-konnect-backend-c2sf.onrender.com/api/system-users/${user.userId}/reset-password`,
-        { password: newPassword }
-      );
+      const res = await api.put(`/api/system-users/${user.userId}/reset-password`, {
+        password: newPassword,
+      });
 
       alert(res.data.message);
     } catch (error) {
@@ -380,6 +377,15 @@ function SystemUsers() {
               <option value="Active">Active</option>
               <option value="Inactive">Inactive</option>
             </select>
+
+            <input
+              type="text"
+              name="linkedEmployeeId"
+              placeholder="Linked Employee ID (optional)"
+              value={formData.linkedEmployeeId}
+              onChange={handleChange}
+              style={{ padding: "10px" }}
+            />
           </div>
 
           <div
@@ -403,7 +409,7 @@ function SystemUsers() {
                   fontWeight: "bold",
                 }}
               >
-                Admin automatically has full access to all 14 modules.
+                Admin automatically has full access to all modules.
               </div>
             ) : (
               <div
@@ -465,121 +471,127 @@ function SystemUsers() {
       >
         <h2>All System Users</h2>
 
-        <table border="1" cellPadding="10" style={{ width: "100%" }}>
-          <thead>
-            <tr>
-              <th>User ID</th>
-              <th>Full Name</th>
-              <th>Email</th>
-              <th>Phone</th>
-              <th>Role</th>
-              <th>Branch</th>
-              <th>Status</th>
-              <th>Permissions</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-
-          <tbody>
-            {users.length > 0 ? (
-              users.map((user, index) => (
-                <tr key={user._id || index}>
-                  <td>{user.userId}</td>
-                  <td>{user.fullName}</td>
-                  <td>{user.email}</td>
-                  <td>{user.phone}</td>
-                  <td>{badgeStyle(user.role, "role")}</td>
-                  <td>{user.branch}</td>
-                  <td>{badgeStyle(user.status, "status")}</td>
-                  <td>
-                    <div style={{ fontSize: "12px", lineHeight: "1.5" }}>
-                      {(user.permissions || []).join(", ")}
-                    </div>
-                  </td>
-                  <td>
-                    <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                      <button
-                        onClick={() => updateRole(user)}
-                        style={{
-                          backgroundColor: "#0B3D91",
-                          color: "white",
-                          border: "none",
-                          padding: "6px 10px",
-                          borderRadius: "4px",
-                          cursor: "pointer",
-                        }}
-                      >
-                        Change Role
-                      </button>
-
-                      <button
-                        onClick={() => updatePermissions(user)}
-                        style={{
-                          backgroundColor: "#7c3aed",
-                          color: "white",
-                          border: "none",
-                          padding: "6px 10px",
-                          borderRadius: "4px",
-                          cursor: "pointer",
-                        }}
-                      >
-                        Update Permissions
-                      </button>
-
-                      <button
-                        onClick={() => resetPassword(user)}
-                        style={{
-                          backgroundColor: "#ea580c",
-                          color: "white",
-                          border: "none",
-                          padding: "6px 10px",
-                          borderRadius: "4px",
-                          cursor: "pointer",
-                        }}
-                      >
-                        Reset Password
-                      </button>
-
-                      {user.status === "Active" ? (
-                        <button
-                          onClick={() => updateStatus(user.userId, "Inactive")}
-                          style={{
-                            backgroundColor: "#dc2626",
-                            color: "white",
-                            border: "none",
-                            padding: "6px 10px",
-                            borderRadius: "4px",
-                            cursor: "pointer",
-                          }}
-                        >
-                          Deactivate
-                        </button>
-                      ) : (
-                        <button
-                          onClick={() => updateStatus(user.userId, "Active")}
-                          style={{
-                            backgroundColor: "#16a34a",
-                            color: "white",
-                            border: "none",
-                            padding: "6px 10px",
-                            borderRadius: "4px",
-                            cursor: "pointer",
-                          }}
-                        >
-                          Activate
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))
-            ) : (
+        {loading ? (
+          <div style={{ color: "#64748b" }}>Loading users...</div>
+        ) : (
+          <table border="1" cellPadding="10" style={{ width: "100%" }}>
+            <thead>
               <tr>
-                <td colSpan="9">No system users found.</td>
+                <th>User ID</th>
+                <th>Full Name</th>
+                <th>Email</th>
+                <th>Phone</th>
+                <th>Role</th>
+                <th>Branch</th>
+                <th>Status</th>
+                <th>Permissions</th>
+                <th>Linked Employee</th>
+                <th>Actions</th>
               </tr>
-            )}
-          </tbody>
-        </table>
+            </thead>
+
+            <tbody>
+              {users.length > 0 ? (
+                users.map((user, index) => (
+                  <tr key={user._id || index}>
+                    <td>{user.userId}</td>
+                    <td>{user.fullName}</td>
+                    <td>{user.email}</td>
+                    <td>{user.phone}</td>
+                    <td>{badgeStyle(user.role, "role")}</td>
+                    <td>{user.branch}</td>
+                    <td>{badgeStyle(user.status, "status")}</td>
+                    <td>
+                      <div style={{ fontSize: "12px", lineHeight: "1.5" }}>
+                        {(user.permissions || []).join(", ")}
+                      </div>
+                    </td>
+                    <td>{user.linkedEmployeeId || "-"}</td>
+                    <td>
+                      <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                        <button
+                          onClick={() => updateRole(user)}
+                          style={{
+                            backgroundColor: "#0B3D91",
+                            color: "white",
+                            border: "none",
+                            padding: "6px 10px",
+                            borderRadius: "4px",
+                            cursor: "pointer",
+                          }}
+                        >
+                          Change Role
+                        </button>
+
+                        <button
+                          onClick={() => updatePermissions(user)}
+                          style={{
+                            backgroundColor: "#7c3aed",
+                            color: "white",
+                            border: "none",
+                            padding: "6px 10px",
+                            borderRadius: "4px",
+                            cursor: "pointer",
+                          }}
+                        >
+                          Update Permissions
+                        </button>
+
+                        <button
+                          onClick={() => resetPassword(user)}
+                          style={{
+                            backgroundColor: "#ea580c",
+                            color: "white",
+                            border: "none",
+                            padding: "6px 10px",
+                            borderRadius: "4px",
+                            cursor: "pointer",
+                          }}
+                        >
+                          Reset Password
+                        </button>
+
+                        {user.status === "Active" ? (
+                          <button
+                            onClick={() => updateStatus(user.userId, "Inactive")}
+                            style={{
+                              backgroundColor: "#dc2626",
+                              color: "white",
+                              border: "none",
+                              padding: "6px 10px",
+                              borderRadius: "4px",
+                              cursor: "pointer",
+                            }}
+                          >
+                            Deactivate
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => updateStatus(user.userId, "Active")}
+                            style={{
+                              backgroundColor: "#16a34a",
+                              color: "white",
+                              border: "none",
+                              padding: "6px 10px",
+                              borderRadius: "4px",
+                              cursor: "pointer",
+                            }}
+                          >
+                            Activate
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan="10">No system users found.</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        )}
       </div>
     </div>
   );
