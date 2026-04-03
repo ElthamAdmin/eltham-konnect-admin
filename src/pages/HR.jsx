@@ -259,12 +259,18 @@ if (!documentEmployeeId && employeesData.length > 0) {
 }
       } else {
         const requests = [
-  api.get("/api/leave-requests"),
-  api.get("/api/finance/payroll/my-records").catch((error) => {
+  api.get("/api/leave-requests").catch((error) => {
     if (error?.response?.status === 404) {
       return { data: { data: [] } };
     }
     throw error;
+  }),
+  api.get("/api/finance/payroll/my-records").catch((error) => {
+    if (error?.response?.status === 404 || error?.response?.status === 403) {
+      return { data: { data: [] } };
+    }
+    console.error("Payroll self-service load failed:", error);
+    return { data: { data: [] } };
   }),
 ];
 
