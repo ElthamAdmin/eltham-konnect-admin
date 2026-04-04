@@ -115,6 +115,7 @@ function HR() {
   const [systemUsers, setSystemUsers] = useState([]);
   const [leaveRequests, setLeaveRequests] = useState([]);
   const [myPayslips, setMyPayslips] = useState([]);
+  const [myDisciplineRecords, setMyDisciplineRecords] = useState([]);
   const [myEmployee, setMyEmployee] = useState(null);
   const [employeeForm, setEmployeeForm] = useState(emptyEmployeeForm);
   const [leaveForm, setLeaveForm] = useState(emptyLeaveForm);
@@ -130,6 +131,16 @@ const [documentForm, setDocumentForm] = useState(emptyDocumentForm);
 const [employeeDocuments, setEmployeeDocuments] = useState([]);
 const [documentEmployeeId, setDocumentEmployeeId] = useState("");
 const [documentsLoading, setDocumentsLoading] = useState(false);
+const [disciplineEmployeeId, setDisciplineEmployeeId] = useState("");
+const [disciplineForm, setDisciplineForm] = useState({
+  disciplineType: "Written Warning",
+  subject: "",
+  details: "",
+  actionTaken: "",
+  incidentDate: "",
+  issuedDate: "",
+  employeeAcknowledged: false,
+});
 
   const cardStyle = {
     backgroundColor: WHITE,
@@ -252,6 +263,7 @@ const [documentsLoading, setDocumentsLoading] = useState(false);
       setSystemUsers(usersRes.data.data || []);
       setLeaveRequests(leaveRes.data.data || []);
       setMyPayslips([]);
+      setMyDisciplineRecords([]);
       setMyEmployee(null);
 
       if (!documentEmployeeId && employeesData.length > 0) {
@@ -259,21 +271,27 @@ const [documentsLoading, setDocumentsLoading] = useState(false);
       }
     } else {
       const requests = [
-        api.get("/api/leave-requests").catch((error) => {
-          if (error?.response?.status === 404) {
-            return { data: { data: [] } };
-          }
-          throw error;
-        }),
-        api.get("/api/finance/payroll/my-records").catch((error) => {
-          if (error?.response?.status === 404 || error?.response?.status === 403) {
-            return { data: { data: [] } };
-          }
-          console.error("Payroll self-service load failed:", error);
-          return { data: { data: [] } };
-        }),
-      ];
-
+  api.get("/api/leave-requests").catch((error) => {
+    if (error?.response?.status === 404) {
+      return { data: { data: [] } };
+    }
+    throw error;
+  }),
+  api.get("/api/finance/payroll/my-records").catch((error) => {
+    if (error?.response?.status === 404 || error?.response?.status === 403) {
+      return { data: { data: [] } };
+    }
+    console.error("Payroll self-service load failed:", error);
+    return { data: { data: [] } };
+  }),
+  api.get("/api/hr/me/discipline").catch((error) => {
+    if (error?.response?.status === 404 || error?.response?.status === 403) {
+      return { data: { data: [] } };
+    }
+    console.error("Discipline self-service load failed:", error);
+    return { data: { data: [] } };
+  }),
+];
       if (canSelfServiceHR) {
         requests.unshift(
           api.get("/api/hr/me").catch((error) => {
@@ -288,19 +306,22 @@ const [documentsLoading, setDocumentsLoading] = useState(false);
       const responses = await Promise.all(requests);
 
       let myProfileRes = { data: { data: null } };
-      let leaveRes = { data: { data: [] } };
-      let payrollRes = { data: { data: [] } };
+let leaveRes = { data: { data: [] } };
+let payrollRes = { data: { data: [] } };
+let disciplineRes = { data: { data: [] } };
 
-      if (responses.length === 3) {
-        myProfileRes = responses[0];
-        leaveRes = responses[1];
-        payrollRes = responses[2];
-      } else if (responses.length === 2) {
-        leaveRes = responses[0];
-        payrollRes = responses[1];
-      } else {
-        leaveRes = responses[0];
-      }
+if (responses.length === 4) {
+  myProfileRes = responses[0];
+  leaveRes = responses[1];
+  payrollRes = responses[2];
+  disciplineRes = responses[3];
+} else if (responses.length === 3) {
+  leaveRes = responses[0];
+  payrollRes = responses[1];
+  disciplineRes = responses[2];
+} else {
+  leaveRes = responses[0];
+}
 
       const myProfile = myProfileRes.data.data || null;
 
@@ -310,6 +331,7 @@ const [documentsLoading, setDocumentsLoading] = useState(false);
       setMyEmployee(myProfile);
       setLeaveRequests(leaveRes.data.data || []);
       setMyPayslips(payrollRes.data.data || []);
+      setMyDisciplineRecords(disciplineRes.data.data || []);
       setLeaveForm((prev) => ({
         ...prev,
         employeeId: myProfile?.employeeId || "",
@@ -378,6 +400,48 @@ const [documentsLoading, setDocumentsLoading] = useState(false);
     ...prev,
     [name]: value,
   }));
+};
+
+const handleDisciplineChange = (e) => {
+  const { name, value, type, checked } = e.target;
+
+  setDisciplineForm((prev) => ({
+    ...prev,
+    [name]: type === "checkbox" ? checked : value,
+  }));
+};
+
+const saveDisciplineRecord = async () => {
+  try {
+    if (!disciplineEmployeeId) {
+      alert("Please select an employee.");
+      return;
+    }
+
+    if (!disciplineForm.disciplineType || !disciplineForm.subject || !disciplineForm.details) {
+      alert("Discipline type, subject, and details are required.");
+      return;
+    }
+
+    const res = await api.post(`/api/hr/${disciplineEmployeeId}/discipline`, disciplineForm);
+
+    alert(res.data.message || "Discipline record added successfully");
+
+    setDisciplineForm({
+      disciplineType: "Written Warning",
+      subject: "",
+      details: "",
+      actionTaken: "",
+      incidentDate: "",
+      issuedDate: "",
+      employeeAcknowledged: false,
+    });
+
+    await fetchHRData();
+  } catch (error) {
+    console.error(error);
+    alert(error?.response?.data?.message || "Failed to save discipline record");
+  }
 };
 
   const resetEmployeeForm = () => {
@@ -749,6 +813,7 @@ const deleteEmployeeDocument = async (index) => {
   const showEmployeesTab = isAdminHR;
 const showEmployeeFormTab = isAdminHR;
 const showLeaveRequestsTab = isAdminHR;
+const showDisciplineTab = isAdminHR || permissions.includes("hrSelfService");
 const showDocumentsTab =
   permissions.includes("documentSelfService") ||
   permissions.includes("hrSelfService") ||
@@ -829,6 +894,20 @@ const showMyProfileTab = canSelfServiceHR && !isAdminHR;
           </button>
         )}
       </div>
+
+      {showDisciplineTab && (
+  <button
+    style={tabButtonStyle("discipline")}
+    onClick={() => {
+      setActiveTab("discipline");
+      if (isAdminHR && employees.length > 0 && !disciplineEmployeeId) {
+        setDisciplineEmployeeId(employees[0].employeeId);
+      }
+    }}
+  >
+    Discipline
+  </button>
+)}
       
       {showMyPayslipsTab && !isAdminHR && (
   <button
@@ -1733,6 +1812,169 @@ const showMyProfileTab = canSelfServiceHR && !isAdminHR;
     </div>
   </div>
 )}
+
+{activeTab === "discipline" && showDisciplineTab && (
+  <div style={{ display: "grid", gap: "20px" }}>
+    {isAdminHR ? (
+      <div style={cardStyle}>
+        <h2 style={{ color: ROYAL_BLUE, marginTop: 0 }}>Add Discipline Record</h2>
+
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+            gap: "12px",
+          }}
+        >
+          <div>
+            <label style={labelStyle}>Employee</label>
+            <select
+              value={disciplineEmployeeId}
+              onChange={(e) => setDisciplineEmployeeId(e.target.value)}
+              style={inputStyle}
+            >
+              <option value="">Select Employee</option>
+              {employees.map((employee) => (
+                <option key={employee.employeeId} value={employee.employeeId}>
+                  {employee.fullName} ({employee.employeeId})
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label style={labelStyle}>Discipline Type</label>
+            <select
+              name="disciplineType"
+              value={disciplineForm.disciplineType}
+              onChange={handleDisciplineChange}
+              style={inputStyle}
+            >
+              <option value="Verbal Warning">Verbal Warning</option>
+              <option value="Written Warning">Written Warning</option>
+              <option value="Incident Report">Incident Report</option>
+              <option value="Suspension">Suspension</option>
+              <option value="Final Warning">Final Warning</option>
+              <option value="Termination Notice">Termination Notice</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+
+          <div>
+            <label style={labelStyle}>Subject</label>
+            <input
+              name="subject"
+              value={disciplineForm.subject}
+              onChange={handleDisciplineChange}
+              style={inputStyle}
+            />
+          </div>
+
+          <div>
+            <label style={labelStyle}>Incident Date</label>
+            <input
+              type="date"
+              name="incidentDate"
+              value={disciplineForm.incidentDate}
+              onChange={handleDisciplineChange}
+              style={inputStyle}
+            />
+          </div>
+
+          <div>
+            <label style={labelStyle}>Issued Date</label>
+            <input
+              type="date"
+              name="issuedDate"
+              value={disciplineForm.issuedDate}
+              onChange={handleDisciplineChange}
+              style={inputStyle}
+            />
+          </div>
+
+          <div style={{ display: "flex", alignItems: "center", gap: "10px", paddingTop: "26px" }}>
+            <input
+              id="employeeAcknowledged"
+              type="checkbox"
+              name="employeeAcknowledged"
+              checked={disciplineForm.employeeAcknowledged}
+              onChange={handleDisciplineChange}
+            />
+            <label htmlFor="employeeAcknowledged" style={{ fontWeight: "bold", color: "#334155" }}>
+              Employee Acknowledged
+            </label>
+          </div>
+
+          <div style={{ gridColumn: "1 / -1" }}>
+            <label style={labelStyle}>Details</label>
+            <textarea
+              name="details"
+              value={disciplineForm.details}
+              onChange={handleDisciplineChange}
+              style={{ ...inputStyle, minHeight: "100px" }}
+            />
+          </div>
+
+          <div style={{ gridColumn: "1 / -1" }}>
+            <label style={labelStyle}>Action Taken</label>
+            <textarea
+              name="actionTaken"
+              value={disciplineForm.actionTaken}
+              onChange={handleDisciplineChange}
+              style={{ ...inputStyle, minHeight: "90px" }}
+            />
+          </div>
+        </div>
+
+        <div style={{ marginTop: "16px" }}>
+          <button style={primaryButton} onClick={saveDisciplineRecord}>
+            Save Discipline Record
+          </button>
+        </div>
+      </div>
+    ) : (
+      <div style={cardStyle}>
+        <h2 style={{ color: ROYAL_BLUE, marginTop: 0 }}>My Discipline Records</h2>
+
+        <div style={{ overflowX: "auto" }}>
+          <table width="100%" cellPadding="10" style={{ borderCollapse: "collapse" }}>
+            <thead style={{ backgroundColor: "#eef4ff" }}>
+              <tr>
+                <th align="left">Type</th>
+                <th align="left">Subject</th>
+                <th align="left">Incident Date</th>
+                <th align="left">Issued Date</th>
+                <th align="left">Action Taken</th>
+                <th align="left">Acknowledged</th>
+              </tr>
+            </thead>
+            <tbody>
+              {myDisciplineRecords.length > 0 ? (
+                myDisciplineRecords.map((record, index) => (
+                  <tr key={record.recordId || index} style={{ borderBottom: `1px solid ${BORDER}` }}>
+                    <td>{record.disciplineType || "-"}</td>
+                    <td>{record.subject || "-"}</td>
+                    <td>{record.incidentDate || "-"}</td>
+                    <td>{record.issuedDate || "-"}</td>
+                    <td>{record.actionTaken || "-"}</td>
+                    <td>{record.employeeAcknowledged ? "Yes" : "No"}</td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan="6" style={{ textAlign: "center", padding: "20px", color: MUTED }}>
+                    No discipline records found
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    )}
+  </div>
+)}
+
       {activeTab === "myProfile" && showMyProfileTab && (
         <div style={{ display: "grid", gap: "20px" }}>
           <div style={cardStyle}>
@@ -1782,6 +2024,40 @@ const showMyProfileTab = canSelfServiceHR && !isAdminHR;
                 <div style={{ gridColumn: "1 / -1" }}>
                   {renderField("Notes", myEmployee.notes)}
                 </div>
+                <div style={{ gridColumn: "1 / -1", marginTop: "10px" }}>
+  <div style={{ color: MUTED, fontSize: "13px", marginBottom: "8px" }}>
+    Discipline Records
+  </div>
+
+  {myDisciplineRecords.length > 0 ? (
+    <div style={{ overflowX: "auto" }}>
+      <table width="100%" cellPadding="10" style={{ borderCollapse: "collapse" }}>
+        <thead style={{ backgroundColor: "#eef4ff" }}>
+          <tr>
+            <th align="left">Type</th>
+            <th align="left">Subject</th>
+            <th align="left">Incident Date</th>
+            <th align="left">Issued Date</th>
+            <th align="left">Action Taken</th>
+          </tr>
+        </thead>
+        <tbody>
+          {myDisciplineRecords.map((record, index) => (
+            <tr key={record.recordId || index} style={{ borderBottom: `1px solid ${BORDER}` }}>
+              <td>{record.disciplineType || "-"}</td>
+              <td>{record.subject || "-"}</td>
+              <td>{record.incidentDate || "-"}</td>
+              <td>{record.issuedDate || "-"}</td>
+              <td>{record.actionTaken || "-"}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  ) : (
+    <div style={{ color: MUTED, fontWeight: "bold" }}>No discipline records found.</div>
+  )}
+</div>
               </div>
             )}
           </div>
