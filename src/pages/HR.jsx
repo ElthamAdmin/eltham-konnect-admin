@@ -117,6 +117,7 @@ function HR() {
   const [myPayslips, setMyPayslips] = useState([]);
   const [myDisciplineRecords, setMyDisciplineRecords] = useState([]);
   const [myPerformanceReviews, setMyPerformanceReviews] = useState([]);
+  const [analyticsSummary, setAnalyticsSummary] = useState(null);
   const [myEmployee, setMyEmployee] = useState(null);
   const [employeeForm, setEmployeeForm] = useState(emptyEmployeeForm);
   const [leaveForm, setLeaveForm] = useState(emptyLeaveForm);
@@ -258,6 +259,16 @@ const [performanceForm, setPerformanceForm] = useState({
     border: `1px solid ${BORDER}`,
   });
 
+  const fetchHRAnalytics = async () => {
+  try {
+    const res = await api.get("/api/hr-analytics/dashboard");
+    setAnalyticsSummary(res.data.data || null);
+  } catch (error) {
+    console.error("Failed to load HR analytics:", error);
+    alert(error?.response?.data?.message || "Failed to load HR analytics");
+  }
+};
+
   const fetchHRData = async () => {
   try {
     setLoading(true);
@@ -268,18 +279,20 @@ const [performanceForm, setPerformanceForm] = useState({
         api.get("/api/hr/summary"),
         api.get("/api/system-users"),
         api.get("/api/leave-requests"),
+        api.get("/api/hr-analytics/dashboard"),
       ]);
 
       const employeesData = employeesRes.data.data || [];
 
       setEmployees(employeesData);
-      setSummary(summaryRes.data.data || null);
-      setSystemUsers(usersRes.data.data || []);
-      setLeaveRequests(leaveRes.data.data || []);
-      setMyPayslips([]);
-      setMyDisciplineRecords([]);
-      setMyPerformanceReviews([]);
-      setMyEmployee(null);
+setSummary(summaryRes.data.data || null);
+setSystemUsers(usersRes.data.data || []);
+setLeaveRequests(leaveRes.data.data || []);
+setAnalyticsSummary(analyticsRes.data.data || null);
+setMyPayslips([]);
+setMyDisciplineRecords([]);
+setMyPerformanceReviews([]);
+setMyEmployee(null);
 
       if (!documentEmployeeId && employeesData.length > 0) {
         setDocumentEmployeeId(employeesData[0].employeeId);
@@ -351,13 +364,14 @@ if (responses.length === 5) {
       const myProfile = myProfileRes.data.data || null;
 
       setEmployees([]);
-      setSummary(null);
-      setSystemUsers([]);
-      setMyEmployee(myProfile);
-      setLeaveRequests(leaveRes.data.data || []);
-      setMyPayslips(payrollRes.data.data || []);
-      setMyDisciplineRecords(disciplineRes.data.data || []);
-      setMyPerformanceReviews(performanceRes.data.data || []);
+setSummary(null);
+setSystemUsers([]);
+setAnalyticsSummary(null);
+setMyEmployee(myProfile);
+setLeaveRequests(leaveRes.data.data || []);
+setMyPayslips(payrollRes.data.data || []);
+setMyDisciplineRecords(disciplineRes.data.data || []);
+setMyPerformanceReviews(performanceRes.data.data || []);
       setLeaveForm((prev) => ({
         ...prev,
         employeeId: myProfile?.employeeId || "",
@@ -888,6 +902,7 @@ const showEmployeeFormTab = isAdminHR;
 const showLeaveRequestsTab = isAdminHR;
 const showDisciplineTab = isAdminHR || permissions.includes("hrSelfService");
 const showPerformanceTab = isAdminHR || permissions.includes("hrSelfService");
+const showAnalyticsTab = isAdminHR;
 const showDocumentsTab =
   permissions.includes("documentSelfService") ||
   permissions.includes("hrSelfService") ||
@@ -994,6 +1009,18 @@ const showMyProfileTab = canSelfServiceHR && !isAdminHR;
     }}
   >
     Performance
+  </button>
+)}
+
+{showAnalyticsTab && (
+  <button
+    style={tabButtonStyle("analytics")}
+    onClick={() => {
+      setActiveTab("analytics");
+      fetchHRAnalytics();
+    }}
+  >
+    HR Analytics
   </button>
 )}
       
@@ -2078,6 +2105,142 @@ const showMyProfileTab = canSelfServiceHR && !isAdminHR;
         </div>
       </div>
     )}
+  </div>
+)}
+
+{activeTab === "analytics" && showAnalyticsTab && (
+  <div style={{ display: "grid", gap: "20px" }}>
+    <div style={cardStyle}>
+      <h2 style={{ color: ROYAL_BLUE, marginTop: 0 }}>HR Analytics Dashboard</h2>
+
+      {!analyticsSummary ? (
+        <div style={{ color: MUTED, fontWeight: "bold" }}>No analytics data found.</div>
+      ) : (
+        <>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+              gap: "14px",
+              marginBottom: "20px",
+            }}
+          >
+            <div style={statCardStyle("#eef4ff")}>
+              <div style={{ fontSize: "28px", fontWeight: "bold", color: ROYAL_BLUE }}>
+                {analyticsSummary?.workforce?.totalEmployees || 0}
+              </div>
+              <div style={{ color: MUTED }}>Total Employees</div>
+            </div>
+
+            <div style={statCardStyle("#f0fdf4")}>
+              <div style={{ fontSize: "28px", fontWeight: "bold", color: "#16a34a" }}>
+                {analyticsSummary?.workforce?.activeEmployees || 0}
+              </div>
+              <div style={{ color: MUTED }}>Active Employees</div>
+            </div>
+
+            <div style={statCardStyle("#fffbeb")}>
+              <div style={{ fontSize: "28px", fontWeight: "bold", color: "#f59e0b" }}>
+                {analyticsSummary?.workforce?.onLeaveEmployees || 0}
+              </div>
+              <div style={{ color: MUTED }}>On Leave</div>
+            </div>
+
+            <div style={statCardStyle("#fef2f2")}>
+              <div style={{ fontSize: "28px", fontWeight: "bold", color: "#dc2626" }}>
+                {analyticsSummary?.workforce?.terminatedEmployees || 0}
+              </div>
+              <div style={{ color: MUTED }}>Terminated</div>
+            </div>
+
+            <div style={statCardStyle("#f8fafc")}>
+              <div style={{ fontSize: "28px", fontWeight: "bold", color: "#475569" }}>
+                {analyticsSummary?.workforce?.payrollEnabledEmployees || 0}
+              </div>
+              <div style={{ color: MUTED }}>Payroll Enabled</div>
+            </div>
+
+            <div style={statCardStyle("#eff6ff")}>
+              <div style={{ fontSize: "28px", fontWeight: "bold", color: ROYAL_BLUE }}>
+                {analyticsSummary?.discipline?.totalDisciplineRecords || 0}
+              </div>
+              <div style={{ color: MUTED }}>Discipline Records</div>
+            </div>
+
+            <div style={statCardStyle("#f5f3ff")}>
+              <div style={{ fontSize: "28px", fontWeight: "bold", color: "#7c3aed" }}>
+                {analyticsSummary?.performance?.totalPerformanceReviews || 0}
+              </div>
+              <div style={{ color: MUTED }}>Performance Reviews</div>
+            </div>
+
+            <div style={statCardStyle("#fff7ed")}>
+              <div style={{ fontSize: "28px", fontWeight: "bold", color: "#ea580c" }}>
+                {analyticsSummary?.documents?.totalEmployeeDocuments || 0}
+              </div>
+              <div style={{ color: MUTED }}>Employee Documents</div>
+            </div>
+          </div>
+
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+              gap: "20px",
+            }}
+          >
+            <div style={cardStyle}>
+              <h3 style={{ color: ROYAL_BLUE, marginTop: 0 }}>Leave Insights</h3>
+              <div style={{ display: "grid", gap: "8px" }}>
+                <div>Total Leave Requests: {analyticsSummary?.leave?.totalLeaveRequests || 0}</div>
+                <div>Pending: {analyticsSummary?.leave?.pendingLeaveRequests || 0}</div>
+                <div>Approved: {analyticsSummary?.leave?.approvedLeaveRequests || 0}</div>
+                <div>Rejected: {analyticsSummary?.leave?.rejectedLeaveRequests || 0}</div>
+              </div>
+            </div>
+
+            <div style={cardStyle}>
+              <h3 style={{ color: ROYAL_BLUE, marginTop: 0 }}>Payroll Insights</h3>
+              <div style={{ display: "grid", gap: "8px" }}>
+                <div>
+                  Total Payroll Records: {analyticsSummary?.payroll?.totalPayrollRecords || 0}
+                </div>
+                <div>
+                  Total Gross Payroll: JMD{" "}
+                  {Number(analyticsSummary?.payroll?.totalGrossPayroll || 0).toLocaleString()}
+                </div>
+                <div>
+                  Total Net Payroll: JMD{" "}
+                  {Number(analyticsSummary?.payroll?.totalNetPayroll || 0).toLocaleString()}
+                </div>
+                <div>
+                  Average Net Pay: JMD{" "}
+                  {Number(analyticsSummary?.payroll?.averageNetPay || 0).toLocaleString()}
+                </div>
+              </div>
+            </div>
+
+            <div style={cardStyle}>
+              <h3 style={{ color: ROYAL_BLUE, marginTop: 0 }}>Attendance Insights</h3>
+              <div style={{ display: "grid", gap: "8px" }}>
+                <div>
+                  Total Attendance Records: {analyticsSummary?.attendance?.totalAttendanceRecords || 0}
+                </div>
+                <div>
+                  Total Worked Time: {analyticsSummary?.attendance?.totalWorkedLabel || "0h 0m"}
+                </div>
+                <div>
+                  Total Lunch Time: {analyticsSummary?.attendance?.totalLunchLabel || "0h 0m"}
+                </div>
+                <div>
+                  Average Worked Time: {analyticsSummary?.attendance?.averageWorkedLabel || "0h 0m"}
+                </div>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
   </div>
 )}
 
