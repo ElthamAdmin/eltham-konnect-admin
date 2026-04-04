@@ -22,7 +22,15 @@ function Finance() {
   const [reports, setReports] = useState(null);
   const [accounts, setAccounts] = useState([]);
   const [transactions, setTransactions] = useState([]);
-  const [expenseReceipt, setExpenseReceipt] = useState(null);
+const [expenseReceipt, setExpenseReceipt] = useState(null);
+const [payrollAttendanceSummary, setPayrollAttendanceSummary] = useState({
+  totalDays: 0,
+  totalWorkedMinutes: 0,
+  totalLunchMinutes: 0,
+  totalWorkedLabel: "0h 0m",
+  totalLunchLabel: "0h 0m",
+});
+const [payrollAttendanceLoading, setPayrollAttendanceLoading] = useState(false);
   const [reportFilters, setReportFilters] = useState({
   from: "",
   to: "",
@@ -507,6 +515,75 @@ const fetchReports = async (from = reportFilters.from, to = reportFilters.to) =>
     }
   };
 
+  const fetchPayrollAttendanceSummary = async (employeeId, payPeriod) => {
+  try {
+    if (!employeeId || !payPeriod) {
+      setPayrollAttendanceSummary({
+        totalDays: 0,
+        totalWorkedMinutes: 0,
+        totalLunchMinutes: 0,
+        totalWorkedLabel: "0h 0m",
+        totalLunchLabel: "0h 0m",
+      });
+      return;
+    }
+
+    const selectedEmployee = hrEmployees.find(
+      (employee) => employee.employeeId === employeeId
+    );
+
+    const linkedUserId = selectedEmployee?.linkedUserId || "";
+
+    if (!linkedUserId) {
+      setPayrollAttendanceSummary({
+        totalDays: 0,
+        totalWorkedMinutes: 0,
+        totalLunchMinutes: 0,
+        totalWorkedLabel: "0h 0m",
+        totalLunchLabel: "0h 0m",
+      });
+      return;
+    }
+
+    const { startDate, endDate } = getMonthDateRange(payPeriod);
+
+    setPayrollAttendanceLoading(true);
+
+    const res = await api.get(
+      `/api/auth/attendance-history?filter=custom&userId=${encodeURIComponent(
+        linkedUserId
+      )}&startDate=${encodeURIComponent(startDate)}&endDate=${encodeURIComponent(
+        endDate
+      )}`
+    );
+
+    const summaryRows = res.data?.data?.summary || [];
+
+    if (summaryRows.length > 0) {
+      setPayrollAttendanceSummary(summaryRows[0]);
+    } else {
+      setPayrollAttendanceSummary({
+        totalDays: 0,
+        totalWorkedMinutes: 0,
+        totalLunchMinutes: 0,
+        totalWorkedLabel: "0h 0m",
+        totalLunchLabel: "0h 0m",
+      });
+    }
+  } catch (error) {
+    console.error("Error loading payroll attendance summary:", error);
+    setPayrollAttendanceSummary({
+      totalDays: 0,
+      totalWorkedMinutes: 0,
+      totalLunchMinutes: 0,
+      totalWorkedLabel: "0h 0m",
+      totalLunchLabel: "0h 0m",
+    });
+  } finally {
+    setPayrollAttendanceLoading(false);
+  }
+};
+
   const fetchTransactions = async (
     page = transactionPagination.page,
     limit = transactionPagination.limit
@@ -541,6 +618,13 @@ const fetchReports = async (from = reportFilters.from, to = reportFilters.to) =>
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+  if (activeTab !== "payroll") return;
+
+  fetchPayrollAttendanceSummary(payrollForm.employeeId, payrollForm.payPeriod);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [activeTab, payrollForm.employeeId, payrollForm.payPeriod, hrEmployees]);
+
   const formatCurrency = (value) =>
     `JMD ${Number(value || 0).toLocaleString()}`;
 
@@ -552,6 +636,20 @@ const fetchReports = async (from = reportFilters.from, to = reportFilters.to) =>
       return value;
     }
   };
+
+  const getMonthDateRange = (monthValue) => {
+  if (!monthValue) {
+    return { startDate: "", endDate: "" };
+  }
+
+  const [year, month] = String(monthValue).split("-");
+  const startDate = `${year}-${month}-01`;
+
+  const end = new Date(Number(year), Number(month), 0);
+  const endDate = `${year}-${month}-${String(end.getDate()).padStart(2, "0")}`;
+
+  return { startDate, endDate };
+};
 
   const cardStyle = {
     backgroundColor: WHITE,
@@ -765,6 +863,14 @@ const fetchReports = async (from = reportFilters.from, to = reportFilters.to) =>
         pensionEmployee: "",
         paidFromAccountNumber: "",
       });
+
+      setPayrollAttendanceSummary({
+  totalDays: 0,
+  totalWorkedMinutes: 0,
+  totalLunchMinutes: 0,
+  totalWorkedLabel: "0h 0m",
+  totalLunchLabel: "0h 0m",
+});
 
       await fetchStaticFinanceData();
       await fetchPayroll(1, payrollPagination.limit);
@@ -1470,15 +1576,6 @@ const fetchReports = async (from = reportFilters.from, to = reportFilters.to) =>
 
 <input
   type="text"
-  name="employeeId"
-  placeholder="Employee ID (e.g. EMP0001)"
-  value={payrollForm.employeeId || ""}
-  onChange={handlePayrollChange}
-  style={{ padding: "10px" }}
-/>
-
-<input
-  type="text"
   name="employeeName"
   placeholder="Employee Name"
   value={payrollForm.employeeName}
@@ -1596,6 +1693,58 @@ const fetchReports = async (from = reportFilters.from, to = reportFilters.to) =>
                 }}
               />
             </div>
+
+            <div
+  style={{
+    marginTop: "18px",
+    marginBottom: "18px",
+    padding: "14px",
+    borderRadius: "12px",
+    border: `1px solid ${BORDER}`,
+    backgroundColor: "#f8fbff",
+  }}
+>
+  <h3 style={{ marginTop: 0, color: ROYAL_BLUE }}>Attendance Summary for Pay Period</h3>
+
+  {payrollAttendanceLoading ? (
+    <div style={{ color: MUTED }}>Loading attendance summary...</div>
+  ) : (
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+        gap: "12px",
+      }}
+    >
+      <div style={miniMetricCardStyle}>
+        <div style={{ color: MUTED, fontSize: "13px", marginBottom: "6px" }}>
+          Days Worked
+        </div>
+        <div style={{ fontWeight: "bold", color: ROYAL_BLUE }}>
+          {payrollAttendanceSummary.totalDays || 0}
+        </div>
+      </div>
+
+      <div style={miniMetricCardStyle}>
+        <div style={{ color: MUTED, fontSize: "13px", marginBottom: "6px" }}>
+          Worked Hours
+        </div>
+        <div style={{ fontWeight: "bold", color: ROYAL_BLUE }}>
+          {payrollAttendanceSummary.totalWorkedLabel || "0h 0m"}
+        </div>
+      </div>
+
+      <div style={miniMetricCardStyle}>
+        <div style={{ color: MUTED, fontSize: "13px", marginBottom: "6px" }}>
+          Lunch Hours
+        </div>
+        <div style={{ fontWeight: "bold", color: ROYAL_BLUE }}>
+          {payrollAttendanceSummary.totalLunchLabel || "0h 0m"}
+        </div>
+      </div>
+    </div>
+  )}
+</div>
 
             <div
               style={{
