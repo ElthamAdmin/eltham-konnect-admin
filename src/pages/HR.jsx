@@ -265,7 +265,7 @@ const [performanceForm, setPerformanceForm] = useState({
     setAnalyticsSummary(res.data.data || null);
   } catch (error) {
     console.error("Failed to load HR analytics:", error);
-    alert(error?.response?.data?.message || "Failed to load HR analytics");
+    setAnalyticsSummary(null);
   }
 };
 
@@ -274,13 +274,23 @@ const [performanceForm, setPerformanceForm] = useState({
     setLoading(true);
 
     if (isAdminHR) {
-      const [employeesRes, summaryRes, usersRes, leaveRes] = await Promise.all([
-        api.get("/api/hr"),
-        api.get("/api/hr/summary"),
-        api.get("/api/system-users"),
-        api.get("/api/leave-requests"),
-        api.get("/api/hr-analytics/dashboard"),
-      ]);
+      const [employeesRes, summaryRes, usersRes, leaveRes, analyticsRes] = await Promise.all([
+  api.get("/api/hr"),
+  api.get("/api/hr/summary"),
+  api.get("/api/system-users"),
+  api.get("/api/leave-requests"),
+  api.get("/api/hr-analytics/dashboard").catch((error) => {
+    if (
+      error?.response?.status === 404 ||
+      error?.response?.status === 403 ||
+      error?.response?.status === 500
+    ) {
+      console.error("HR analytics load failed:", error);
+      return { data: { data: null } };
+    }
+    throw error;
+  }),
+]);
 
       const employeesData = employeesRes.data.data || [];
 
