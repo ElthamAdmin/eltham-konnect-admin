@@ -234,93 +234,94 @@ const [documentsLoading, setDocumentsLoading] = useState(false);
   });
 
   const fetchHRData = async () => {
-    try {
-      setLoading(true);
+  try {
+    setLoading(true);
 
-      if (isAdminHR) {
-        const [employeesRes, summaryRes, usersRes, leaveRes] = await Promise.all([
-          api.get("/api/hr"),
-          api.get("/api/hr/summary"),
-          api.get("/api/system-users"),
-          api.get("/api/leave-requests"),
-        ]);
+    if (isAdminHR) {
+      const [employeesRes, summaryRes, usersRes, leaveRes] = await Promise.all([
+        api.get("/api/hr"),
+        api.get("/api/hr/summary"),
+        api.get("/api/system-users"),
+        api.get("/api/leave-requests"),
+      ]);
 
-        const employeesData = employeesRes.data.data || [];
+      const employeesData = employeesRes.data.data || [];
 
-setEmployees(employeesData);
-setSummary(summaryRes.data.data || null);
-setSystemUsers(usersRes.data.data || []);
-setLeaveRequests(leaveRes.data.data || []);
-setMyPayslips(payrollRes.data.data || []);
-setMyEmployee(null);
+      setEmployees(employeesData);
+      setSummary(summaryRes.data.data || null);
+      setSystemUsers(usersRes.data.data || []);
+      setLeaveRequests(leaveRes.data.data || []);
+      setMyPayslips([]);
+      setMyEmployee(null);
 
-if (!documentEmployeeId && employeesData.length > 0) {
-  setDocumentEmployeeId(employeesData[0].employeeId);
-}
-      } else {
-        const requests = [
-  api.get("/api/leave-requests").catch((error) => {
-    if (error?.response?.status === 404) {
-      return { data: { data: [] } };
-    }
-    throw error;
-  }),
-  api.get("/api/finance/payroll/my-records").catch((error) => {
-    if (error?.response?.status === 404 || error?.response?.status === 403) {
-      return { data: { data: [] } };
-    }
-    console.error("Payroll self-service load failed:", error);
-    return { data: { data: [] } };
-  }),
-];
-
-        if (canSelfServiceHR) {
-          requests.unshift(
-            api.get("/api/hr/me").catch((error) => {
-              if (error?.response?.status === 404) {
-                return { data: { data: null } };
-              }
-              throw error;
-            })
-          );
-        }
-
-        const responses = await Promise.all(requests);
-
-        let myProfileRes = { data: { data: null } };
-let leaveRes = { data: { data: [] } };
-let payrollRes = { data: { data: [] } };
-
-if (responses.length === 3) {
-  myProfileRes = responses[0];
-  leaveRes = responses[1];
-  payrollRes = responses[2];
-} else if (responses.length === 2) {
-  leaveRes = responses[0];
-  payrollRes = responses[1];
-} else {
-  leaveRes = responses[0];
-}
-
-        const myProfile = myProfileRes.data.data || null;
-
-        setEmployees([]);
-        setSummary(null);
-        setSystemUsers([]);
-        setMyEmployee(myProfile);
-        setLeaveRequests(leaveRes.data.data || []);
-        setLeaveForm((prev) => ({
-          ...prev,
-          employeeId: myProfile?.employeeId || "",
-        }));
+      if (!documentEmployeeId && employeesData.length > 0) {
+        setDocumentEmployeeId(employeesData[0].employeeId);
       }
-    } catch (error) {
-      console.error("Failed to load HR data:", error);
-      alert(error?.response?.data?.message || "Failed to load HR data");
-    } finally {
-      setLoading(false);
+    } else {
+      const requests = [
+        api.get("/api/leave-requests").catch((error) => {
+          if (error?.response?.status === 404) {
+            return { data: { data: [] } };
+          }
+          throw error;
+        }),
+        api.get("/api/finance/payroll/my-records").catch((error) => {
+          if (error?.response?.status === 404 || error?.response?.status === 403) {
+            return { data: { data: [] } };
+          }
+          console.error("Payroll self-service load failed:", error);
+          return { data: { data: [] } };
+        }),
+      ];
+
+      if (canSelfServiceHR) {
+        requests.unshift(
+          api.get("/api/hr/me").catch((error) => {
+            if (error?.response?.status === 404) {
+              return { data: { data: null } };
+            }
+            throw error;
+          })
+        );
+      }
+
+      const responses = await Promise.all(requests);
+
+      let myProfileRes = { data: { data: null } };
+      let leaveRes = { data: { data: [] } };
+      let payrollRes = { data: { data: [] } };
+
+      if (responses.length === 3) {
+        myProfileRes = responses[0];
+        leaveRes = responses[1];
+        payrollRes = responses[2];
+      } else if (responses.length === 2) {
+        leaveRes = responses[0];
+        payrollRes = responses[1];
+      } else {
+        leaveRes = responses[0];
+      }
+
+      const myProfile = myProfileRes.data.data || null;
+
+      setEmployees([]);
+      setSummary(null);
+      setSystemUsers([]);
+      setMyEmployee(myProfile);
+      setLeaveRequests(leaveRes.data.data || []);
+      setMyPayslips(payrollRes.data.data || []);
+      setLeaveForm((prev) => ({
+        ...prev,
+        employeeId: myProfile?.employeeId || "",
+      }));
     }
-  };
+  } catch (error) {
+    console.error("Failed to load HR data:", error);
+    alert(error?.response?.data?.message || "Failed to load HR data");
+  } finally {
+    setLoading(false);
+  }
+};
 
   useEffect(() => {
     fetchHRData();
