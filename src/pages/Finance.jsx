@@ -92,7 +92,20 @@ const downloadReportsPdf = () => {
       styles: { fontSize: 10 },
       headStyles: { fillColor: [11, 61, 145] },
     });
-
+autoTable(doc, {
+  startY: doc.lastAutoTable.finalY + 8,
+  head: [["Statutory Deductions Summary", "Amount"]],
+  body: [
+    ["NIS", formatCurrency(reports?.statutoryTotals?.nisEmployee)],
+    ["NHT", formatCurrency(reports?.statutoryTotals?.nhtEmployee)],
+    ["Education Tax", formatCurrency(reports?.statutoryTotals?.educationTax)],
+    ["Income Tax", formatCurrency(reports?.statutoryTotals?.incomeTax)],
+    ["Pension", formatCurrency(reports?.statutoryTotals?.pensionEmployee)],
+    ["Total Deductions", formatCurrency(reports?.statutoryTotals?.totalDeductions)],
+  ],
+  styles: { fontSize: 10 },
+  headStyles: { fillColor: [11, 61, 145] },
+});
     const expenseRows =
       reports?.expenseByCategory?.length > 0
         ? reports.expenseByCategory.map((item) => [
@@ -108,6 +121,37 @@ const downloadReportsPdf = () => {
       styles: { fontSize: 10 },
       headStyles: { fillColor: [11, 61, 145] },
     });
+
+    autoTable(doc, {
+  startY: doc.lastAutoTable.finalY + 8,
+  head: [[
+    "Employee ID",
+    "Employee Name",
+    "NIS",
+    "NHT",
+    "Education Tax",
+    "Income Tax",
+    "Pension",
+    "Total Deductions",
+  ]],
+  body: statutoryRows,
+  styles: { fontSize: 8 },
+  headStyles: { fillColor: [11, 61, 145] },
+});
+
+const statutoryRows =
+  reports?.statutoryByEmployee?.length > 0
+    ? reports.statutoryByEmployee.map((item) => [
+        item.employeeId || "-",
+        item.employeeName || "-",
+        formatCurrency(item.nisEmployee),
+        formatCurrency(item.nhtEmployee),
+        formatCurrency(item.educationTax),
+        formatCurrency(item.incomeTax),
+        formatCurrency(item.pensionEmployee),
+        formatCurrency(item.totalDeductions),
+      ])
+    : [["-", "No statutory deduction data found for this period.", "", "", "", "", "", ""]];
 
     const monthlyRows =
       reports?.monthlyTrend?.length > 0
@@ -1858,6 +1902,93 @@ const fetchReports = async (from = reportFilters.from, to = reportFilters.to) =>
       }}
     >
       <div style={metricCardStyle}>
+  <div
+    style={{
+      fontSize: "13px",
+      color: MUTED,
+      marginBottom: "6px",
+      fontWeight: "bold",
+    }}
+  >
+    NIS Total
+  </div>
+  <div
+    style={{
+      fontSize: "30px",
+      fontWeight: "bold",
+      color: ROYAL_BLUE,
+    }}
+  >
+    {formatCurrency(reports?.statutoryTotals?.nisEmployee)}
+  </div>
+</div>
+
+<div style={metricCardStyle}>
+  <div
+    style={{
+      fontSize: "13px",
+      color: MUTED,
+      marginBottom: "6px",
+      fontWeight: "bold",
+    }}
+  >
+    NHT Total
+  </div>
+  <div
+    style={{
+      fontSize: "30px",
+      fontWeight: "bold",
+      color: ROYAL_BLUE,
+    }}
+  >
+    {formatCurrency(reports?.statutoryTotals?.nhtEmployee)}
+  </div>
+</div>
+
+<div style={metricCardStyle}>
+  <div
+    style={{
+      fontSize: "13px",
+      color: MUTED,
+      marginBottom: "6px",
+      fontWeight: "bold",
+    }}
+  >
+    Education Tax Total
+  </div>
+  <div
+    style={{
+      fontSize: "30px",
+      fontWeight: "bold",
+      color: ROYAL_BLUE,
+    }}
+  >
+    {formatCurrency(reports?.statutoryTotals?.educationTax)}
+  </div>
+</div>
+
+<div style={metricCardStyle}>
+  <div
+    style={{
+      fontSize: "13px",
+      color: MUTED,
+      marginBottom: "6px",
+      fontWeight: "bold",
+    }}
+  >
+    Income Tax Total
+  </div>
+  <div
+    style={{
+      fontSize: "30px",
+      fontWeight: "bold",
+      color: ROYAL_BLUE,
+    }}
+  >
+    {formatCurrency(reports?.statutoryTotals?.incomeTax)}
+  </div>
+</div>
+      <div style={metricCardStyle}>
         <div
           style={{
             fontSize: "13px",
@@ -2179,6 +2310,96 @@ const fetchReports = async (from = reportFilters.from, to = reportFilters.to) =>
         </tbody>
       </table>
     </div>
+
+<div style={cardStyle}>
+  <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>
+    Statutory Deductions Summary
+  </h2>
+  <table
+    border="1"
+    cellPadding="12"
+    style={{ width: "100%", borderCollapse: "collapse" }}
+  >
+    <tbody>
+      <tr>
+        <td><strong>NIS</strong></td>
+        <td>{formatCurrency(reports?.statutoryTotals?.nisEmployee)}</td>
+      </tr>
+      <tr>
+        <td><strong>NHT</strong></td>
+        <td>{formatCurrency(reports?.statutoryTotals?.nhtEmployee)}</td>
+      </tr>
+      <tr>
+        <td><strong>Education Tax</strong></td>
+        <td>{formatCurrency(reports?.statutoryTotals?.educationTax)}</td>
+      </tr>
+      <tr>
+        <td><strong>Income Tax</strong></td>
+        <td>{formatCurrency(reports?.statutoryTotals?.incomeTax)}</td>
+      </tr>
+      <tr>
+        <td><strong>Pension</strong></td>
+        <td>{formatCurrency(reports?.statutoryTotals?.pensionEmployee)}</td>
+      </tr>
+      <tr>
+        <td><strong>Total Deductions</strong></td>
+        <td>{formatCurrency(reports?.statutoryTotals?.totalDeductions)}</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<div style={cardStyle}>
+  <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>
+    Statutory Deductions by Employee
+  </h2>
+  <div style={{ overflowX: "auto" }}>
+    <table
+      border="1"
+      cellPadding="12"
+      style={{ width: "100%", borderCollapse: "collapse", minWidth: "1100px" }}
+    >
+      <thead style={{ backgroundColor: "#eef4ff" }}>
+        <tr>
+          <th>Employee ID</th>
+          <th>Employee Name</th>
+          <th>Role</th>
+          <th>Gross Pay</th>
+          <th>NIS</th>
+          <th>NHT</th>
+          <th>Education Tax</th>
+          <th>Income Tax</th>
+          <th>Pension</th>
+          <th>Total Deductions</th>
+          <th>Net Pay</th>
+        </tr>
+      </thead>
+      <tbody>
+        {reports?.statutoryByEmployee?.length > 0 ? (
+          reports.statutoryByEmployee.map((item, index) => (
+            <tr key={`${item.employeeId}-${index}`}>
+              <td>{item.employeeId || "-"}</td>
+              <td>{item.employeeName || "-"}</td>
+              <td>{item.role || "-"}</td>
+              <td>{formatCurrency(item.grossPay)}</td>
+              <td>{formatCurrency(item.nisEmployee)}</td>
+              <td>{formatCurrency(item.nhtEmployee)}</td>
+              <td>{formatCurrency(item.educationTax)}</td>
+              <td>{formatCurrency(item.incomeTax)}</td>
+              <td>{formatCurrency(item.pensionEmployee)}</td>
+              <td>{formatCurrency(item.totalDeductions)}</td>
+              <td>{formatCurrency(item.netPay)}</td>
+            </tr>
+          ))
+        ) : (
+          <tr>
+            <td colSpan="11">No statutory deduction data found for this period.</td>
+          </tr>
+        )}
+      </tbody>
+    </table>
+  </div>
+</div>
 
     <div style={cardStyle}>
       <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>
