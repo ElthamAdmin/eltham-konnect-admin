@@ -7,9 +7,13 @@ function Packages() {
   const [searchTerm, setSearchTerm] = useState("");
   const [rateMap, setRateMap] = useState({});
   const [selectedPackages, setSelectedPackages] = useState([]);
-  const [bulkStatus, setBulkStatus] = useState("");
-  const [pageSize, setPageSize] = useState(25);
-  const [currentPage, setCurrentPage] = useState(1);
+const [bulkStatus, setBulkStatus] = useState("");
+const [pageSize, setPageSize] = useState(25);
+const [currentPage, setCurrentPage] = useState(1);
+const [weightAnalysis, setWeightAnalysis] = useState(null);
+const [weightFilter, setWeightFilter] = useState("today");
+const [weightStartDate, setWeightStartDate] = useState("");
+const [weightEndDate, setWeightEndDate] = useState("");
 
   const [formData, setFormData] = useState({
     trackingNumber: "",
@@ -41,6 +45,28 @@ function Packages() {
     }
   };
 
+  const fetchWeightAnalysis = async (
+  filter = weightFilter,
+  startDate = weightStartDate,
+  endDate = weightEndDate
+) => {
+  try {
+    const params = new URLSearchParams();
+    params.append("filter", filter);
+
+    if (filter === "custom") {
+      if (startDate) params.append("startDate", startDate);
+      if (endDate) params.append("endDate", endDate);
+    }
+
+    const query = params.toString() ? `?${params.toString()}` : "";
+    const res = await axios.get(`${API}/api/packages/weight-analysis${query}`);
+    setWeightAnalysis(res.data.data || null);
+  } catch (error) {
+    console.error("Error loading package weight analysis:", error);
+  }
+};
+
   const fetchRates = async () => {
     try {
       const res = await axios.get(`${API}/api/shipping-rates`);
@@ -57,6 +83,7 @@ function Packages() {
   useEffect(() => {
     fetchPackages();
     fetchRates();
+    fetchWeightAnalysis();
   }, []);
 
   useEffect(() => {
@@ -76,6 +103,22 @@ function Packages() {
   const startIndex = (safeCurrentPage - 1) * pageSize;
   const endIndex = startIndex + pageSize;
   const paginatedPackages = filteredPackages.slice(startIndex, endIndex);
+
+  const applyWeightAnalysisFilter = async () => {
+  if (weightFilter === "custom" && (!weightStartDate || !weightEndDate)) {
+    alert("Please select both custom start date and end date.");
+    return;
+  }
+
+  await fetchWeightAnalysis(weightFilter, weightStartDate, weightEndDate);
+};
+
+const clearWeightAnalysisFilter = async () => {
+  setWeightFilter("today");
+  setWeightStartDate("");
+  setWeightEndDate("");
+  await fetchWeightAnalysis("today", "", "");
+};
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -116,6 +159,7 @@ function Packages() {
           dateReceived: "",
         });
         await fetchPackages();
+        await fetchWeightAnalysis();
       }
     } catch (error) {
       console.error("Error saving package:", error);
@@ -127,6 +171,7 @@ function Packages() {
     try {
       await axios.put(`${API}/api/packages/${trackingNumber}/status`, { status });
       await fetchPackages();
+      await fetchWeightAnalysis();
     } catch (err) {
       console.error(err);
       alert("Status update failed");
@@ -155,6 +200,7 @@ function Packages() {
       setSelectedPackages([]);
       setBulkStatus("");
       await fetchPackages();
+      await fetchWeightAnalysis();
     } catch (error) {
       console.error("Bulk status update failed:", error);
       alert(error?.response?.data?.message || "Bulk status update failed");
@@ -379,6 +425,231 @@ function Packages() {
           {showForm ? "Close Form" : "+ Add Package"}
         </button>
       </div>
+
+      <div
+  style={{
+    backgroundColor: WHITE,
+    border: `1px solid ${BORDER}`,
+    borderRadius: "12px",
+    padding: "16px",
+    marginBottom: "20px",
+    boxShadow: "0 2px 8px rgba(15,23,42,0.04)",
+  }}
+>
+  <div
+    style={{
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "center",
+      gap: "12px",
+      flexWrap: "wrap",
+      marginBottom: "14px",
+    }}
+  >
+    <div>
+      <h2 style={{ margin: 0, color: ROYAL_BLUE }}>Weight Analysis</h2>
+      <div style={{ marginTop: "6px", color: MUTED }}>
+        See which package weights come in most often for a selected time period.
+      </div>
+    </div>
+  </div>
+
+  <div
+    style={{
+      display: "grid",
+      gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+      gap: "12px",
+      marginBottom: "16px",
+      alignItems: "end",
+    }}
+  >
+    <div>
+      <label style={{ display: "block", marginBottom: "6px", fontWeight: "bold", color: "#334155" }}>
+        Period
+      </label>
+      <select
+        value={weightFilter}
+        onChange={(e) => setWeightFilter(e.target.value)}
+        style={{
+          padding: "10px",
+          width: "100%",
+          borderRadius: "8px",
+          border: `1px solid ${BORDER}`,
+          backgroundColor: WHITE,
+        }}
+      >
+        <option value="today">Today</option>
+        <option value="thisWeek">This Week</option>
+        <option value="thisMonth">This Month</option>
+        <option value="thisYear">This Year</option>
+        <option value="custom">Custom Range</option>
+      </select>
+    </div>
+
+    {weightFilter === "custom" && (
+      <>
+        <div>
+          <label style={{ display: "block", marginBottom: "6px", fontWeight: "bold", color: "#334155" }}>
+            Start Date
+          </label>
+          <input
+            type="date"
+            value={weightStartDate}
+            onChange={(e) => setWeightStartDate(e.target.value)}
+            style={{
+              padding: "10px",
+              width: "100%",
+              borderRadius: "8px",
+              border: `1px solid ${BORDER}`,
+            }}
+          />
+        </div>
+
+        <div>
+          <label style={{ display: "block", marginBottom: "6px", fontWeight: "bold", color: "#334155" }}>
+            End Date
+          </label>
+          <input
+            type="date"
+            value={weightEndDate}
+            onChange={(e) => setWeightEndDate(e.target.value)}
+            style={{
+              padding: "10px",
+              width: "100%",
+              borderRadius: "8px",
+              border: `1px solid ${BORDER}`,
+            }}
+          />
+        </div>
+      </>
+    )}
+
+    <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+      <button
+        onClick={applyWeightAnalysisFilter}
+        style={{
+          backgroundColor: ROYAL_BLUE,
+          color: WHITE,
+          border: "none",
+          padding: "10px 16px",
+          borderRadius: "8px",
+          cursor: "pointer",
+          fontWeight: "bold",
+        }}
+      >
+        Apply
+      </button>
+
+      <button
+        onClick={clearWeightAnalysisFilter}
+        style={{
+          backgroundColor: WHITE,
+          color: ROYAL_BLUE,
+          border: `1px solid ${ROYAL_BLUE}`,
+          padding: "10px 16px",
+          borderRadius: "8px",
+          cursor: "pointer",
+          fontWeight: "bold",
+        }}
+      >
+        Reset
+      </button>
+    </div>
+  </div>
+
+  <div
+    style={{
+      display: "grid",
+      gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+      gap: "14px",
+      marginBottom: "16px",
+    }}
+  >
+    <div
+      style={{
+        backgroundColor: "#eef4ff",
+        border: `1px solid ${BORDER}`,
+        borderRadius: "10px",
+        padding: "14px",
+      }}
+    >
+      <div style={{ color: MUTED, fontSize: "13px", marginBottom: "6px" }}>Total Packages</div>
+      <div style={{ fontSize: "28px", fontWeight: "bold", color: ROYAL_BLUE }}>
+        {weightAnalysis?.totalPackages || 0}
+      </div>
+    </div>
+
+    <div
+      style={{
+        backgroundColor: "#fffbeb",
+        border: `1px solid ${BORDER}`,
+        borderRadius: "10px",
+        padding: "14px",
+      }}
+    >
+      <div style={{ color: MUTED, fontSize: "13px", marginBottom: "6px" }}>Most Common Weight</div>
+      <div style={{ fontSize: "28px", fontWeight: "bold", color: GOLD }}>
+        {weightAnalysis?.mostCommonWeight?.billedWeight
+          ? `${weightAnalysis.mostCommonWeight.billedWeight} lb`
+          : "-"}
+      </div>
+    </div>
+
+    <div
+      style={{
+        backgroundColor: "#f0fdf4",
+        border: `1px solid ${BORDER}`,
+        borderRadius: "10px",
+        padding: "14px",
+      }}
+    >
+      <div style={{ color: MUTED, fontSize: "13px", marginBottom: "6px" }}>Most Common Count</div>
+      <div style={{ fontSize: "28px", fontWeight: "bold", color: "#16a34a" }}>
+        {weightAnalysis?.mostCommonWeight?.packageCount || 0}
+      </div>
+    </div>
+  </div>
+
+  <div style={{ overflowX: "auto" }}>
+    <table
+      border="1"
+      cellPadding="10"
+      style={{
+        minWidth: "700px",
+        width: "100%",
+        borderCollapse: "collapse",
+        borderColor: BORDER,
+      }}
+    >
+      <thead style={{ backgroundColor: "#eef4ff" }}>
+        <tr>
+          <th>Billed Weight</th>
+          <th>Package Count</th>
+          <th>Total Actual Weight</th>
+          <th>% of Packages</th>
+        </tr>
+      </thead>
+      <tbody>
+        {weightAnalysis?.groupedWeights?.length > 0 ? (
+          weightAnalysis.groupedWeights.map((item) => (
+            <tr key={item.billedWeight}>
+              <td>{item.billedWeight} lb</td>
+              <td>{item.packageCount}</td>
+              <td>{item.totalActualWeight}</td>
+              <td>{item.percentageOfPackages}%</td>
+            </tr>
+          ))
+        ) : (
+          <tr>
+            <td colSpan="4" style={{ textAlign: "center", padding: "20px", color: MUTED }}>
+              No weight analysis data found for this period.
+            </td>
+          </tr>
+        )}
+      </tbody>
+    </table>
+  </div>
+</div>
 
       {showForm && (
         <div
