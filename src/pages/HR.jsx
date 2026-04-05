@@ -2090,19 +2090,25 @@ const showMyProfileTab = canSelfServiceHR && !isAdminHR;
                       : "-"}
                   </td>
                   <td>
-                    {doc.fileUrl ? (
-                      <a
-                        href={`${api.defaults.baseURL}${doc.fileUrl}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        style={{ color: ROYAL_BLUE, fontWeight: "bold" }}
-                      >
-                        View File
-                      </a>
-                    ) : (
-                      "-"
-                    )}
-                  </td>
+  {doc.fileUrl ? (
+    doc.fileExists ? (
+      <a
+        href={`${api.defaults.baseURL}${doc.fileUrl}`}
+        target="_blank"
+        rel="noreferrer"
+        style={{ color: ROYAL_BLUE, fontWeight: "bold" }}
+      >
+        View File
+      </a>
+    ) : (
+      <span style={{ color: "#dc2626", fontWeight: "bold" }}>
+        Missing File
+      </span>
+    )
+  ) : (
+    "-"
+  )}
+</td>
                   {isAdminHR && (
                     <td>
                       <button
