@@ -639,9 +639,10 @@ const savePerformanceReview = async () => {
     } catch (error) {
       console.error(error);
       alert(
-        error?.response?.data?.message ||
-          (isEditing ? "Error updating employee" : "Error adding employee")
-      );
+  error?.response?.data?.error ||
+    error?.response?.data?.message ||
+    (isEditing ? "Error updating employee" : "Error adding employee")
+);
     }
   };
 
