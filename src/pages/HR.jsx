@@ -60,37 +60,40 @@ function HR() {
 ];
 
   const emptyEmployeeForm = {
-    fullName: "",
-    firstName: "",
-    lastName: "",
-    gender: "",
-    dateOfBirth: "",
-    trn: "",
-    nisNumber: "",
-    email: "",
-    phone: "",
-    alternatePhone: "",
-    address: "",
-    emergencyContactName: "",
-    emergencyContactPhone: "",
-    emergencyContactRelationship: "",
-    department: "Operations",
-    jobTitle: "",
-    branch: "Eltham Park Mainstore",
-    employmentType: "Temporary",
-    startDate: "",
-    endDate: "",
-    employmentStatus: "Active",
-    payType: "Monthly Salary",
-    payRate: "",
-    payrollEnabled: true,
-    linkedUserId: "",
-    attendanceRequired: true,
-    leaveBalanceVacation: 0,
-    leaveBalanceSick: 0,
-    leaveBalanceUnpaid: 0,
-    notes: "",
-  };
+  fullName: "",
+  firstName: "",
+  lastName: "",
+  gender: "",
+  dateOfBirth: "",
+  trn: "",
+  nisNumber: "",
+  email: "",
+  phone: "",
+  alternatePhone: "",
+  address: "",
+  emergencyContactName: "",
+  emergencyContactPhone: "",
+  emergencyContactRelationship: "",
+  department: "Operations",
+  jobTitle: "",
+  jobLevel: 1,
+  isDepartmentHead: false,
+  reportsToEmployeeId: "",
+  branch: "Eltham Park Mainstore",
+  employmentType: "Temporary",
+  startDate: "",
+  endDate: "",
+  employmentStatus: "Active",
+  payType: "Monthly Salary",
+  payRate: "",
+  payrollEnabled: true,
+  linkedUserId: "",
+  attendanceRequired: true,
+  leaveBalanceVacation: 0,
+  leaveBalanceSick: 0,
+  leaveBalanceUnpaid: 0,
+  notes: "",
+};
 
   const emptyLeaveForm = {
     employeeId: "",
@@ -112,6 +115,7 @@ function HR() {
   );
   const [employees, setEmployees] = useState([]);
   const [summary, setSummary] = useState(null);
+  const [organizationChart, setOrganizationChart] = useState([]);
   const [systemUsers, setSystemUsers] = useState([]);
   const [leaveRequests, setLeaveRequests] = useState([]);
   const [myPayslips, setMyPayslips] = useState([]);
@@ -274,7 +278,14 @@ const [performanceForm, setPerformanceForm] = useState({
     setLoading(true);
 
     if (isAdminHR) {
-      const [employeesRes, summaryRes, usersRes, leaveRes, analyticsRes] = await Promise.all([
+      const [
+  employeesRes,
+  summaryRes,
+  usersRes,
+  leaveRes,
+  analyticsRes,
+  orgChartRes,
+] = await Promise.all([
   api.get("/api/hr"),
   api.get("/api/hr/summary"),
   api.get("/api/system-users"),
@@ -290,12 +301,24 @@ const [performanceForm, setPerformanceForm] = useState({
     }
     throw error;
   }),
+  api.get("/api/hr/organization-chart").catch((error) => {
+    if (
+      error?.response?.status === 404 ||
+      error?.response?.status === 403 ||
+      error?.response?.status === 500
+    ) {
+      console.error("Organization chart load failed:", error);
+      return { data: { data: [] } };
+    }
+    throw error;
+  }),
 ]);
 
       const employeesData = employeesRes.data.data || [];
 
       setEmployees(employeesData);
 setSummary(summaryRes.data.data || null);
+setOrganizationChart(orgChartRes.data.data || []);
 setSystemUsers(usersRes.data.data || []);
 setLeaveRequests(leaveRes.data.data || []);
 setAnalyticsSummary(analyticsRes.data.data || null);
@@ -375,6 +398,7 @@ if (responses.length === 5) {
 
       setEmployees([]);
 setSummary(null);
+setOrganizationChart([]);
 setSystemUsers([]);
 setAnalyticsSummary(null);
 setMyEmployee(myProfile);
@@ -565,6 +589,9 @@ const savePerformanceReview = async () => {
       emergencyContactRelationship: employee.emergencyContactRelationship || "",
       department: employee.department || "Operations",
       jobTitle: employee.jobTitle || "",
+      jobLevel: employee.jobLevel ?? 1,
+      isDepartmentHead: Boolean(employee.isDepartmentHead),
+      reportsToEmployeeId: employee.reportsToEmployeeId || "",
       branch: employee.branch || "Eltham Park Mainstore",
       employmentType: employee.employmentType || "Temporary",
       startDate: employee.startDate || "",
@@ -900,6 +927,59 @@ const deleteEmployeeDocument = async (index) => {
     alert("Could not download payslip.");
   }
 };
+
+const OrgChartNode = ({ node, level, ROYAL_BLUE, BORDER, MUTED }) => {
+  return (
+    <div
+      style={{
+        marginLeft: level === 0 ? 0 : "24px",
+        borderLeft: level === 0 ? "none" : `3px solid ${BORDER}`,
+        paddingLeft: level === 0 ? 0 : "14px",
+      }}
+    >
+      <div
+        style={{
+          backgroundColor: level === 0 ? "#eef4ff" : "#ffffff",
+          border: `1px solid ${BORDER}`,
+          borderRadius: "12px",
+          padding: "14px",
+          marginBottom: "10px",
+        }}
+      >
+        <div style={{ fontWeight: "bold", color: ROYAL_BLUE, fontSize: "16px" }}>
+          {node.fullName}
+        </div>
+        <div style={{ color: "#0f172a", marginTop: "4px", fontWeight: "bold" }}>
+          {node.jobTitle || "-"}
+        </div>
+        <div style={{ color: MUTED, fontSize: "13px", marginTop: "4px" }}>
+          {node.employeeId} • Level {node.jobLevel || 1} • {node.department || "-"}
+        </div>
+        <div style={{ color: MUTED, fontSize: "13px", marginTop: "4px" }}>
+          {node.branch || "-"} • {node.employmentStatus || "-"}
+        </div>
+        {node.isDepartmentHead ? (
+          <div style={{ color: "#7c3aed", fontSize: "12px", fontWeight: "bold", marginTop: "6px" }}>
+            Department Head
+          </div>
+        ) : null}
+      </div>
+
+      {node.children?.length > 0 &&
+        node.children.map((child) => (
+          <OrgChartNode
+            key={child.employeeId}
+            node={child}
+            level={level + 1}
+            ROYAL_BLUE={ROYAL_BLUE}
+            BORDER={BORDER}
+            MUTED={MUTED}
+          />
+        ))}
+    </div>
+  );
+};
+
   const renderField = (label, value) => (
     <div>
       <div style={{ color: MUTED, fontSize: "13px", marginBottom: "4px" }}>{label}</div>
@@ -909,6 +989,7 @@ const deleteEmployeeDocument = async (index) => {
 
   const showEmployeesTab = isAdminHR;
 const showEmployeeFormTab = isAdminHR;
+const showOrgChartTab = isAdminHR;
 const showLeaveRequestsTab = isAdminHR;
 const showDisciplineTab = isAdminHR || permissions.includes("hrSelfService");
 const showPerformanceTab = isAdminHR || permissions.includes("hrSelfService");
@@ -945,6 +1026,15 @@ const showMyProfileTab = canSelfServiceHR && !isAdminHR;
             Employees
           </button>
         )}
+
+        {showOrgChartTab && (
+  <button
+    style={tabButtonStyle("orgChart")}
+    onClick={() => setActiveTab("orgChart")}
+  >
+    Organization Chart
+  </button>
+)}
 
         {showEmployeeFormTab && (
           <button
@@ -1142,15 +1232,17 @@ const showMyProfileTab = canSelfServiceHR && !isAdminHR;
               <table width="100%" cellPadding="10" style={{ borderCollapse: "collapse" }}>
                 <thead style={{ backgroundColor: "#eef4ff" }}>
                   <tr>
-                    <th align="left">Employee</th>
-                    <th align="left">Job</th>
-                    <th align="left">Department</th>
-                    <th align="left">Branch</th>
-                    <th align="left">Pay</th>
-                    <th align="left">Linked User</th>
-                    <th align="left">Status</th>
-                    <th align="left">Action</th>
-                  </tr>
+  <th align="left">Employee</th>
+  <th align="left">Job</th>
+  <th align="left">Level</th>
+  <th align="left">Department</th>
+  <th align="left">Reports To</th>
+  <th align="left">Branch</th>
+  <th align="left">Pay</th>
+  <th align="left">Linked User</th>
+  <th align="left">Status</th>
+  <th align="left">Action</th>
+</tr>
                 </thead>
                 <tbody>
                   {filteredEmployees.map((employee) => (
@@ -1163,9 +1255,18 @@ const showMyProfileTab = canSelfServiceHR && !isAdminHR;
                           {employee.employeeId}
                         </div>
                       </td>
-                      <td>{employee.jobTitle || "-"}</td>
-                      <td>{employee.department || "-"}</td>
-                      <td>{employee.branch || "-"}</td>
+                      <td>
+  <div>{employee.jobTitle || "-"}</div>
+  {employee.isDepartmentHead ? (
+    <div style={{ color: "#7c3aed", fontSize: "12px", fontWeight: "bold" }}>
+      Department Head
+    </div>
+  ) : null}
+</td>
+<td>{employee.jobLevel || 1}</td>
+<td>{employee.department || "-"}</td>
+<td>{employee.reportsToName || "-"}</td>
+<td>{employee.branch || "-"}</td>
                       <td>
                         {employee.payType || "-"}
                         <div style={{ color: MUTED, fontSize: "12px" }}>
@@ -1225,7 +1326,7 @@ const showMyProfileTab = canSelfServiceHR && !isAdminHR;
 
                   {filteredEmployees.length === 0 && (
                     <tr>
-                      <td colSpan="8" style={{ textAlign: "center", padding: "20px", color: MUTED }}>
+                      <td colSpan="10" style={{ textAlign: "center", padding: "20px", color: MUTED }}>
                         No employees found
                       </td>
                     </tr>
@@ -1236,6 +1337,36 @@ const showMyProfileTab = canSelfServiceHR && !isAdminHR;
           </div>
         </div>
       )}
+
+      {activeTab === "orgChart" && showOrgChartTab && (
+  <div style={{ display: "grid", gap: "20px" }}>
+    <div style={cardStyle}>
+      <h2 style={{ color: ROYAL_BLUE, marginTop: 0 }}>Organization Chart</h2>
+      <div style={{ color: MUTED, marginBottom: "16px" }}>
+        This shows the reporting hierarchy for Eltham Konnect.
+      </div>
+
+      {organizationChart.length === 0 ? (
+        <div style={{ color: MUTED, fontWeight: "bold" }}>
+          No organization chart data found.
+        </div>
+      ) : (
+        <div style={{ display: "grid", gap: "12px" }}>
+          {organizationChart.map((node) => (
+            <OrgChartNode
+              key={node.employeeId}
+              node={node}
+              level={0}
+              ROYAL_BLUE={ROYAL_BLUE}
+              BORDER={BORDER}
+              MUTED={MUTED}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  </div>
+)}
 
       {activeTab === "employeeForm" && showEmployeeFormTab && (
         <div style={{ display: "grid", gap: "20px" }}>
@@ -1422,6 +1553,59 @@ const showMyProfileTab = canSelfServiceHR && !isAdminHR;
                   style={inputStyle}
                 />
               </div>
+
+              <div>
+  <label style={labelStyle}>Job Level</label>
+  <select
+    name="jobLevel"
+    value={employeeForm.jobLevel}
+    onChange={handleEmployeeChange}
+    style={inputStyle}
+  >
+    <option value={1}>Level 1 - Staff</option>
+    <option value={2}>Level 2 - Senior Staff</option>
+    <option value={3}>Level 3 - Supervisor</option>
+    <option value={4}>Level 4 - Assistant Manager</option>
+    <option value={5}>Level 5 - Manager</option>
+    <option value={6}>Level 6 - Senior Manager</option>
+    <option value={7}>Level 7 - Department Head</option>
+    <option value={8}>Level 8 - Branch Head</option>
+    <option value={9}>Level 9 - Director</option>
+    <option value={10}>Level 10 - Managing Director / Owner</option>
+  </select>
+</div>
+
+<div>
+  <label style={labelStyle}>Reports To</label>
+  <select
+    name="reportsToEmployeeId"
+    value={employeeForm.reportsToEmployeeId}
+    onChange={handleEmployeeChange}
+    style={inputStyle}
+  >
+    <option value="">No Reporting Manager</option>
+    {employees
+      .filter((employee) => employee.employeeId !== editingEmployeeId)
+      .map((employee) => (
+        <option key={employee.employeeId} value={employee.employeeId}>
+          {employee.fullName} ({employee.jobTitle}) - {employee.employeeId}
+        </option>
+      ))}
+  </select>
+</div>
+
+<div style={{ display: "flex", alignItems: "center", gap: "10px", paddingTop: "26px" }}>
+  <input
+    id="isDepartmentHead"
+    type="checkbox"
+    name="isDepartmentHead"
+    checked={employeeForm.isDepartmentHead}
+    onChange={handleEmployeeChange}
+  />
+  <label htmlFor="isDepartmentHead" style={{ fontWeight: "bold", color: "#334155" }}>
+    Department Head
+  </label>
+</div>
 
               <div>
                 <label style={labelStyle}>Branch</label>
