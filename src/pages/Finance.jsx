@@ -317,6 +317,7 @@ doc.save(`payslip-${safeEmployeeName}-${safePayPeriod}.pdf`);
     accountType: "Bank",
     bankName: "",
     openingBalance: "",
+    currentBalance: "",
     status: "Active",
   });
 
@@ -914,9 +915,13 @@ const fetchMonthlyChart = async () => {
     }
 
     const payload = {
-      ...accountForm,
-      openingBalance: Number(accountForm.openingBalance || 0),
-    };
+  ...accountForm,
+  openingBalance: Number(accountForm.openingBalance || 0),
+  currentBalance:
+    accountForm.currentBalance !== ""
+      ? Number(accountForm.currentBalance || 0)
+      : undefined,
+};
 
     const res = isEditingAccount
       ? await api.put(`/api/financial-accounts/${editingAccountNumber}`, payload)
@@ -929,6 +934,7 @@ const fetchMonthlyChart = async () => {
       accountType: "Bank",
       bankName: "",
       openingBalance: "",
+      currentBalance: "",
       status: "Active",
     });
 
@@ -948,6 +954,7 @@ const fetchMonthlyChart = async () => {
     accountType: account.accountType || "Bank",
     bankName: account.bankName || "",
     openingBalance: account.openingBalance ?? "",
+    currentBalance: account.currentBalance ?? "",
     status: account.status || "Active",
   });
 
@@ -2873,6 +2880,14 @@ const fetchMonthlyChart = async () => {
                 onChange={handleAccountChange}
                 style={{ padding: "10px" }}
               />
+              <input
+  type="number"
+  name="currentBalance"
+  placeholder="Current Balance"
+  value={accountForm.currentBalance}
+  onChange={handleAccountChange}
+  style={{ padding: "10px" }}
+/>
             </div>
 
             <select
