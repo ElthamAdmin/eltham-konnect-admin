@@ -7,6 +7,9 @@ function Communication() {
   const [loadingLogs, setLoadingLogs] = useState(true);
   const [loadingCustomers, setLoadingCustomers] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const [logsPage, setLogsPage] = useState(1);
+  const [logsPageSize, setLogsPageSize] = useState(10);
+  const [expandedMessages, setExpandedMessages] = useState({});
 
   const [formData, setFormData] = useState({
     recipientMode: "single",
@@ -84,6 +87,19 @@ function Communication() {
       failed: logs.filter((log) => log.status === "Failed").length,
     };
   }, [logs]);
+
+  const totalLogsPages = Math.max(1, Math.ceil(logs.length / logsPageSize));
+
+  const paginatedLogs = useMemo(() => {
+    const startIndex = (logsPage - 1) * logsPageSize;
+    return logs.slice(startIndex, startIndex + logsPageSize);
+  }, [logs, logsPage, logsPageSize]);
+
+  useEffect(() => {
+    if (logsPage > totalLogsPages) {
+      setLogsPage(1);
+    }
+  }, [logsPage, totalLogsPages]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -181,6 +197,7 @@ function Communication() {
       });
 
       setSearchTerm("");
+      setLogsPage(1);
       await fetchLogs();
     } catch (error) {
       console.error("Error saving communication:", error);
@@ -206,6 +223,19 @@ function Communication() {
     } catch {
       return value;
     }
+  };
+
+  const getMessagePreview = (message = "", expanded = false) => {
+    if (expanded) return message;
+    if (message.length <= 160) return message;
+    return `${message.slice(0, 160)}...`;
+  };
+
+  const toggleExpandedMessage = (logKey) => {
+    setExpandedMessages((prev) => ({
+      ...prev,
+      [logKey]: !prev[logKey],
+    }));
   };
 
   const cardStyle = {
@@ -584,76 +614,194 @@ function Communication() {
       </div>
 
       <div style={cardStyle}>
-        <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>Communication History</h2>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            gap: "12px",
+            flexWrap: "wrap",
+            marginBottom: "14px",
+          }}
+        >
+          <h2 style={{ margin: 0, color: ROYAL_BLUE }}>Communication History</h2>
+
+          <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", alignItems: "center" }}>
+            <label style={{ color: MUTED, fontWeight: "bold" }}>Rows:</label>
+            <select
+              value={logsPageSize}
+              onChange={(e) => {
+                setLogsPageSize(Number(e.target.value));
+                setLogsPage(1);
+              }}
+              style={{
+                padding: "8px 10px",
+                borderRadius: "8px",
+                border: `1px solid ${BORDER}`,
+              }}
+            >
+              <option value={5}>5</option>
+              <option value={10}>10</option>
+              <option value={20}>20</option>
+              <option value={50}>50</option>
+            </select>
+          </div>
+        </div>
 
         {loadingLogs ? (
           <p>Loading communication logs...</p>
         ) : (
-          <div style={{ overflowX: "auto" }}>
-            <table
-              border="1"
-              cellPadding="10"
+          <>
+            <div style={{ overflowX: "auto" }}>
+              <table
+                border="1"
+                cellPadding="10"
+                style={{
+                  minWidth: "1200px",
+                  width: "100%",
+                  borderCollapse: "collapse",
+                  borderColor: BORDER,
+                }}
+              >
+                <thead style={{ backgroundColor: "#eef4ff" }}>
+                  <tr>
+                    <th style={{ minWidth: "150px" }}>Log Number</th>
+                    <th style={{ minWidth: "110px" }}>Customer EKON ID</th>
+                    <th style={{ minWidth: "160px" }}>Customer Name</th>
+                    <th style={{ minWidth: "90px" }}>Channel</th>
+                    <th style={{ minWidth: "140px" }}>Subject</th>
+                    <th style={{ minWidth: "320px" }}>Message</th>
+                    <th style={{ minWidth: "90px" }}>Status</th>
+                    <th style={{ minWidth: "100px" }}>Date</th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {paginatedLogs.length > 0 ? (
+                    paginatedLogs.map((log, index) => {
+                      const logKey = log._id || log.logNumber || index;
+                      const isExpanded = !!expandedMessages[logKey];
+
+                      return (
+                        <tr key={logKey}>
+                          <td style={{ fontWeight: "bold", color: "#334155", verticalAlign: "top" }}>
+                            {log.logNumber}
+                          </td>
+                          <td style={{ verticalAlign: "top" }}>{log.customerEkonId}</td>
+                          <td style={{ verticalAlign: "top" }}>{log.customerName}</td>
+                          <td style={{ verticalAlign: "top" }}>{log.channel}</td>
+                          <td style={{ verticalAlign: "top", fontWeight: "600", color: "#1e293b" }}>
+                            {log.subject}
+                          </td>
+                          <td style={{ color: "#475569", verticalAlign: "top", lineHeight: 1.5 }}>
+                            <div style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+                              {getMessagePreview(log.message, isExpanded)}
+                            </div>
+
+                            {String(log.message || "").length > 160 && (
+                              <button
+                                onClick={() => toggleExpandedMessage(logKey)}
+                                style={{
+                                  marginTop: "8px",
+                                  backgroundColor: "#e2e8f0",
+                                  color: "#0f172a",
+                                  border: "none",
+                                  padding: "7px 10px",
+                                  borderRadius: "8px",
+                                  cursor: "pointer",
+                                  fontWeight: "bold",
+                                }}
+                              >
+                                {isExpanded ? "Show Less" : "View More"}
+                              </button>
+                            )}
+                          </td>
+                          <td style={{ verticalAlign: "top" }}>
+                            <span
+                              style={{
+                                padding: "5px 10px",
+                                borderRadius: "999px",
+                                color: WHITE,
+                                backgroundColor: getStatusColor(log.status),
+                                fontWeight: "bold",
+                                fontSize: "12px",
+                                display: "inline-block",
+                                whiteSpace: "nowrap",
+                              }}
+                            >
+                              {log.status}
+                            </span>
+                          </td>
+                          <td style={{ verticalAlign: "top" }}>
+                            {formatDate(log.date || log.createdAt)}
+                          </td>
+                        </tr>
+                      );
+                    })
+                  ) : (
+                    <tr>
+                      <td colSpan="8" style={{ textAlign: "center", color: MUTED }}>
+                        No communication logs found.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            <div
               style={{
-                minWidth: "1200px",
-                width: "100%",
-                borderCollapse: "collapse",
-                borderColor: BORDER,
+                marginTop: "16px",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                gap: "12px",
+                flexWrap: "wrap",
               }}
             >
-              <thead style={{ backgroundColor: "#eef4ff" }}>
-                <tr>
-                  <th>Log Number</th>
-                  <th>Customer EKON ID</th>
-                  <th>Customer Name</th>
-                  <th>Channel</th>
-                  <th>Subject</th>
-                  <th>Message</th>
-                  <th>Status</th>
-                  <th>Date</th>
-                </tr>
-              </thead>
+              <div style={{ color: MUTED, fontWeight: "bold" }}>
+                Page {logsPage} of {totalLogsPages}
+              </div>
 
-              <tbody>
-                {logs.length > 0 ? (
-                  logs.map((log, index) => (
-                    <tr key={log._id || index}>
-                      <td style={{ fontWeight: "bold", color: "#334155" }}>
-                        {log.logNumber}
-                      </td>
-                      <td>{log.customerEkonId}</td>
-                      <td>{log.customerName}</td>
-                      <td>{log.channel}</td>
-                      <td>{log.subject}</td>
-                      <td style={{ color: "#475569" }}>{log.message}</td>
-                      <td>
-                        <span
-                          style={{
-                            padding: "5px 10px",
-                            borderRadius: "999px",
-                            color: WHITE,
-                            backgroundColor: getStatusColor(log.status),
-                            fontWeight: "bold",
-                            fontSize: "12px",
-                            display: "inline-block",
-                            whiteSpace: "nowrap",
-                          }}
-                        >
-                          {log.status}
-                        </span>
-                      </td>
-                      <td>{formatDate(log.date || log.createdAt)}</td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan="8" style={{ textAlign: "center", color: MUTED }}>
-                      No communication logs found.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+              <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+                <button
+                  onClick={() => setLogsPage((prev) => Math.max(prev - 1, 1))}
+                  disabled={logsPage === 1}
+                  style={{
+                    backgroundColor: logsPage === 1 ? "#cbd5e1" : ROYAL_BLUE,
+                    color: WHITE,
+                    border: "none",
+                    padding: "9px 14px",
+                    borderRadius: "8px",
+                    cursor: logsPage === 1 ? "not-allowed" : "pointer",
+                    fontWeight: "bold",
+                  }}
+                >
+                  Previous
+                </button>
+
+                <button
+                  onClick={() =>
+                    setLogsPage((prev) => Math.min(prev + 1, totalLogsPages))
+                  }
+                  disabled={logsPage === totalLogsPages}
+                  style={{
+                    backgroundColor:
+                      logsPage === totalLogsPages ? "#cbd5e1" : ROYAL_BLUE,
+                    color: WHITE,
+                    border: "none",
+                    padding: "9px 14px",
+                    borderRadius: "8px",
+                    cursor:
+                      logsPage === totalLogsPages ? "not-allowed" : "pointer",
+                    fontWeight: "bold",
+                  }}
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          </>
         )}
       </div>
     </div>
