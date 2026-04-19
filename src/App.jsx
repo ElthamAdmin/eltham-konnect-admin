@@ -17,6 +17,7 @@ import MarketingInfo from "./pages/MarketingInfo";
 import SystemUsers from "./pages/SystemUsers";
 import Communication from "./pages/Communication";
 import WarehouseManagement from "./pages/WarehouseManagement";
+import AmazonAssociateLinks from "./pages/AmazonAssociateLinks";
 import Settings from "./pages/Settings";
 import AuditLogs from "./pages/AuditLogs";
 import PreAlerts from "./pages/PreAlerts";
@@ -243,6 +244,15 @@ function AppShell() {
             Marketing Info
           </Link>
         )}
+
+        {can("marketing") && (
+  <Link
+    to="/amazon-associate"
+    style={navItemStyle(location.pathname === "/amazon-associate")}
+  >
+    Amazon Associate
+  </Link>
+)}
 
         {can("users") && (
           <Link to="/users" style={navItemStyle(location.pathname === "/users")}>
@@ -492,6 +502,11 @@ function AppShell() {
               path="/marketing"
               element={can("marketing") ? <MarketingInfo /> : <Navigate to="/" replace />}
             />
+
+            <Route
+  path="/amazon-associate"
+  element={can("marketing") ? <AmazonAssociateLinks /> : <Navigate to="/" replace />}
+/>
 
             <Route
               path="/users"
