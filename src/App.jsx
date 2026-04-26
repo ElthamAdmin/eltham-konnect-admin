@@ -24,6 +24,7 @@ import PreAlerts from "./pages/PreAlerts";
 import HR from "./pages/HR";
 import Login from "./pages/Login";
 import DutyMonitor from "./pages/DutyMonitor";
+import ReferralProgram from "./pages/ReferralProgram";
 
 function AppShell() {
   const { user, logout, refreshMyDuty } = useAuth();
@@ -304,7 +305,18 @@ function AppShell() {
             Points History
           </Link>
         )}
+
+        {can("customers") && (
+  <Link
+    to="/referrals"
+    style={navItemStyle(location.pathname === "/referrals")}
+  >
+    EKON Referral Program
+  </Link>
+)}
       </div>
+
+      
 
       <div style={{ flex: 1 }}>
         <div
@@ -537,6 +549,8 @@ function AppShell() {
               path="/points-history"
               element={can("pointsHistory") ? <PointsHistory /> : <Navigate to="/" replace />}
             />
+
+            <Route path="/referrals" element={<ReferralProgram />} />
 
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
