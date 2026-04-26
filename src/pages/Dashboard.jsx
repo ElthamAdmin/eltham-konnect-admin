@@ -107,16 +107,46 @@ function Dashboard() {
     return true;
   };
 
-  const matchesLocation = (item) => {
-    if (locationFilter === "All Locations") return true;
+  const normalizeLocation = (value = "") =>
+  String(value)
+    .toLowerCase()
+    .replace(/['’]/g, "")
+    .replace(/mainstore/g, "")
+    .replace(/main store/g, "")
+    .replace(/branch/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
 
-    return (
-      item.branch === locationFilter ||
-      item.location === locationFilter ||
-      item.pickupBranch === locationFilter ||
-      item.warehouseLocation === locationFilter
-    );
-  };
+const locationAliases = {
+  "Eltham Park": ["eltham park", "eltham"],
+  "Browns Town Square": [
+    "browns town square",
+    "brownstown square",
+    "brown town square",
+    "browns town",
+    "brownstown",
+    "browns",
+  ],
+};
+
+const matchesLocation = (item) => {
+  if (locationFilter === "All Locations") return true;
+
+  const selectedAliases = locationAliases[locationFilter] || [
+    normalizeLocation(locationFilter),
+  ];
+
+  const possibleLocations = [
+    item.branch,
+    item.location,
+    item.pickupBranch,
+    item.warehouseLocation,
+  ].map(normalizeLocation);
+
+  return possibleLocations.some((location) =>
+    selectedAliases.some((alias) => location.includes(alias))
+  );
+};
 
   const filteredCustomers = useMemo(() => {
     return customers.filter(
@@ -151,17 +181,27 @@ function Dashboard() {
   }, [packages, dateFilter, locationFilter]);
 
   const filteredPaidInvoices = useMemo(() => {
-    return invoices.filter((inv) => {
-      const isPaid = String(inv.status || "").trim().toLowerCase() === "paid";
-      if (!isPaid) return false;
+  return invoices.filter((inv) => {
+    const isPaid = String(inv.status || "").trim().toLowerCase() === "paid";
+    if (!isPaid) return false;
 
-      if (locationFilter !== "All Locations" && !matchesLocation(inv)) {
-        return false;
-      }
+    if (!isWithinSelectedRange(inv.paidDate || inv.paidAt || inv.createdAt)) {
+      return false;
+    }
 
-      return isWithinSelectedRange(inv.paidDate || inv.paidAt || inv.createdAt);
-    });
-  }, [invoices, dateFilter, locationFilter]);
+    if (locationFilter === "All Locations") return true;
+
+    const invoiceTrackingNumbers = (inv.packages || []).map((pkg) =>
+      String(pkg.trackingNumber || "")
+    );
+
+    return packages.some(
+      (pkg) =>
+        invoiceTrackingNumbers.includes(String(pkg.trackingNumber || "")) &&
+        matchesLocation(pkg)
+    );
+  });
+}, [invoices, packages, dateFilter, locationFilter]);
 
   const newSignupsCount = filteredCustomers.length;
   const packagesReadyCount = filteredReadyPackages.length;
