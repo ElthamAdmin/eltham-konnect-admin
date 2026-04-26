@@ -91,12 +91,12 @@ const [weightEndDate, setWeightEndDate] = useState("");
   }, [searchTerm, pageSize]);
 
   const filteredPackages = useMemo(() => {
-    return packages.filter((pkg) =>
-      `${pkg.trackingNumber} ${pkg.customerName} ${pkg.customerEkonId} ${pkg.customerInvoiceNumber || ""} ${pkg.customerInvoiceNotes || ""} ${pkg.status} ${pkg.courier || ""} ${pkg.warehouseLocation || ""}`
-        .toLowerCase()
-        .includes(searchTerm.toLowerCase())
-    );
-  }, [packages, searchTerm]);
+  return packages.filter((pkg) =>
+    `${pkg.trackingNumber} ${pkg.customerName} ${pkg.customerEkonId} ${pkg.customerInvoiceNumber || ""} ${pkg.customerInvoiceNotes || ""} ${pkg.status} ${pkg.courier || ""} ${pkg.warehouseLocation || ""} ${pkg.addedByName || ""} ${pkg.addedByEmail || ""}`
+      .toLowerCase()
+      .includes(searchTerm.toLowerCase())
+  );
+}, [packages, searchTerm]);
 
   const totalPages = Math.max(1, Math.ceil(filteredPackages.length / pageSize));
   const safeCurrentPage = Math.min(currentPage, totalPages);
@@ -137,9 +137,10 @@ const clearWeightAnalysisFilter = async () => {
   const savePackage = async () => {
     try {
       const payload = {
-        ...formData,
-        weight: Number(formData.weight || 0),
-      };
+  ...formData,
+  weight: Number(formData.weight || 0),
+  ...getLoggedInUserDetails(),
+};
 
       const res = await axios.post(`${API}/api/packages`, payload);
 
@@ -279,6 +280,41 @@ const clearWeightAnalysisFilter = async () => {
 
   const formatDateTime = (v) => (v ? new Date(v).toLocaleString() : "");
   const formatDate = (v) => (v ? String(v).slice(0, 10) : "");
+
+  const getLoggedInUserDetails = () => {
+  try {
+    const storedUser =
+      localStorage.getItem("user") ||
+      localStorage.getItem("adminUser") ||
+      localStorage.getItem("systemUser");
+
+    if (!storedUser) {
+      return {
+        addedByName: "System User",
+        addedByEmail: "",
+        addedByRole: "",
+        addedByUserId: "",
+      };
+    }
+
+    const user = JSON.parse(storedUser);
+
+    return {
+      addedByUserId: user._id || user.id || "",
+      addedByName:
+        user.name || user.fullName || user.username || user.email || "System User",
+      addedByEmail: user.email || "",
+      addedByRole: user.role || "",
+    };
+  } catch {
+    return {
+      addedByName: "System User",
+      addedByEmail: "",
+      addedByRole: "",
+      addedByUserId: "",
+    };
+  }
+};
 
   const getStatusBadgeStyle = (status) => {
     let bg = ROYAL_BLUE;
@@ -897,6 +933,8 @@ const clearWeightAnalysisFilter = async () => {
                 />
               </th>
               <th>Tracking</th>
+              <th style={{ width: "180px" }}>Added Date/Time</th>
+              <th style={{ width: "160px" }}>Added By</th>
               <th>Customer</th>
               <th>EKON</th>
               <th style={{ width: "90px" }}>Weight</th>
@@ -925,8 +963,24 @@ const clearWeightAnalysisFilter = async () => {
                         onChange={() => togglePackageSelection(pkg.trackingNumber)}
                       />
                     </td>
-                    <td style={{ wordBreak: "break-word", maxWidth: "220px" }}>{pkg.trackingNumber}</td>
-                    <td>{pkg.customerName}</td>
+                    <td style={{ wordBreak: "break-word", maxWidth: "220px" }}>
+  {pkg.trackingNumber}
+</td>
+
+<td>{formatDateTime(pkg.createdAt || pkg.dateReceived) || "-"}</td>
+
+<td>
+  <div style={{ fontWeight: "bold", color: "#1e293b" }}>
+    {pkg.addedByName || "System User"}
+  </div>
+  {pkg.addedByRole ? (
+    <div style={{ fontSize: "12px", color: MUTED }}>
+      {pkg.addedByRole}
+    </div>
+  ) : null}
+</td>
+
+<td>{pkg.customerName}</td>
                     <td>{pkg.customerEkonId}</td>
                     <td>{pkg.weight}</td>
                     <td>JMD {getCharge(pkg.weight)}</td>
@@ -1006,7 +1060,7 @@ const clearWeightAnalysisFilter = async () => {
               })
             ) : (
               <tr>
-                <td colSpan="13" style={{ textAlign: "center", padding: "20px", color: MUTED }}>
+                <td colSpan="15" style={{ textAlign: "center", padding: "20px", color: MUTED }}>
                   No packages found.
                 </td>
               </tr>
