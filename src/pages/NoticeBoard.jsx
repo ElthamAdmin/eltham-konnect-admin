@@ -1,0 +1,256 @@
+import { useEffect, useState } from "react";
+import api from "../api";
+
+function NoticeBoard() {
+  const [notices, setNotices] = useState([]);
+  const [formData, setFormData] = useState({
+    title: "",
+    message: "",
+    category: "General Update",
+    priority: "Normal",
+    dueDate: "",
+  });
+
+  const ROYAL_BLUE = "#0B3D91";
+  const GOLD = "#D4AF37";
+  const WHITE = "#ffffff";
+  const BORDER = "#dbe3ef";
+  const MUTED = "#64748b";
+
+  const fetchNotices = async () => {
+    try {
+      const res = await api.get("/api/notices");
+      setNotices(res.data.data || []);
+    } catch (error) {
+      console.error("Error loading notices:", error);
+    }
+  };
+
+  useEffect(() => {
+    fetchNotices();
+  }, []);
+
+  const handleChange = (e) => {
+    setFormData((prev) => ({
+      ...prev,
+      [e.target.name]: e.target.value,
+    }));
+  };
+
+  const createNotice = async () => {
+    try {
+      if (!formData.title || !formData.message) {
+        alert("Title and message are required.");
+        return;
+      }
+
+      await api.post("/api/notices", formData);
+
+      setFormData({
+        title: "",
+        message: "",
+        category: "General Update",
+        priority: "Normal",
+        dueDate: "",
+      });
+
+      await fetchNotices();
+      alert("Notice posted successfully.");
+    } catch (error) {
+      alert(error?.response?.data?.message || "Notice could not be posted.");
+    }
+  };
+
+  const removeNotice = async (id) => {
+    if (!window.confirm("Remove this notice?")) return;
+
+    try {
+      await api.delete(`/api/notices/${id}`);
+      await fetchNotices();
+    } catch (error) {
+      alert(error?.response?.data?.message || "Notice could not be removed.");
+    }
+  };
+
+  const badgeStyle = (priority) => ({
+    backgroundColor:
+      priority === "Urgent"
+        ? "#dc2626"
+        : priority === "High"
+        ? "#f97316"
+        : priority === "Low"
+        ? "#64748b"
+        : ROYAL_BLUE,
+    color: WHITE,
+    padding: "5px 10px",
+    borderRadius: "999px",
+    fontSize: "12px",
+    fontWeight: "bold",
+  });
+
+  return (
+    <div>
+      <h1 style={{ marginTop: 0, color: "#0f172a" }}>Notice Board</h1>
+      <p style={{ color: MUTED }}>
+        Post urgent messages, daily tasks, meeting notices, and internal updates.
+      </p>
+
+      <div
+        style={{
+          backgroundColor: WHITE,
+          border: `1px solid ${BORDER}`,
+          borderRadius: "12px",
+          padding: "18px",
+          marginBottom: "20px",
+        }}
+      >
+        <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>Post New Notice</h2>
+
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+            gap: "12px",
+          }}
+        >
+          <input
+            name="title"
+            placeholder="Notice Title"
+            value={formData.title}
+            onChange={handleChange}
+            style={{ padding: "10px", borderRadius: "8px", border: `1px solid ${BORDER}` }}
+          />
+
+          <select
+            name="category"
+            value={formData.category}
+            onChange={handleChange}
+            style={{ padding: "10px", borderRadius: "8px", border: `1px solid ${BORDER}` }}
+          >
+            <option>Urgent</option>
+            <option>Daily Task</option>
+            <option>Meeting</option>
+            <option>Announcement</option>
+            <option>General Update</option>
+          </select>
+
+          <select
+            name="priority"
+            value={formData.priority}
+            onChange={handleChange}
+            style={{ padding: "10px", borderRadius: "8px", border: `1px solid ${BORDER}` }}
+          >
+            <option>Low</option>
+            <option>Normal</option>
+            <option>High</option>
+            <option>Urgent</option>
+          </select>
+
+          <input
+            type="date"
+            name="dueDate"
+            value={formData.dueDate}
+            onChange={handleChange}
+            style={{ padding: "10px", borderRadius: "8px", border: `1px solid ${BORDER}` }}
+          />
+        </div>
+
+        <textarea
+          name="message"
+          placeholder="Write notice details here..."
+          value={formData.message}
+          onChange={handleChange}
+          rows="4"
+          style={{
+            width: "100%",
+            marginTop: "12px",
+            padding: "10px",
+            borderRadius: "8px",
+            border: `1px solid ${BORDER}`,
+            boxSizing: "border-box",
+          }}
+        />
+
+        <button
+          onClick={createNotice}
+          style={{
+            marginTop: "12px",
+            backgroundColor: GOLD,
+            color: "black",
+            border: "none",
+            padding: "10px 16px",
+            borderRadius: "8px",
+            fontWeight: "bold",
+            cursor: "pointer",
+          }}
+        >
+          Post Notice
+        </button>
+      </div>
+
+      <div style={{ display: "grid", gap: "14px" }}>
+        {notices.length > 0 ? (
+          notices.map((notice) => (
+            <div
+              key={notice._id}
+              style={{
+                backgroundColor: WHITE,
+                border: `1px solid ${BORDER}`,
+                borderRadius: "12px",
+                padding: "16px",
+              }}
+            >
+              <div style={{ display: "flex", justifyContent: "space-between", gap: "12px" }}>
+                <div>
+                  <h2 style={{ margin: 0, color: ROYAL_BLUE }}>{notice.title}</h2>
+                  <p style={{ color: MUTED, margin: "6px 0" }}>
+                    {notice.category} • Posted by {notice.postedByName || "System User"}
+                  </p>
+                </div>
+
+                <span style={badgeStyle(notice.priority)}>{notice.priority}</span>
+              </div>
+
+              <p style={{ lineHeight: 1.6 }}>{notice.message}</p>
+
+              {notice.dueDate ? (
+                <p style={{ color: "#dc2626", fontWeight: "bold" }}>
+                  Due: {String(notice.dueDate).slice(0, 10)}
+                </p>
+              ) : null}
+
+              <button
+                onClick={() => removeNotice(notice._id)}
+                style={{
+                  backgroundColor: "#dc2626",
+                  color: WHITE,
+                  border: "none",
+                  padding: "8px 12px",
+                  borderRadius: "8px",
+                  cursor: "pointer",
+                  fontWeight: "bold",
+                }}
+              >
+                Remove
+              </button>
+            </div>
+          ))
+        ) : (
+          <div
+            style={{
+              backgroundColor: WHITE,
+              border: `1px solid ${BORDER}`,
+              borderRadius: "12px",
+              padding: "20px",
+              color: MUTED,
+            }}
+          >
+            No active notices posted.
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+export default NoticeBoard;

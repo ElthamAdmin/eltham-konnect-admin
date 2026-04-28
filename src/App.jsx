@@ -25,6 +25,7 @@ import HR from "./pages/HR";
 import Login from "./pages/Login";
 import DutyMonitor from "./pages/DutyMonitor";
 import ReferralProgram from "./pages/ReferralProgram";
+import NoticeBoard from "./pages/NoticeBoard";
 
 function AppShell() {
   const { user, logout, refreshMyDuty } = useAuth();
@@ -227,6 +228,15 @@ function AppShell() {
             HR
           </Link>
         )}
+
+        {can("communication") && (
+  <Link
+    to="/notice-board"
+    style={navItemStyle(location.pathname === "/notice-board")}
+  >
+    Notice Board
+  </Link>
+)}
 
         {can("communication") && (
           <Link
@@ -509,6 +519,11 @@ function AppShell() {
               path="/communication"
               element={can("communication") ? <Communication /> : <Navigate to="/" replace />}
             />
+
+            <Route
+  path="/notice-board"
+  element={can("communication") ? <NoticeBoard /> : <Navigate to="/" replace />}
+/>
 
             <Route
               path="/marketing"
