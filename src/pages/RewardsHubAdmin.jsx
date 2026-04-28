@@ -99,6 +99,24 @@ function RewardsHubAdmin() {
   }
 };
 
+const pickWinner = async (postId) => {
+  if (!window.confirm("Pick a random winner for this post?")) return;
+
+  try {
+    const res = await api.post(`/api/rewards-hub-entries/pick-winner/${postId}`);
+
+    alert(
+      res.data?.data?.customerName
+        ? `Winner selected: ${res.data.data.customerName} (${res.data.data.customerEkonId})`
+        : "Winner selected successfully."
+    );
+
+    await fetchEntriesForPost(postId);
+  } catch (error) {
+    alert(error?.response?.data?.message || "Could not pick winner.");
+  }
+};
+
   const removePost = async (id) => {
     if (!window.confirm("Remove this Rewards Hub post?")) return;
 
@@ -360,6 +378,7 @@ function RewardsHubAdmin() {
               <th>Customer</th>
               <th>EKON ID</th>
               <th>Action</th>
+              <th>Winner</th>
               <th>Entered At</th>
             </tr>
           </thead>
@@ -369,11 +388,18 @@ function RewardsHubAdmin() {
                 <td>{entry.customerName}</td>
                 <td>{entry.customerEkonId}</td>
                 <td>{entry.actionType}</td>
-                <td>
-                  {entry.createdAt
-                    ? new Date(entry.createdAt).toLocaleString()
-                    : "-"}
-                </td>
+<td>
+  {entry.isWinner || entry.hasWon ? (
+    <span style={{ color: "#16a34a", fontWeight: "bold" }}>🏆 Winner</span>
+  ) : (
+    "-"
+  )}
+</td>
+<td>
+  {entry.createdAt
+    ? new Date(entry.createdAt).toLocaleString()
+    : "-"}
+</td>
               </tr>
             ))}
           </tbody>
@@ -400,6 +426,23 @@ function RewardsHubAdmin() {
   }}
 >
   View Entries
+</button>
+
+<button
+  onClick={() => pickWinner(post._id)}
+  style={{
+    marginTop: "12px",
+    marginRight: "10px",
+    backgroundColor: GOLD,
+    color: "black",
+    border: "none",
+    padding: "8px 12px",
+    borderRadius: "8px",
+    cursor: "pointer",
+    fontWeight: "bold",
+  }}
+>
+  Pick Winner
 </button>
 
               <button
