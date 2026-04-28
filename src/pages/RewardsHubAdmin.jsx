@@ -3,6 +3,7 @@ import api from "../api";
 
 function RewardsHubAdmin() {
   const [posts, setPosts] = useState([]);
+  const [entriesByPost, setEntriesByPost] = useState({});
   const [selectedImage, setSelectedImage] = useState(null);
   const [formData, setFormData] = useState({
     title: "",
@@ -84,6 +85,19 @@ function RewardsHubAdmin() {
       alert(error?.response?.data?.message || "Rewards Hub post could not be created.");
     }
   };
+
+  const fetchEntriesForPost = async (postId) => {
+  try {
+    const res = await api.get(`/api/rewards-hub-entries/post/${postId}`);
+
+    setEntriesByPost((prev) => ({
+      ...prev,
+      [postId]: res.data.data || [],
+    }));
+  } catch (error) {
+    alert(error?.response?.data?.message || "Could not load entries.");
+  }
+};
 
   const removePost = async (id) => {
     if (!window.confirm("Remove this Rewards Hub post?")) return;
@@ -317,6 +331,76 @@ function RewardsHubAdmin() {
                   </span>
                 ) : null}
               </div>
+
+              {entriesByPost[post._id] ? (
+  <div
+    style={{
+      marginTop: "14px",
+      padding: "12px",
+      backgroundColor: "#f8fafc",
+      border: `1px solid ${BORDER}`,
+      borderRadius: "10px",
+    }}
+  >
+    <strong>Entries: {entriesByPost[post._id].length}</strong>
+
+    {entriesByPost[post._id].length > 0 ? (
+      <div style={{ marginTop: "10px", overflowX: "auto" }}>
+        <table
+          border="1"
+          cellPadding="8"
+          style={{
+            width: "100%",
+            borderCollapse: "collapse",
+            borderColor: BORDER,
+          }}
+        >
+          <thead style={{ backgroundColor: "#eef4ff" }}>
+            <tr>
+              <th>Customer</th>
+              <th>EKON ID</th>
+              <th>Action</th>
+              <th>Entered At</th>
+            </tr>
+          </thead>
+          <tbody>
+            {entriesByPost[post._id].map((entry) => (
+              <tr key={entry._id}>
+                <td>{entry.customerName}</td>
+                <td>{entry.customerEkonId}</td>
+                <td>{entry.actionType}</td>
+                <td>
+                  {entry.createdAt
+                    ? new Date(entry.createdAt).toLocaleString()
+                    : "-"}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    ) : (
+      <p style={{ color: MUTED }}>No customer entries yet.</p>
+    )}
+  </div>
+) : null}
+
+              <button
+  onClick={() => fetchEntriesForPost(post._id)}
+  style={{
+    marginTop: "12px",
+    marginRight: "10px",
+    backgroundColor: ROYAL_BLUE,
+    color: WHITE,
+    border: "none",
+    padding: "8px 12px",
+    borderRadius: "8px",
+    cursor: "pointer",
+    fontWeight: "bold",
+  }}
+>
+  View Entries
+</button>
 
               <button
                 onClick={() => removePost(post._id)}
