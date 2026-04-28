@@ -26,6 +26,7 @@ import Login from "./pages/Login";
 import DutyMonitor from "./pages/DutyMonitor";
 import ReferralProgram from "./pages/ReferralProgram";
 import NoticeBoard from "./pages/NoticeBoard";
+import RewardsHubAdmin from "./pages/RewardsHubAdmin";
 
 function AppShell() {
   const { user, logout, refreshMyDuty } = useAuth();
@@ -255,6 +256,15 @@ function AppShell() {
             Marketing Info
           </Link>
         )}
+
+        {can("marketing") && (
+  <Link
+    to="/rewards-hub-admin"
+    style={navItemStyle(location.pathname === "/rewards-hub-admin")}
+  >
+    EK Rewards Hub
+  </Link>
+)}
 
         {can("marketing") && (
   <Link
@@ -529,6 +539,11 @@ function AppShell() {
               path="/marketing"
               element={can("marketing") ? <MarketingInfo /> : <Navigate to="/" replace />}
             />
+
+            <Route
+  path="/rewards-hub-admin"
+  element={can("marketing") ? <RewardsHubAdmin /> : <Navigate to="/" replace />}
+/>
 
             <Route
   path="/amazon-associate"
