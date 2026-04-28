@@ -3,6 +3,7 @@ import api from "../api";
 
 function NoticeBoard() {
   const [notices, setNotices] = useState([]);
+  const [selectedImage, setSelectedImage] = useState(null);
   const [formData, setFormData] = useState({
     title: "",
     message: "",
@@ -11,6 +12,7 @@ function NoticeBoard() {
     dueDate: "",
   });
 
+  const API = "https://eltham-konnect-backend-c2sf.onrender.com";
   const ROYAL_BLUE = "#0B3D91";
   const GOLD = "#D4AF37";
   const WHITE = "#ffffff";
@@ -44,7 +46,22 @@ function NoticeBoard() {
         return;
       }
 
-      await api.post("/api/notices", formData);
+      const payload = new FormData();
+      payload.append("title", formData.title);
+      payload.append("message", formData.message);
+      payload.append("category", formData.category);
+      payload.append("priority", formData.priority);
+      payload.append("dueDate", formData.dueDate);
+
+      if (selectedImage) {
+        payload.append("noticeImage", selectedImage);
+      }
+
+      await api.post("/api/notices", payload, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
 
       setFormData({
         title: "",
@@ -53,6 +70,7 @@ function NoticeBoard() {
         priority: "Normal",
         dueDate: "",
       });
+      setSelectedImage(null);
 
       await fetchNotices();
       alert("Notice posted successfully.");
@@ -92,7 +110,7 @@ function NoticeBoard() {
     <div>
       <h1 style={{ marginTop: 0, color: "#0f172a" }}>Notice Board</h1>
       <p style={{ color: MUTED }}>
-        Post urgent messages, daily tasks, meeting notices, and internal updates.
+        Post urgent messages, daily tasks, meeting notices, internal updates, and image announcements.
       </p>
 
       <div
@@ -153,6 +171,13 @@ function NoticeBoard() {
             onChange={handleChange}
             style={{ padding: "10px", borderRadius: "8px", border: `1px solid ${BORDER}` }}
           />
+
+          <input
+            type="file"
+            accept="image/*"
+            onChange={(e) => setSelectedImage(e.target.files?.[0] || null)}
+            style={{ padding: "10px", borderRadius: "8px", border: `1px solid ${BORDER}` }}
+          />
         </div>
 
         <textarea
@@ -170,6 +195,12 @@ function NoticeBoard() {
             boxSizing: "border-box",
           }}
         />
+
+        {selectedImage ? (
+          <p style={{ color: MUTED, fontWeight: "bold" }}>
+            Selected image: {selectedImage.name}
+          </p>
+        ) : null}
 
         <button
           onClick={createNotice}
@@ -212,6 +243,21 @@ function NoticeBoard() {
               </div>
 
               <p style={{ lineHeight: 1.6 }}>{notice.message}</p>
+
+              {notice.imageFilePath ? (
+                <img
+                  src={`${API}${notice.imageFilePath}`}
+                  alt={notice.title}
+                  style={{
+                    width: "100%",
+                    maxWidth: "520px",
+                    borderRadius: "12px",
+                    border: `1px solid ${BORDER}`,
+                    marginTop: "10px",
+                    marginBottom: "10px",
+                  }}
+                />
+              ) : null}
 
               {notice.dueDate ? (
                 <p style={{ color: "#dc2626", fontWeight: "bold" }}>
