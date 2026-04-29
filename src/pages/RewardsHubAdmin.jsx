@@ -4,6 +4,20 @@ import api from "../api";
 function RewardsHubAdmin() {
   const [posts, setPosts] = useState([]);
   const [entriesByPost, setEntriesByPost] = useState({});
+  const [games, setGames] = useState([]);
+  const [playsByGame, setPlaysByGame] = useState({});
+  const [gameData, setGameData] = useState({
+  title: "",
+  instructions: "",
+  gameType: "Trivia",
+  question: "",
+  correctAnswer: "",
+  options: "",
+  rewardText: "",
+  rewardPoints: "",
+  startDate: "",
+  endDate: "",
+});
   const [selectedImage, setSelectedImage] = useState(null);
   const [formData, setFormData] = useState({
     title: "",
@@ -34,6 +48,7 @@ function RewardsHubAdmin() {
 
   useEffect(() => {
     fetchPosts();
+    fetchGames();
   }, []);
 
   const handleChange = (e) => {
@@ -135,6 +150,75 @@ const rewardWinner = async (postId) => {
     await fetchEntriesForPost(postId);
   } catch (error) {
     alert(error?.response?.data?.message || "Could not reward winner.");
+  }
+};
+
+const fetchGames = async () => {
+  try {
+    const res = await api.get("/api/rewards-hub-games");
+    setGames(res.data.data || []);
+  } catch (error) {
+    console.error("Error loading Rewards Hub games:", error);
+  }
+};
+
+const handleGameChange = (e) => {
+  setGameData((prev) => ({
+    ...prev,
+    [e.target.name]: e.target.value,
+  }));
+};
+
+const createGame = async () => {
+  try {
+    if (!gameData.title || !gameData.instructions || !gameData.gameType) {
+      alert("Title, instructions, and game type are required.");
+      return;
+    }
+
+    await api.post("/api/rewards-hub-games", gameData);
+
+    setGameData({
+      title: "",
+      instructions: "",
+      gameType: "Trivia",
+      question: "",
+      correctAnswer: "",
+      options: "",
+      rewardText: "",
+      rewardPoints: "",
+      startDate: "",
+      endDate: "",
+    });
+
+    await fetchGames();
+    alert("Game created successfully.");
+  } catch (error) {
+    alert(error?.response?.data?.message || "Game could not be created.");
+  }
+};
+
+const fetchPlaysForGame = async (gameId) => {
+  try {
+    const res = await api.get(`/api/rewards-hub-games/${gameId}/plays`);
+
+    setPlaysByGame((prev) => ({
+      ...prev,
+      [gameId]: res.data.data || [],
+    }));
+  } catch (error) {
+    alert(error?.response?.data?.message || "Could not load game plays.");
+  }
+};
+
+const removeGame = async (id) => {
+  if (!window.confirm("Remove this game?")) return;
+
+  try {
+    await api.delete(`/api/rewards-hub-games/${id}`);
+    await fetchGames();
+  } catch (error) {
+    alert(error?.response?.data?.message || "Game could not be removed.");
   }
 };
 
@@ -304,6 +388,258 @@ const rewardWinner = async (postId) => {
           Publish to Rewards Hub
         </button>
       </div>
+      
+      <div
+  style={{
+    backgroundColor: WHITE,
+    border: `1px solid ${BORDER}`,
+    borderRadius: "12px",
+    padding: "18px",
+    marginBottom: "20px",
+  }}
+>
+  <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>Create Rewards Hub Game</h2>
+
+  <div
+    style={{
+      display: "grid",
+      gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+      gap: "12px",
+    }}
+  >
+    <input
+      name="title"
+      placeholder="Game Title"
+      value={gameData.title}
+      onChange={handleGameChange}
+      style={{ padding: "10px", borderRadius: "8px", border: `1px solid ${BORDER}` }}
+    />
+
+    <select
+      name="gameType"
+      value={gameData.gameType}
+      onChange={handleGameChange}
+      style={{ padding: "10px", borderRadius: "8px", border: `1px solid ${BORDER}` }}
+    >
+      <option>Trivia</option>
+      <option>Spin Wheel</option>
+      <option>Scavenger Hunt</option>
+      <option>Match Image</option>
+      <option>Scratch Card</option>
+    </select>
+
+    <input
+      name="question"
+      placeholder="Question / Clue"
+      value={gameData.question}
+      onChange={handleGameChange}
+      style={{ padding: "10px", borderRadius: "8px", border: `1px solid ${BORDER}` }}
+    />
+
+    <input
+      name="correctAnswer"
+      placeholder="Correct Answer"
+      value={gameData.correctAnswer}
+      onChange={handleGameChange}
+      style={{ padding: "10px", borderRadius: "8px", border: `1px solid ${BORDER}` }}
+    />
+
+    <input
+      name="options"
+      placeholder="Options separated by commas"
+      value={gameData.options}
+      onChange={handleGameChange}
+      style={{ padding: "10px", borderRadius: "8px", border: `1px solid ${BORDER}` }}
+    />
+
+    <input
+      name="rewardText"
+      placeholder="Reward Text"
+      value={gameData.rewardText}
+      onChange={handleGameChange}
+      style={{ padding: "10px", borderRadius: "8px", border: `1px solid ${BORDER}` }}
+    />
+
+    <input
+      type="number"
+      name="rewardPoints"
+      placeholder="EK Points Reward"
+      value={gameData.rewardPoints}
+      onChange={handleGameChange}
+      style={{ padding: "10px", borderRadius: "8px", border: `1px solid ${BORDER}` }}
+    />
+
+    <input
+      type="date"
+      name="startDate"
+      value={gameData.startDate}
+      onChange={handleGameChange}
+      style={{ padding: "10px", borderRadius: "8px", border: `1px solid ${BORDER}` }}
+    />
+
+    <input
+      type="date"
+      name="endDate"
+      value={gameData.endDate}
+      onChange={handleGameChange}
+      style={{ padding: "10px", borderRadius: "8px", border: `1px solid ${BORDER}` }}
+    />
+  </div>
+
+  <textarea
+    name="instructions"
+    placeholder="Game instructions..."
+    value={gameData.instructions}
+    onChange={handleGameChange}
+    rows="4"
+    style={{
+      width: "100%",
+      marginTop: "12px",
+      padding: "10px",
+      borderRadius: "8px",
+      border: `1px solid ${BORDER}`,
+      boxSizing: "border-box",
+    }}
+  />
+
+  <button
+    onClick={createGame}
+    style={{
+      marginTop: "12px",
+      backgroundColor: GOLD,
+      color: "black",
+      border: "none",
+      padding: "10px 16px",
+      borderRadius: "8px",
+      fontWeight: "bold",
+      cursor: "pointer",
+    }}
+  >
+    Publish Game
+  </button>
+</div>
+
+<div style={{ display: "grid", gap: "14px", marginBottom: "20px" }}>
+  <h2 style={{ color: ROYAL_BLUE, marginBottom: 0 }}>Active Games</h2>
+
+  {games.length > 0 ? (
+    games.map((game) => (
+      <div
+        key={game._id}
+        style={{
+          backgroundColor: WHITE,
+          border: `1px solid ${BORDER}`,
+          borderRadius: "12px",
+          padding: "16px",
+        }}
+      >
+        <h3 style={{ marginTop: 0, color: ROYAL_BLUE }}>{game.title}</h3>
+        <p style={{ color: MUTED }}>{game.gameType}</p>
+        <p>{game.instructions}</p>
+
+        {game.question ? <p><strong>Question/Clue:</strong> {game.question}</p> : null}
+        {game.rewardText ? <p style={{ color: "#16a34a", fontWeight: "bold" }}>Reward: {game.rewardText}</p> : null}
+        {Number(game.rewardPoints || 0) > 0 ? (
+          <p style={{ color: ROYAL_BLUE, fontWeight: "bold" }}>
+            EK Points: {Number(game.rewardPoints || 0).toLocaleString()}
+          </p>
+        ) : null}
+
+        {playsByGame[game._id] ? (
+          <div
+            style={{
+              marginTop: "12px",
+              padding: "12px",
+              backgroundColor: "#f8fafc",
+              border: `1px solid ${BORDER}`,
+              borderRadius: "10px",
+              overflowX: "auto",
+            }}
+          >
+            <strong>Plays: {playsByGame[game._id].length}</strong>
+
+            <table
+              border="1"
+              cellPadding="8"
+              style={{
+                width: "100%",
+                marginTop: "10px",
+                borderCollapse: "collapse",
+                borderColor: BORDER,
+              }}
+            >
+              <thead style={{ backgroundColor: "#eef4ff" }}>
+                <tr>
+                  <th>Customer</th>
+                  <th>EKON ID</th>
+                  <th>Answer</th>
+                  <th>Correct</th>
+                  <th>Played At</th>
+                </tr>
+              </thead>
+              <tbody>
+                {playsByGame[game._id].map((play) => (
+                  <tr key={play._id}>
+                    <td>{play.customerName}</td>
+                    <td>{play.customerEkonId}</td>
+                    <td>{play.submittedAnswer || "-"}</td>
+                    <td>{play.isCorrect ? "YES" : "NO"}</td>
+                    <td>{play.createdAt ? new Date(play.createdAt).toLocaleString() : "-"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : null}
+
+        <button
+          onClick={() => fetchPlaysForGame(game._id)}
+          style={{
+            marginTop: "12px",
+            marginRight: "10px",
+            backgroundColor: ROYAL_BLUE,
+            color: WHITE,
+            border: "none",
+            padding: "8px 12px",
+            borderRadius: "8px",
+            cursor: "pointer",
+            fontWeight: "bold",
+          }}
+        >
+          View Plays
+        </button>
+
+        <button
+          onClick={() => removeGame(game._id)}
+          style={{
+            marginTop: "12px",
+            backgroundColor: "#dc2626",
+            color: WHITE,
+            border: "none",
+            padding: "8px 12px",
+            borderRadius: "8px",
+            cursor: "pointer",
+            fontWeight: "bold",
+          }}
+        >
+          Remove Game
+        </button>
+      </div>
+    ))
+  ) : (
+    <div
+      style={{
+        backgroundColor: WHITE,
+        border: `1px solid ${BORDER}`,
+        borderRadius: "12px",
+        padding: "20px",
+        color: MUTED,
+      }}
+    >
+      No active games.
+    </div>
+  )}
+</div>
 
       <div style={{ display: "grid", gap: "14px" }}>
         {posts.length > 0 ? (
@@ -432,9 +768,8 @@ const rewardWinner = async (postId) => {
     "-"
   )}
 </td>
-<td>
 
-  <td>
+<td>
   {entry.rewardGiven ? (
     <span style={{ color: "#16a34a", fontWeight: "bold" }}>YES</span>
   ) : (
@@ -442,6 +777,7 @@ const rewardWinner = async (postId) => {
   )}
 </td>
 
+<td>
   {entry.createdAt
     ? new Date(entry.createdAt).toLocaleString()
     : "-"}
