@@ -13,6 +13,7 @@ function RewardsHubAdmin() {
     externalLink: "",
     startDate: "",
     endDate: "",
+    rewardPoints: "",
   });
 
   const API = "https://eltham-konnect-backend-c2sf.onrender.com";
@@ -57,6 +58,7 @@ function RewardsHubAdmin() {
       payload.append("externalLink", formData.externalLink);
       payload.append("startDate", formData.startDate);
       payload.append("endDate", formData.endDate);
+      payload.append("rewardPoints", formData.rewardPoints);
 
       if (selectedImage) {
         payload.append("hubImage", selectedImage);
@@ -76,6 +78,7 @@ function RewardsHubAdmin() {
         externalLink: "",
         startDate: "",
         endDate: "",
+        rewardPoints: "",
       });
       setSelectedImage(null);
 
@@ -114,6 +117,24 @@ const pickWinner = async (postId) => {
     await fetchEntriesForPost(postId);
   } catch (error) {
     alert(error?.response?.data?.message || "Could not pick winner.");
+  }
+};
+
+const rewardWinner = async (postId) => {
+  if (!window.confirm("Reward the selected winner with EK Points?")) return;
+
+  try {
+    const res = await api.post(`/api/rewards-hub-entries/reward-winner/${postId}`);
+
+    alert(
+      res.data?.data?.customerName
+        ? `${res.data.data.customerName} rewarded with ${res.data.data.pointsAdded} EK Points.`
+        : "Winner rewarded successfully."
+    );
+
+    await fetchEntriesForPost(postId);
+  } catch (error) {
+    alert(error?.response?.data?.message || "Could not reward winner.");
   }
 };
 
@@ -203,6 +224,15 @@ const pickWinner = async (postId) => {
             onChange={handleChange}
             style={{ padding: "10px", borderRadius: "8px", border: `1px solid ${BORDER}` }}
           />
+
+          <input
+  type="number"
+  name="rewardPoints"
+  placeholder="EK Points Reward e.g. 100"
+  value={formData.rewardPoints}
+  onChange={handleChange}
+  style={{ padding: "10px", borderRadius: "8px", border: `1px solid ${BORDER}` }}
+/>
 
           <input
             name="externalLink"
@@ -315,6 +345,12 @@ const pickWinner = async (postId) => {
 
               <p style={{ lineHeight: 1.6 }}>{post.description}</p>
 
+              {Number(post.rewardPoints || 0) > 0 ? (
+  <p style={{ color: ROYAL_BLUE, fontWeight: "bold" }}>
+    EK Points Reward: {Number(post.rewardPoints || 0).toLocaleString()}
+  </p>
+) : null}
+
               {post.rewardText ? (
                 <p style={{ color: "#16a34a", fontWeight: "bold" }}>
                   Reward: {post.rewardText}
@@ -379,6 +415,7 @@ const pickWinner = async (postId) => {
               <th>EKON ID</th>
               <th>Action</th>
               <th>Winner</th>
+              <th>Reward Given</th>
               <th>Entered At</th>
             </tr>
           </thead>
@@ -396,6 +433,15 @@ const pickWinner = async (postId) => {
   )}
 </td>
 <td>
+
+  <td>
+  {entry.rewardGiven ? (
+    <span style={{ color: "#16a34a", fontWeight: "bold" }}>YES</span>
+  ) : (
+    "-"
+  )}
+</td>
+
   {entry.createdAt
     ? new Date(entry.createdAt).toLocaleString()
     : "-"}
@@ -443,6 +489,23 @@ const pickWinner = async (postId) => {
   }}
 >
   Pick Winner
+</button>
+
+<button
+  onClick={() => rewardWinner(post._id)}
+  style={{
+    marginTop: "12px",
+    marginRight: "10px",
+    backgroundColor: "#16a34a",
+    color: WHITE,
+    border: "none",
+    padding: "8px 12px",
+    borderRadius: "8px",
+    cursor: "pointer",
+    fontWeight: "bold",
+  }}
+>
+  Reward Winner
 </button>
 
               <button
