@@ -16,6 +16,7 @@ import POS from "./pages/POS";
 import MarketingInfo from "./pages/MarketingInfo";
 import SystemUsers from "./pages/SystemUsers";
 import Communication from "./pages/Communication";
+import TeamHub from "./pages/TeamHub";
 import WarehouseManagement from "./pages/WarehouseManagement";
 import AmazonAssociateLinks from "./pages/AmazonAssociateLinks";
 import Settings from "./pages/Settings";
@@ -248,6 +249,15 @@ function AppShell() {
             Communication
           </Link>
         )}
+
+        {can("communication") && (
+  <Link
+    to="/team-hub"
+    style={navItemStyle(location.pathname === "/team-hub")}
+  >
+    Team Hub
+  </Link>
+)}
 
         {can("marketing") && (
           <Link
@@ -539,6 +549,11 @@ function AppShell() {
               path="/communication"
               element={can("communication") ? <Communication /> : <Navigate to="/" replace />}
             />
+
+            <Route
+  path="/team-hub"
+  element={can("communication") ? <TeamHub /> : <Navigate to="/" replace />}
+/>
 
             <Route
   path="/notice-board"
