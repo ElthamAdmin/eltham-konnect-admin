@@ -27,6 +27,7 @@ import DutyMonitor from "./pages/DutyMonitor";
 import ReferralProgram from "./pages/ReferralProgram";
 import NoticeBoard from "./pages/NoticeBoard";
 import RewardsHubAdmin from "./pages/RewardsHubAdmin";
+import RewardsHubAnalytics from "./pages/RewardsHubAnalytics";
 
 function AppShell() {
   const { user, logout, refreshMyDuty } = useAuth();
@@ -263,6 +264,15 @@ function AppShell() {
     style={navItemStyle(location.pathname === "/rewards-hub-admin")}
   >
     EK Rewards Hub
+  </Link>
+)}
+
+{can("marketing") && (
+  <Link
+    to="/rewards-hub-analytics"
+    style={navItemStyle(location.pathname === "/rewards-hub-analytics")}
+  >
+    Rewards Analytics
   </Link>
 )}
 
@@ -543,6 +553,11 @@ function AppShell() {
             <Route
   path="/rewards-hub-admin"
   element={can("marketing") ? <RewardsHubAdmin /> : <Navigate to="/" replace />}
+/>
+
+<Route
+  path="/rewards-hub-analytics"
+  element={can("marketing") ? <RewardsHubAnalytics /> : <Navigate to="/" replace />}
 />
 
             <Route
