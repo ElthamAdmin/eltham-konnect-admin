@@ -7,30 +7,51 @@ function Dashboard() {
   const [packages, setPackages] = useState([]);
   const [invoices, setInvoices] = useState([]);
   const [chartData, setChartData] = useState([]);
+  const [financeSummary, setFinanceSummary] = useState(null);
   const [dateFilter, setDateFilter] = useState("today");
   const [locationFilter, setLocationFilter] = useState("All Locations");
 
+  const getFinanceFilter = () => {
+  if (dateFilter === "today") return "today";
+  if (dateFilter === "week") return "thisWeek";
+  if (dateFilter === "month") return "thisMonth";
+  if (dateFilter === "all") return "allTime";
+  return "today";
+};
+
+const getFinanceBranch = () => {
+  if (locationFilter === "All Locations") return "";
+  return locationFilter;
+};
+
   const fetchDashboardData = async () => {
     try {
-      const [customersRes, packagesRes, invoicesRes, chartRes] = await Promise.all([
-        api.get("/api/customers"),
-        api.get("/api/packages"),
-        api.get("/api/invoices"),
-        api.get("/api/finance/monthly-chart"),
-      ]);
+      const [customersRes, packagesRes, invoicesRes, chartRes, financeSummaryRes] =
+  await Promise.all([
+    api.get("/api/customers"),
+    api.get("/api/packages"),
+    api.get("/api/invoices"),
+    api.get("/api/finance/monthly-chart"),
+    api.get(
+      `/api/finance/summary?filter=${getFinanceFilter()}&branch=${encodeURIComponent(
+        getFinanceBranch()
+      )}`
+    ),
+  ]);
 
       setCustomers(customersRes.data.data || []);
       setPackages(packagesRes.data.data || []);
       setInvoices(invoicesRes.data.data || []);
       setChartData(chartRes.data.data || []);
+      setFinanceSummary(financeSummaryRes.data.data || null);
     } catch (error) {
       console.error("Error loading dashboard data:", error);
     }
   };
 
   useEffect(() => {
-    fetchDashboardData();
-  }, []);
+  fetchDashboardData();
+}, [dateFilter, locationFilter]);
 
   const parseDate = (value) => {
     if (!value) return null;
@@ -207,10 +228,15 @@ const matchesLocation = (item) => {
   const packagesReadyCount = filteredReadyPackages.length;
   const totalPackagesCount = filteredPackages.length;
 
-  const paidInvoicesTotal = filteredPaidInvoices.reduce(
-    (sum, inv) => sum + Number(inv.finalTotal || 0),
-    0
-  );
+  const paidInvoicesTotal = Number(
+  financeSummary?.totalRevenue ?? 
+    filteredPaidInvoices.reduce((sum, inv) => sum + Number(inv.finalTotal || 0), 0)
+);
+
+const outstandingRevenue = Number(financeSummary?.outstandingRevenue || 0);
+const totalExpenses = Number(financeSummary?.totalExpenses || 0);
+const totalPayroll = Number(financeSummary?.totalPayroll || 0);
+const netPosition = Number(financeSummary?.netPosition || 0);
 
   const maxChartValue =
     chartData.length > 0
@@ -312,7 +338,7 @@ const matchesLocation = (item) => {
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "repeat(4, 1fr)",
+          gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))",
           gap: "20px",
           marginBottom: "30px",
         }}
@@ -356,6 +382,42 @@ const matchesLocation = (item) => {
           </p>
           <Link to="/invoices">View Invoices</Link>
         </div>
+
+        <div style={cardStyle}>
+  <h3 style={{ marginTop: 0, fontSize: "28px", color: "#dc2626" }}>
+    JMD {outstandingRevenue.toLocaleString()}
+  </h3>
+  <p style={{ fontSize: "18px", fontWeight: "bold", color: "#334155" }}>
+    Outstanding Revenue - {filterLabel}
+  </p>
+  <Link to="/invoices">View Invoices</Link>
+</div>
+
+<div style={cardStyle}>
+  <h3 style={{ marginTop: 0, fontSize: "28px", color: "#dc2626" }}>
+    JMD {(totalExpenses + totalPayroll).toLocaleString()}
+  </h3>
+  <p style={{ fontSize: "18px", fontWeight: "bold", color: "#334155" }}>
+    Expenses + Payroll - {filterLabel}
+  </p>
+  <Link to="/finance">View Finance</Link>
+</div>
+
+<div style={cardStyle}>
+  <h3
+    style={{
+      marginTop: 0,
+      fontSize: "28px",
+      color: netPosition >= 0 ? "#16a34a" : "#dc2626",
+    }}
+  >
+    JMD {netPosition.toLocaleString()}
+  </h3>
+  <p style={{ fontSize: "18px", fontWeight: "bold", color: "#334155" }}>
+    Net Position - {filterLabel}
+  </p>
+  <Link to="/finance">View Finance</Link>
+</div>
       </div>
 
       <div
