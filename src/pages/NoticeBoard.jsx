@@ -5,12 +5,16 @@ function NoticeBoard() {
   const [notices, setNotices] = useState([]);
   const [selectedImage, setSelectedImage] = useState(null);
   const [formData, setFormData] = useState({
-    title: "",
-    message: "",
-    category: "General Update",
-    priority: "Normal",
-    dueDate: "",
-  });
+  title: "",
+  message: "",
+  category: "General Update",
+  priority: "Normal",
+  dueDate: "",
+  noticeType: "Notice",
+  signatureName: "Ramona Reid",
+  signatureTitle: "Operations Manager",
+  stampText: "ELTHAM KONNECT OFFICIAL",
+});
 
   const API = "https://eltham-konnect-backend-c2sf.onrender.com";
   const ROYAL_BLUE = "#0B3D91";
@@ -52,6 +56,10 @@ function NoticeBoard() {
       payload.append("category", formData.category);
       payload.append("priority", formData.priority);
       payload.append("dueDate", formData.dueDate);
+      payload.append("noticeType", formData.noticeType);
+      payload.append("signatureName", formData.signatureName);
+      payload.append("signatureTitle", formData.signatureTitle);
+      payload.append("stampText", formData.stampText);
 
       if (selectedImage) {
         payload.append("noticeImage", selectedImage);
@@ -64,12 +72,17 @@ function NoticeBoard() {
       });
 
       setFormData({
-        title: "",
-        message: "",
-        category: "General Update",
-        priority: "Normal",
-        dueDate: "",
-      });
+  title: "",
+  message: "",
+  category: "General Update",
+  priority: "Normal",
+  dueDate: "",
+  noticeType: "Notice",
+  signatureName: "Ramona Reid",
+  signatureTitle: "Operations Manager",
+  stampText: "ELTHAM KONNECT OFFICIAL",
+});
+
       setSelectedImage(null);
 
       await fetchNotices();
@@ -164,6 +177,40 @@ function NoticeBoard() {
             <option>Urgent</option>
           </select>
 
+          <select
+  name="noticeType"
+  value={formData.noticeType}
+  onChange={handleChange}
+  style={{ padding: "10px", borderRadius: "8px", border: `1px solid ${BORDER}` }}
+>
+  <option>Notice</option>
+  <option>Memorandum</option>
+</select>
+
+<input
+  name="signatureName"
+  placeholder="Signature Name"
+  value={formData.signatureName}
+  onChange={handleChange}
+  style={{ padding: "10px", borderRadius: "8px", border: `1px solid ${BORDER}` }}
+/>
+
+<input
+  name="signatureTitle"
+  placeholder="Signature Title"
+  value={formData.signatureTitle}
+  onChange={handleChange}
+  style={{ padding: "10px", borderRadius: "8px", border: `1px solid ${BORDER}` }}
+/>
+
+<input
+  name="stampText"
+  placeholder="Stamp Text"
+  value={formData.stampText}
+  onChange={handleChange}
+  style={{ padding: "10px", borderRadius: "8px", border: `1px solid ${BORDER}` }}
+/>
+
           <input
             type="date"
             name="dueDate"
@@ -233,7 +280,24 @@ function NoticeBoard() {
             >
               <div style={{ display: "flex", justifyContent: "space-between", gap: "12px" }}>
                 <div>
-                  <h2 style={{ margin: 0, color: ROYAL_BLUE }}>{notice.title}</h2>
+                  <div style={{ marginBottom: "8px" }}>
+  <div
+    style={{
+      display: "inline-block",
+      backgroundColor: notice.noticeType === "Memorandum" ? GOLD : ROYAL_BLUE,
+      color: notice.noticeType === "Memorandum" ? "black" : WHITE,
+      padding: "5px 10px",
+      borderRadius: "999px",
+      fontSize: "12px",
+      fontWeight: "bold",
+      marginBottom: "8px",
+    }}
+  >
+    {notice.noticeType || "Notice"}
+  </div>
+
+  <h2 style={{ margin: 0, color: ROYAL_BLUE }}>{notice.title}</h2>
+</div>
                   <p style={{ color: MUTED, margin: "6px 0" }}>
                     {notice.category} • Posted by {notice.postedByName || "System User"}
                   </p>
@@ -242,7 +306,46 @@ function NoticeBoard() {
                 <span style={badgeStyle(notice.priority)}>{notice.priority}</span>
               </div>
 
-              <p style={{ lineHeight: 1.6 }}>{notice.message}</p>
+              <p style={{ lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{notice.message}</p>
+
+<div
+  style={{
+    marginTop: "18px",
+    paddingTop: "14px",
+    borderTop: `1px solid ${BORDER}`,
+    display: "flex",
+    justifyContent: "space-between",
+    gap: "16px",
+    flexWrap: "wrap",
+  }}
+>
+  <div>
+    <div style={{ fontWeight: "bold", color: ROYAL_BLUE }}>
+      {notice.signatureName || notice.postedByName || "Eltham Konnect"}
+    </div>
+    <div style={{ color: MUTED }}>
+      {notice.signatureTitle || notice.postedByRole || ""}
+    </div>
+  </div>
+
+  <div
+    style={{
+      border: `2px solid ${ROYAL_BLUE}`,
+      color: ROYAL_BLUE,
+      borderRadius: "50%",
+      width: "110px",
+      height: "70px",
+      display: "grid",
+      placeItems: "center",
+      textAlign: "center",
+      fontSize: "11px",
+      fontWeight: "900",
+      transform: "rotate(-8deg)",
+    }}
+  >
+    {notice.stampText || "ELTHAM KONNECT"}
+  </div>
+</div>
 
               {notice.imageFilePath ? (
                 <img
