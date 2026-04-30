@@ -23,10 +23,12 @@ function Finance() {
   const [accounts, setAccounts] = useState([]);
   const [transactions, setTransactions] = useState([]);
   const [monthlyChart, setMonthlyChart] = useState([]);
-const [isEditingAccount, setIsEditingAccount] = useState(false);
-const [editingAccountNumber, setEditingAccountNumber] = useState("");
-const [expenseReceipt, setExpenseReceipt] = useState(null);
-const [payrollAttendanceSummary, setPayrollAttendanceSummary] = useState({
+  const [summaryFilter, setSummaryFilter] = useState("today");
+  const [summaryBranch, setSummaryBranch] = useState("");
+  const [isEditingAccount, setIsEditingAccount] = useState(false);
+  const [editingAccountNumber, setEditingAccountNumber] = useState("");
+  const [expenseReceipt, setExpenseReceipt] = useState(null);
+  const [payrollAttendanceSummary, setPayrollAttendanceSummary] = useState({
   totalDays: 0,
   totalWorkedMinutes: 0,
   totalLunchMinutes: 0,
@@ -471,12 +473,24 @@ const fetchMonthlyChart = async () => {
   }
 };
 
+const getSummaryQuery = () => {
+  const params = new URLSearchParams();
+
+  params.append("filter", summaryFilter);
+
+  if (summaryBranch) {
+    params.append("branch", summaryBranch);
+  }
+
+  return params.toString();
+};
+
   const fetchStaticFinanceData = async () => {
   try {
     const [invoicesRes, summaryRes, accountsRes, hrEmployeesRes] =
       await Promise.all([
         api.get("/api/invoices"),
-        api.get("/api/finance/summary"),
+        api.get(`/api/finance/summary?${getSummaryQuery()}`),
         api.get("/api/financial-accounts"),
         api.get("/api/hr"),
       ]);
@@ -629,9 +643,9 @@ const fetchMonthlyChart = async () => {
 };
 
   useEffect(() => {
-    fetchFinanceData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  fetchFinanceData();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [summaryFilter, summaryBranch]);
 
   useEffect(() => {
   if (activeTab !== "payroll") return;
@@ -1210,6 +1224,66 @@ const fetchMonthlyChart = async () => {
 
       {activeTab === "dashboard" && (
         <>
+        <div
+  style={{
+    ...cardStyle,
+    marginBottom: "20px",
+    display: "flex",
+    gap: "12px",
+    flexWrap: "wrap",
+    alignItems: "center",
+  }}
+>
+  <strong style={{ color: ROYAL_BLUE }}>Dashboard Filter:</strong>
+
+  <select
+    value={summaryFilter}
+    onChange={(e) => setSummaryFilter(e.target.value)}
+    style={{
+      padding: "10px",
+      borderRadius: "8px",
+      border: `1px solid ${BORDER}`,
+      fontWeight: "bold",
+    }}
+  >
+    <option value="today">Today</option>
+    <option value="thisWeek">This Week</option>
+    <option value="thisMonth">This Month</option>
+    <option value="thisYear">This Year</option>
+    <option value="allTime">All Time</option>
+  </select>
+
+  <select
+    value={summaryBranch}
+    onChange={(e) => setSummaryBranch(e.target.value)}
+    style={{
+      padding: "10px",
+      borderRadius: "8px",
+      border: `1px solid ${BORDER}`,
+      fontWeight: "bold",
+      minWidth: "190px",
+    }}
+  >
+    <option value="">All Branches</option>
+    <option value="Eltham Park">Eltham Park</option>
+    <option value="Browns Town Square">Browns Town Square</option>
+  </select>
+
+  <button
+    onClick={fetchFinanceData}
+    style={{
+      backgroundColor: GOLD,
+      color: "black",
+      border: "none",
+      padding: "10px 16px",
+      borderRadius: "8px",
+      cursor: "pointer",
+      fontWeight: "bold",
+    }}
+  >
+    Refresh
+  </button>
+</div>
           <div
             style={{
               display: "grid",
