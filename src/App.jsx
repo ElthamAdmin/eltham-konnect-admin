@@ -35,6 +35,8 @@ function AppShell() {
   const location = useLocation();
   const [attendance, setAttendance] = useState(null);
 
+  const isMobile = window.innerWidth <= 768;
+
   const permissions = user?.permissions || [];
 
   const can = (key) => permissions.includes(key) || user?.role === "Admin";
@@ -135,8 +137,9 @@ function AppShell() {
     >
       <div
         style={{
-          width: window.innerWidth <= 768 ? "70px" : "250px",
-minWidth: window.innerWidth <= 768 ? "70px" : "250px",
+          width: isMobile ? "95px" : "250px",
+minWidth: isMobile ? "95px" : "250px",
+overflowX: "hidden",
           backgroundColor: "#253a95",
           color: "white",
           display: "flex",
@@ -359,28 +362,30 @@ minWidth: window.innerWidth <= 768 ? "70px" : "250px",
 
       
 
-      <div style={{ flex: 1 }}>
+      <div style={{ flex: 1, minWidth: 0, overflowX: "hidden" }}>
         <div
           style={{
-            height: "76px",
-            backgroundColor: "white",
-            borderBottom: "1px solid #e5e7eb",
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            padding: "0 24px",
-            gap: "14px",
+            minHeight: isMobile ? "auto" : "76px",
+backgroundColor: "white",
+borderBottom: "1px solid #e5e7eb",
+display: "flex",
+justifyContent: "space-between",
+alignItems: isMobile ? "flex-start" : "center",
+padding: isMobile ? "12px" : "0 24px",
+gap: "10px",
+flexWrap: "wrap",
           }}
         >
           <div style={{ fontSize: "22px", color: "#64748b" }}>☰</div>
 
           <div
             style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "10px",
-              flexWrap: "wrap",
-              justifyContent: "flex-end",
+              ddisplay: "flex",
+alignItems: "center",
+gap: "10px",
+flexWrap: "wrap",
+justifyContent: isMobile ? "flex-start" : "flex-end",
+width: isMobile ? "100%" : "auto",
             }}
           >
             {dutyBadge(dutyStatus)}
@@ -497,7 +502,13 @@ minWidth: window.innerWidth <= 768 ? "70px" : "250px",
           </div>
         </div>
 
-        <div style={{ padding: window.innerWidth <= 768 ? "10px" : "26px" }}>
+        <div
+  style={{
+    padding: isMobile ? "10px" : "26px",
+    overflowX: "hidden",
+    maxWidth: "100%",
+  }}
+>
           <Routes>
             <Route path="/" element={<Dashboard />} />
 
