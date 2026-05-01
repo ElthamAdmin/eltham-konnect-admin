@@ -135,7 +135,8 @@ function AppShell() {
     >
       <div
         style={{
-          width: "250px",
+          width: window.innerWidth <= 768 ? "70px" : "250px",
+minWidth: window.innerWidth <= 768 ? "70px" : "250px",
           backgroundColor: "#253a95",
           color: "white",
           display: "flex",
@@ -496,7 +497,7 @@ function AppShell() {
           </div>
         </div>
 
-        <div style={{ padding: "26px" }}>
+        <div style={{ padding: window.innerWidth <= 768 ? "10px" : "26px" }}>
           <Routes>
             <Route path="/" element={<Dashboard />} />
 
