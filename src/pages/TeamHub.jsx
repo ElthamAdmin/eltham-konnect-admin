@@ -61,10 +61,16 @@ function TeamHub() {
   }, []);
 
   useEffect(() => {
-    if (activeChannel?._id) {
-      fetchMessages(activeChannel._id);
-    }
-  }, [activeChannel]);
+  if (!activeChannel?._id) return;
+
+  fetchMessages(activeChannel._id);
+
+  const interval = setInterval(() => {
+    fetchMessages(activeChannel._id);
+  }, 5000);
+
+  return () => clearInterval(interval);
+}, [activeChannel]);
 
   const createChannel = async (e) => {
     e.preventDefault();
