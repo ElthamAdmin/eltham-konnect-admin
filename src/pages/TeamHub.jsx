@@ -144,7 +144,7 @@ function TeamHub() {
         overflow: "hidden",
         border: `1px solid ${BORDER}`,
         display: "grid",
-        gridTemplateColumns: "310px 1fr",
+        gridTemplateColumns: window.innerWidth <= 768 ? "1fr" : "310px 1fr",
       }}
     >
       <aside
@@ -153,6 +153,8 @@ function TeamHub() {
           borderRight: `1px solid ${BORDER}`,
           display: "flex",
           flexDirection: "column",
+          maxHeight: window.innerWidth <= 768 ? "420px" : "none",
+overflowY: "auto",
         }}
       >
         <div
@@ -289,6 +291,7 @@ function TeamHub() {
             justifyContent: "space-between",
             alignItems: "center",
             gap: "16px",
+            minHeight: window.innerWidth <= 768 ? "600px" : "auto",
           }}
         >
           <div>
