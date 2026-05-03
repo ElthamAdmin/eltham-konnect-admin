@@ -296,17 +296,6 @@ const clearWeightAnalysisFilter = async () => {
     }
   };
 
-  <button
-  onClick={() => deletePackageByTracking(pkg.trackingNumber)}
-  style={{
-    ...actionButtonStyle,
-    backgroundColor: "#dc2626",
-    color: WHITE,
-  }}
->
-  Delete Package
-</button>
-
   const formatDateTime = (v) => (v ? new Date(v).toLocaleString() : "");
   const formatDate = (v) => (v ? String(v).slice(0, 10) : "");
 
@@ -1082,6 +1071,17 @@ const clearWeightAnalysisFilter = async () => {
                         >
                           Generate Invoice
                         </button>
+
+                        <button
+  onClick={() => deletePackageByTracking(pkg.trackingNumber)}
+  style={{
+    ...actionButtonStyle,
+    backgroundColor: "#dc2626",
+    color: WHITE,
+  }}
+>
+  Delete Package
+</button>
                       </div>
                     </td>
                   </tr>
