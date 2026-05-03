@@ -202,7 +202,14 @@ function Manifests() {
         <h2>All Manifests</h2>
 
         <div style={{ overflowX: "auto" }}>
-          <table border="1" cellPadding="10" style={{ width: "100%", minWidth: "1050px" }}>
+          <table
+  style={{
+    width: "100%",
+    minWidth: "1050px",
+    borderCollapse: "collapse",
+    fontSize: "14px",
+  }}
+>
             <thead>
               <tr>
                 <th>Manifest Number</th>
@@ -226,26 +233,54 @@ function Manifests() {
                       <td>{manifest.manifestNumber}</td>
                       <td>{manifest.origin}</td>
                       <td>{manifest.packageCount ?? 0}</td>
-                      <td style={{ maxWidth: "240px", wordBreak: "break-word" }}>
-                        {(manifest.packages || []).length > 0
-                          ? manifest.packages.join(", ")
-                          : "No packages"}
-                      </td>
+                      <td>
+  <div
+    style={{
+      display: "flex",
+      flexWrap: "wrap",
+      gap: "6px",
+      maxHeight: "120px",
+      overflowY: "auto",
+    }}
+  >
+    {(manifest.packages || []).length > 0 ? (
+      manifest.packages.map((pkg, index) => (
+        <span
+          key={index}
+          style={{
+            backgroundColor: "#eef4ff",
+            color: "#0B3D91",
+            padding: "4px 8px",
+            borderRadius: "999px",
+            fontSize: "12px",
+            fontWeight: "bold",
+          }}
+        >
+          {pkg}
+        </span>
+      ))
+    ) : (
+      <span style={{ color: "#64748b" }}>No packages</span>
+    )}
+  </div>
+</td>
                       <td>
                         <span
                           style={{
-                            padding: "4px 10px",
-                            borderRadius: "6px",
-                            color: "white",
-                            backgroundColor: getStatusColor(manifest.status),
-                          }}
+  padding: "6px 12px",
+  borderRadius: "999px",
+  color: "white",
+  backgroundColor: getStatusColor(manifest.status),
+  fontWeight: "bold",
+  fontSize: "12px",
+}}
                         >
                           {manifest.status}
                         </span>
                       </td>
                       <td>{formatDate(manifest.createdAt)}</td>
                       <td>
-                        <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                        <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
                           {actionButton("Edit", () => editManifest(manifest), "#334155", !isCreated)}
                           {actionButton(
                             "Add Package",
