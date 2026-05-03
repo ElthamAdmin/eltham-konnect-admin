@@ -82,6 +82,34 @@ function Invoices() {
     }
   };
 
+  const applyPointsToInvoice = async (invoiceNumber) => {
+  const pointsInput = prompt(
+    `Enter EK points amount to apply to invoice ${invoiceNumber}:`,
+    "500"
+  );
+
+  if (pointsInput === null) return;
+
+  const pointsToRedeem = Number(pointsInput || 0);
+
+  if (!pointsToRedeem || pointsToRedeem <= 0) {
+    alert("Please enter a valid points amount.");
+    return;
+  }
+
+  try {
+    const res = await api.put(`/api/invoices/${invoiceNumber}/apply-points`, {
+      pointsToRedeem,
+    });
+
+    alert(res.data.message || "EK points applied.");
+    await fetchInvoices();
+  } catch (error) {
+    console.error("Error applying EK points:", error);
+    alert(error?.response?.data?.message || "Could not apply EK points.");
+  }
+};
+
   const markInvoicePaid = async (invoiceNumber) => {
     try {
       const receivingAccountNumber = selectedAccountByInvoice[invoiceNumber];
@@ -690,6 +718,18 @@ function Invoices() {
                           minWidth: "150px",
                         }}
                       >
+
+                      <button
+  onClick={() => applyPointsToInvoice(inv.invoiceNumber)}
+  disabled={inv.status === "Paid"}
+  style={{
+    ...actionButtonStyle,
+    backgroundColor: inv.status === "Paid" ? "#94a3b8" : ROYAL_BLUE,
+    cursor: inv.status === "Paid" ? "not-allowed" : "pointer",
+  }}
+>
+  Apply EK Points
+</button>
                         <button
                           onClick={() => markInvoicePaid(inv.invoiceNumber)}
                           disabled={inv.status === "Paid"}
