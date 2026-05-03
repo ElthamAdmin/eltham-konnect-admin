@@ -179,6 +179,24 @@ const clearWeightAnalysisFilter = async () => {
     }
   };
 
+  const deletePackageByTracking = async (trackingNumber) => {
+  const confirmed = window.confirm(
+    `Are you sure you want to delete package ${trackingNumber}?`
+  );
+
+  if (!confirmed) return;
+
+  try {
+    await axios.delete(`${API}/api/packages/${trackingNumber}`);
+    alert("Package deleted successfully.");
+    await fetchPackages();
+    await fetchWeightAnalysis();
+  } catch (error) {
+    console.error("Error deleting package:", error);
+    alert(error?.response?.data?.message || "Package could not be deleted.");
+  }
+};
+
   const updateBulkStatus = async () => {
     try {
       if (!bulkStatus) {
@@ -277,6 +295,17 @@ const clearWeightAnalysisFilter = async () => {
       alert(error?.response?.data?.message || "Invoice generation failed");
     }
   };
+
+  <button
+  onClick={() => deletePackageByTracking(pkg.trackingNumber)}
+  style={{
+    ...actionButtonStyle,
+    backgroundColor: "#dc2626",
+    color: WHITE,
+  }}
+>
+  Delete Package
+</button>
 
   const formatDateTime = (v) => (v ? new Date(v).toLocaleString() : "");
   const formatDate = (v) => (v ? String(v).slice(0, 10) : "");

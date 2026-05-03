@@ -123,6 +123,23 @@ function Customers() {
     }
   };
 
+  const handleDeleteCustomer = async (customer) => {
+  const confirmed = window.confirm(
+    `Are you sure you want to delete ${customer.name} (${customer.ekonId})?`
+  );
+
+  if (!confirmed) return;
+
+  try {
+    await api.delete(`/api/customers/${customer.ekonId}`);
+    alert("Customer deleted successfully.");
+    await fetchCustomers();
+  } catch (error) {
+    console.error("Error deleting customer:", error);
+    alert(error?.response?.data?.message || "Customer could not be deleted.");
+  }
+};
+
   const filteredCustomers = useMemo(() => {
     return customers.filter((customer) =>
       `${customer.name} ${customer.ekonId} ${customer.email} ${customer.phone} ${customer.branch}`
@@ -466,6 +483,20 @@ function Customers() {
                       >
                         Reset Password
                       </button>
+
+                      <button
+  onClick={() => handleDeleteCustomer(customer)}
+  style={{
+    backgroundColor: "#dc2626",
+    color: "white",
+    border: "none",
+    padding: "6px 10px",
+    borderRadius: "4px",
+    cursor: "pointer",
+  }}
+>
+  Delete
+</button>
                     </div>
                   </td>
                 </tr>
