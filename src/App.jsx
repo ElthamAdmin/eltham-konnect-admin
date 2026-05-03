@@ -34,9 +34,9 @@ function AppShell() {
   const { user, logout, refreshMyDuty } = useAuth();
   const location = useLocation();
   const [attendance, setAttendance] = useState(null);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const isMobile = window.innerWidth <= 768;
-
   const permissions = user?.permissions || [];
 
   const can = (key) => permissions.includes(key) || user?.role === "Admin";
@@ -48,17 +48,6 @@ function AppShell() {
     can("documentSelfService") ||
     can("payslipSelfService");
 
-  const navItemStyle = (active) => ({
-    color: "white",
-    textDecoration: "none",
-    padding: "14px 20px",
-    display: "block",
-    borderBottom: "1px solid rgba(255,255,255,0.15)",
-    fontWeight: "bold",
-    opacity: active ? 1 : 0.92,
-    backgroundColor: active ? "rgba(255,255,255,0.12)" : "transparent",
-  });
-
   const initials = useMemo(() => {
     const name = user?.fullName || "";
     const parts = name.split(" ").filter(Boolean);
@@ -67,6 +56,52 @@ function AppShell() {
     const b = parts[1]?.[0] || parts[0]?.[1] || "K";
     return (a + b).toUpperCase();
   }, [user]);
+
+  const navItems = [
+    { label: "Dashboard", path: "/", show: true },
+    { label: "POS", path: "/pos", show: can("pos") },
+    { label: "Customers", path: "/customers", show: can("customers") },
+    { label: "Manifests", path: "/manifests", show: can("manifests") },
+    { label: "Packages", path: "/packages", show: can("packages") },
+    { label: "Invoices", path: "/invoices", show: can("invoices") },
+    { label: "PreAlerts", path: "/prealerts", show: can("packages") },
+    { label: "Support", path: "/support-tickets", show: can("support") },
+    { label: "Finance", path: "/finance", show: can("finance") },
+    { label: "HR", path: "/hr", show: canAccessHR },
+    { label: "Notice Board", path: "/notice-board", show: can("communication") },
+    { label: "Communication", path: "/communication", show: can("communication") },
+    { label: "Team Hub", path: "/team-hub", show: can("communication") },
+    { label: "Marketing", path: "/marketing", show: can("marketing") },
+    { label: "Rewards", path: "/rewards-hub-admin", show: can("marketing") },
+    { label: "Analytics", path: "/rewards-hub-analytics", show: can("marketing") },
+    { label: "Amazon", path: "/amazon-associate", show: can("marketing") },
+    { label: "Users", path: "/users", show: can("users") },
+    { label: "Duty", path: "/duty-monitor", show: can("users") },
+    { label: "Audit", path: "/audit-logs", show: can("users") },
+    { label: "Settings", path: "/settings", show: can("settings") },
+    { label: "Warehouse", path: "/warehouse-management", show: can("warehouse") },
+    { label: "Points", path: "/points-history", show: can("pointsHistory") },
+    { label: "Referrals", path: "/referrals", show: can("customers") },
+  ].filter((item) => item.show);
+
+  const bottomItems = [
+    { label: "Home", path: "/" },
+    { label: "Packages", path: "/packages" },
+    { label: "Customers", path: "/customers" },
+    { label: "Invoices", path: "/invoices" },
+    { label: "More", path: "__more" },
+  ];
+
+  const navItemStyle = (active) => ({
+    color: "white",
+    textDecoration: "none",
+    padding: "14px 20px",
+    display: "block",
+    borderBottom: "1px solid rgba(255,255,255,0.15)",
+    fontWeight: "bold",
+    opacity: active ? 1 : 0.92,
+    backgroundColor: active ? "rgba(255,255,255,0.14)" : "transparent",
+  });
 
   const dutyBadge = (status) => {
     const color =
@@ -81,10 +116,11 @@ function AppShell() {
         style={{
           backgroundColor: color,
           color: "white",
-          padding: "4px 10px",
+          padding: "5px 10px",
           borderRadius: "20px",
           fontWeight: "bold",
           fontSize: "12px",
+          whiteSpace: "nowrap",
         }}
       >
         {status || "Off Duty"}
@@ -126,6 +162,233 @@ function AppShell() {
   const canLunchIn = dutyStatus === "At Lunch";
   const canClockOut = dutyStatus === "On Duty" || dutyStatus === "At Lunch";
 
+  const renderRoutes = () => (
+    <Routes>
+      <Route path="/" element={<Dashboard />} />
+      <Route path="/pos" element={can("pos") ? <POS /> : <Navigate to="/" replace />} />
+      <Route path="/customers" element={can("customers") ? <Customers /> : <Navigate to="/" replace />} />
+      <Route path="/manifests" element={can("manifests") ? <Manifests /> : <Navigate to="/" replace />} />
+      <Route path="/packages" element={can("packages") ? <Packages /> : <Navigate to="/" replace />} />
+      <Route path="/invoices" element={can("invoices") ? <Invoices /> : <Navigate to="/" replace />} />
+      <Route path="/prealerts" element={can("packages") ? <PreAlerts /> : <Navigate to="/" replace />} />
+      <Route path="/support-tickets" element={can("support") ? <SupportTickets /> : <Navigate to="/" replace />} />
+      <Route path="/finance" element={can("finance") ? <Finance /> : <Navigate to="/" replace />} />
+      <Route path="/hr" element={canAccessHR ? <HR /> : <Navigate to="/" replace />} />
+      <Route path="/communication" element={can("communication") ? <Communication /> : <Navigate to="/" replace />} />
+      <Route path="/team-hub" element={can("communication") ? <TeamHub /> : <Navigate to="/" replace />} />
+      <Route path="/notice-board" element={can("communication") ? <NoticeBoard /> : <Navigate to="/" replace />} />
+      <Route path="/marketing" element={can("marketing") ? <MarketingInfo /> : <Navigate to="/" replace />} />
+      <Route path="/rewards-hub-admin" element={can("marketing") ? <RewardsHubAdmin /> : <Navigate to="/" replace />} />
+      <Route path="/rewards-hub-analytics" element={can("marketing") ? <RewardsHubAnalytics /> : <Navigate to="/" replace />} />
+      <Route path="/amazon-associate" element={can("marketing") ? <AmazonAssociateLinks /> : <Navigate to="/" replace />} />
+      <Route path="/users" element={can("users") ? <SystemUsers /> : <Navigate to="/" replace />} />
+      <Route path="/duty-monitor" element={can("users") ? <DutyMonitor /> : <Navigate to="/" replace />} />
+      <Route path="/audit-logs" element={can("users") ? <AuditLogs /> : <Navigate to="/" replace />} />
+      <Route path="/settings" element={can("settings") ? <Settings /> : <Navigate to="/" replace />} />
+      <Route path="/warehouse-management" element={can("warehouse") ? <WarehouseManagement /> : <Navigate to="/" replace />} />
+      <Route path="/points-history" element={can("pointsHistory") ? <PointsHistory /> : <Navigate to="/" replace />} />
+      <Route path="/referrals" element={<ReferralProgram />} />
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
+  );
+
+  if (isMobile) {
+    return (
+      <div
+        style={{
+          minHeight: "100vh",
+          fontFamily: "Arial, sans-serif",
+          backgroundColor: "#f4f6fb",
+          paddingBottom: "78px",
+        }}
+      >
+        <div
+          style={{
+            backgroundColor: "#253a95",
+            color: "white",
+            padding: "16px",
+            position: "sticky",
+            top: 0,
+            zIndex: 20,
+            boxShadow: "0 4px 14px rgba(15,23,42,0.18)",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              gap: "12px",
+            }}
+          >
+            <button
+              onClick={() => setMobileMenuOpen(true)}
+              style={{
+                background: "transparent",
+                border: "none",
+                color: "white",
+                fontSize: "28px",
+                cursor: "pointer",
+              }}
+            >
+              ☰
+            </button>
+
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: "18px", fontWeight: "bold" }}>
+                Eltham Konnect
+              </div>
+              <div style={{ fontSize: "12px", opacity: 0.9 }}>
+                {user?.fullName} • {user?.role}
+              </div>
+            </div>
+
+            <div
+              style={{
+                width: "42px",
+                height: "42px",
+                borderRadius: "50%",
+                backgroundColor: "white",
+                color: "#253a95",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontWeight: "bold",
+              }}
+            >
+              {initials}
+            </div>
+          </div>
+
+          <div
+            style={{
+              marginTop: "14px",
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr",
+              gap: "8px",
+            }}
+          >
+            <button onClick={() => doAction("clock-in")} disabled={!canClockIn} style={mobileActionButton(canClockIn, "#16a34a")}>
+              Clock In
+            </button>
+            <button onClick={() => doAction("lunch-out")} disabled={!canLunchOut} style={mobileActionButton(canLunchOut, "#f59e0b")}>
+              Lunch Out
+            </button>
+            <button onClick={() => doAction("lunch-in")} disabled={!canLunchIn} style={mobileActionButton(canLunchIn, "#0ea5e9")}>
+              Lunch In
+            </button>
+            <button onClick={() => doAction("clock-out")} disabled={!canClockOut} style={mobileActionButton(canClockOut, "#475569")}>
+              Clock Out
+            </button>
+          </div>
+
+          <div style={{ marginTop: "10px" }}>{dutyBadge(dutyStatus)}</div>
+        </div>
+
+        {mobileMenuOpen && (
+          <div
+            style={{
+              position: "fixed",
+              inset: 0,
+              backgroundColor: "rgba(15,23,42,0.55)",
+              zIndex: 50,
+            }}
+            onClick={() => setMobileMenuOpen(false)}
+          >
+            <div
+              style={{
+                width: "82%",
+                maxWidth: "330px",
+                height: "100%",
+                backgroundColor: "#253a95",
+                color: "white",
+                overflowY: "auto",
+                paddingBottom: "30px",
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div style={{ padding: "20px", fontSize: "22px", fontWeight: "bold" }}>
+                Eltham Konnect
+              </div>
+
+              {navItems.map((item) => (
+                <Link
+                  key={item.path}
+                  to={item.path}
+                  onClick={() => setMobileMenuOpen(false)}
+                  style={navItemStyle(location.pathname === item.path)}
+                >
+                  {item.label}
+                </Link>
+              ))}
+
+              <button
+                onClick={logout}
+                style={{
+                  margin: "18px",
+                  width: "calc(100% - 36px)",
+                  backgroundColor: "#dc2626",
+                  color: "white",
+                  border: "none",
+                  padding: "12px",
+                  borderRadius: "10px",
+                  fontWeight: "bold",
+                }}
+              >
+                Logout
+              </button>
+            </div>
+          </div>
+        )}
+
+        <main
+          style={{
+            padding: "14px",
+            maxWidth: "100%",
+            overflowX: "hidden",
+          }}
+        >
+          {renderRoutes()}
+        </main>
+
+        <nav
+          style={{
+            position: "fixed",
+            left: 0,
+            right: 0,
+            bottom: 0,
+            height: "70px",
+            backgroundColor: "white",
+            borderTop: "1px solid #e5e7eb",
+            display: "grid",
+            gridTemplateColumns: "repeat(5, 1fr)",
+            zIndex: 30,
+            boxShadow: "0 -4px 16px rgba(15,23,42,0.08)",
+          }}
+        >
+          {bottomItems.map((item) => {
+            const active = location.pathname === item.path;
+            return item.path === "__more" ? (
+              <button
+                key={item.label}
+                onClick={() => setMobileMenuOpen(true)}
+                style={bottomNavStyle(active)}
+              >
+                ⋯
+                <span>{item.label}</span>
+              </button>
+            ) : (
+              <Link key={item.path} to={item.path} style={bottomNavStyle(active)}>
+                ●
+                <span>{item.label}</span>
+              </Link>
+            );
+          })}
+        </nav>
+      </div>
+    );
+  }
+
   return (
     <div
       style={{
@@ -137,9 +400,8 @@ function AppShell() {
     >
       <div
         style={{
-          width: isMobile ? "95px" : "250px",
-minWidth: isMobile ? "95px" : "250px",
-overflowX: "hidden",
+          width: "250px",
+          minWidth: "250px",
           backgroundColor: "#253a95",
           color: "white",
           display: "flex",
@@ -157,300 +419,49 @@ overflowX: "hidden",
           Eltham Konnect
         </div>
 
-        <Link to="/" style={navItemStyle(location.pathname === "/")}>
-          Dashboard
-        </Link>
-
-        {can("pos") && (
-          <Link to="/pos" style={navItemStyle(location.pathname === "/pos")}>
-            POS
+        {navItems.map((item) => (
+          <Link key={item.path} to={item.path} style={navItemStyle(location.pathname === item.path)}>
+            {item.label}
           </Link>
-        )}
-
-        {can("customers") && (
-          <Link
-            to="/customers"
-            style={navItemStyle(location.pathname === "/customers")}
-          >
-            Customers
-          </Link>
-        )}
-
-        {can("manifests") && (
-          <Link
-            to="/manifests"
-            style={navItemStyle(location.pathname === "/manifests")}
-          >
-            Manifests
-          </Link>
-        )}
-
-        {can("packages") && (
-          <Link
-            to="/packages"
-            style={navItemStyle(location.pathname === "/packages")}
-          >
-            Packages
-          </Link>
-        )}
-
-        {can("invoices") && (
-          <Link
-            to="/invoices"
-            style={navItemStyle(location.pathname === "/invoices")}
-          >
-            Invoices
-          </Link>
-        )}
-
-        {can("packages") && (
-          <Link
-            to="/prealerts"
-            style={navItemStyle(location.pathname === "/prealerts")}
-          >
-            PreAlerts
-          </Link>
-        )}
-
-        {can("support") && (
-          <Link
-            to="/support-tickets"
-            style={navItemStyle(location.pathname === "/support-tickets")}
-          >
-            Support Tickets
-          </Link>
-        )}
-
-        {can("finance") && (
-          <Link
-            to="/finance"
-            style={navItemStyle(location.pathname === "/finance")}
-          >
-            Finance
-          </Link>
-        )}
-
-        {canAccessHR && (
-          <Link to="/hr" style={navItemStyle(location.pathname === "/hr")}>
-            HR
-          </Link>
-        )}
-
-        {can("communication") && (
-  <Link
-    to="/notice-board"
-    style={navItemStyle(location.pathname === "/notice-board")}
-  >
-    Notice Board
-  </Link>
-)}
-
-        {can("communication") && (
-          <Link
-            to="/communication"
-            style={navItemStyle(location.pathname === "/communication")}
-          >
-            Communication
-          </Link>
-        )}
-
-        {can("communication") && (
-  <Link
-    to="/team-hub"
-    style={navItemStyle(location.pathname === "/team-hub")}
-  >
-    Team Hub
-  </Link>
-)}
-
-        {can("marketing") && (
-          <Link
-            to="/marketing"
-            style={navItemStyle(location.pathname === "/marketing")}
-          >
-            Marketing Info
-          </Link>
-        )}
-
-        {can("marketing") && (
-  <Link
-    to="/rewards-hub-admin"
-    style={navItemStyle(location.pathname === "/rewards-hub-admin")}
-  >
-    EK Rewards Hub
-  </Link>
-)}
-
-{can("marketing") && (
-  <Link
-    to="/rewards-hub-analytics"
-    style={navItemStyle(location.pathname === "/rewards-hub-analytics")}
-  >
-    Rewards Analytics
-  </Link>
-)}
-
-        {can("marketing") && (
-  <Link
-    to="/amazon-associate"
-    style={navItemStyle(location.pathname === "/amazon-associate")}
-  >
-    Amazon Associate
-  </Link>
-)}
-
-        {can("users") && (
-          <Link to="/users" style={navItemStyle(location.pathname === "/users")}>
-            System Users
-          </Link>
-        )}
-
-        {can("users") && (
-          <Link
-            to="/duty-monitor"
-            style={navItemStyle(location.pathname === "/duty-monitor")}
-          >
-            Duty Monitor
-          </Link>
-        )}
-
-        {can("users") && (
-          <Link
-            to="/audit-logs"
-            style={navItemStyle(location.pathname === "/audit-logs")}
-          >
-            Audit Logs
-          </Link>
-        )}
-
-        {can("settings") && (
-          <Link
-            to="/settings"
-            style={navItemStyle(location.pathname === "/settings")}
-          >
-            Settings
-          </Link>
-        )}
-
-        {can("warehouse") && (
-          <Link
-            to="/warehouse-management"
-            style={navItemStyle(location.pathname === "/warehouse-management")}
-          >
-            Warehouse Management
-          </Link>
-        )}
-
-        {can("pointsHistory") && (
-          <Link
-            to="/points-history"
-            style={navItemStyle(location.pathname === "/points-history")}
-          >
-            Points History
-          </Link>
-        )}
-
-        {can("customers") && (
-  <Link
-    to="/referrals"
-    style={navItemStyle(location.pathname === "/referrals")}
-  >
-    EKON Referral Program
-  </Link>
-)}
+        ))}
       </div>
-
-      
 
       <div style={{ flex: 1, minWidth: 0, overflowX: "hidden" }}>
         <div
           style={{
-            minHeight: isMobile ? "auto" : "76px",
-backgroundColor: "white",
-borderBottom: "1px solid #e5e7eb",
-display: "flex",
-justifyContent: "space-between",
-alignItems: isMobile ? "flex-start" : "center",
-padding: isMobile ? "12px" : "0 24px",
-gap: "10px",
-flexWrap: "wrap",
+            minHeight: "76px",
+            backgroundColor: "white",
+            borderBottom: "1px solid #e5e7eb",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            padding: "0 24px",
+            gap: "14px",
           }}
         >
           <div style={{ fontSize: "22px", color: "#64748b" }}>☰</div>
 
           <div
             style={{
-              ddisplay: "flex",
-alignItems: "center",
-gap: "10px",
-flexWrap: "wrap",
-justifyContent: isMobile ? "flex-start" : "flex-end",
-width: isMobile ? "100%" : "auto",
+              display: "flex",
+              alignItems: "center",
+              gap: "10px",
+              flexWrap: "wrap",
+              justifyContent: "flex-end",
             }}
           >
             {dutyBadge(dutyStatus)}
 
-            <button
-              onClick={() => doAction("clock-in")}
-              disabled={!canClockIn}
-              style={{
-                backgroundColor: canClockIn ? "#16a34a" : "#cbd5e1",
-                color: "white",
-                border: "none",
-                padding: "8px 12px",
-                borderRadius: "6px",
-                cursor: canClockIn ? "pointer" : "not-allowed",
-                fontWeight: "bold",
-              }}
-            >
+            <button onClick={() => doAction("clock-in")} disabled={!canClockIn} style={desktopActionButton(canClockIn, "#16a34a")}>
               Clock In
             </button>
-
-            <button
-              onClick={() => doAction("lunch-out")}
-              disabled={!canLunchOut}
-              style={{
-                backgroundColor: canLunchOut ? "#f59e0b" : "#cbd5e1",
-                color: "white",
-                border: "none",
-                padding: "8px 12px",
-                borderRadius: "6px",
-                cursor: canLunchOut ? "pointer" : "not-allowed",
-                fontWeight: "bold",
-              }}
-            >
+            <button onClick={() => doAction("lunch-out")} disabled={!canLunchOut} style={desktopActionButton(canLunchOut, "#f59e0b")}>
               Lunch Out
             </button>
-
-            <button
-              onClick={() => doAction("lunch-in")}
-              disabled={!canLunchIn}
-              style={{
-                backgroundColor: canLunchIn ? "#0ea5e9" : "#cbd5e1",
-                color: "white",
-                border: "none",
-                padding: "8px 12px",
-                borderRadius: "6px",
-                cursor: canLunchIn ? "pointer" : "not-allowed",
-                fontWeight: "bold",
-              }}
-            >
+            <button onClick={() => doAction("lunch-in")} disabled={!canLunchIn} style={desktopActionButton(canLunchIn, "#0ea5e9")}>
               Lunch In
             </button>
-
-            <button
-              onClick={() => doAction("clock-out")}
-              disabled={!canClockOut}
-              style={{
-                backgroundColor: canClockOut ? "#475569" : "#cbd5e1",
-                color: "white",
-                border: "none",
-                padding: "8px 12px",
-                borderRadius: "6px",
-                cursor: canClockOut ? "pointer" : "not-allowed",
-                fontWeight: "bold",
-              }}
-            >
+            <button onClick={() => doAction("clock-out")} disabled={!canClockOut} style={desktopActionButton(canClockOut, "#475569")}>
               Clock Out
             </button>
 
@@ -470,16 +481,8 @@ width: isMobile ? "100%" : "auto",
               {initials}
             </div>
 
-            <div
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                lineHeight: 1.1,
-              }}
-            >
-              <span style={{ color: "#334155", fontWeight: "bold" }}>
-                {user?.fullName}
-              </span>
+            <div style={{ display: "flex", flexDirection: "column", lineHeight: 1.1 }}>
+              <span style={{ color: "#334155", fontWeight: "bold" }}>{user?.fullName}</span>
               <span style={{ color: "#64748b", fontSize: "12px" }}>
                 {user?.role} • {user?.branch}
               </span>
@@ -502,134 +505,54 @@ width: isMobile ? "100%" : "auto",
           </div>
         </div>
 
-        <div
-  style={{
-    padding: isMobile ? "10px" : "26px",
-    overflowX: "hidden",
-    maxWidth: "100%",
-  }}
->
-          <Routes>
-            <Route path="/" element={<Dashboard />} />
-
-            <Route
-              path="/pos"
-              element={can("pos") ? <POS /> : <Navigate to="/" replace />}
-            />
-
-            <Route
-              path="/customers"
-              element={can("customers") ? <Customers /> : <Navigate to="/" replace />}
-            />
-
-            <Route
-              path="/manifests"
-              element={can("manifests") ? <Manifests /> : <Navigate to="/" replace />}
-            />
-
-            <Route
-              path="/packages"
-              element={can("packages") ? <Packages /> : <Navigate to="/" replace />}
-            />
-
-            <Route
-              path="/invoices"
-              element={can("invoices") ? <Invoices /> : <Navigate to="/" replace />}
-            />
-
-            <Route
-              path="/prealerts"
-              element={can("packages") ? <PreAlerts /> : <Navigate to="/" replace />}
-            />
-
-            <Route
-              path="/support-tickets"
-              element={can("support") ? <SupportTickets /> : <Navigate to="/" replace />}
-            />
-
-            <Route
-              path="/finance"
-              element={can("finance") ? <Finance /> : <Navigate to="/" replace />}
-            />
-
-            <Route
-              path="/hr"
-              element={canAccessHR ? <HR /> : <Navigate to="/" replace />}
-            />
-
-            <Route
-              path="/communication"
-              element={can("communication") ? <Communication /> : <Navigate to="/" replace />}
-            />
-
-            <Route
-  path="/team-hub"
-  element={can("communication") ? <TeamHub /> : <Navigate to="/" replace />}
-/>
-
-            <Route
-  path="/notice-board"
-  element={can("communication") ? <NoticeBoard /> : <Navigate to="/" replace />}
-/>
-
-            <Route
-              path="/marketing"
-              element={can("marketing") ? <MarketingInfo /> : <Navigate to="/" replace />}
-            />
-
-            <Route
-  path="/rewards-hub-admin"
-  element={can("marketing") ? <RewardsHubAdmin /> : <Navigate to="/" replace />}
-/>
-
-<Route
-  path="/rewards-hub-analytics"
-  element={can("marketing") ? <RewardsHubAnalytics /> : <Navigate to="/" replace />}
-/>
-
-            <Route
-  path="/amazon-associate"
-  element={can("marketing") ? <AmazonAssociateLinks /> : <Navigate to="/" replace />}
-/>
-
-            <Route
-              path="/users"
-              element={can("users") ? <SystemUsers /> : <Navigate to="/" replace />}
-            />
-
-            <Route
-              path="/duty-monitor"
-              element={can("users") ? <DutyMonitor /> : <Navigate to="/" replace />}
-            />
-
-            <Route
-              path="/audit-logs"
-              element={can("users") ? <AuditLogs /> : <Navigate to="/" replace />}
-            />
-
-            <Route
-              path="/settings"
-              element={can("settings") ? <Settings /> : <Navigate to="/" replace />}
-            />
-
-            <Route
-              path="/warehouse-management"
-              element={can("warehouse") ? <WarehouseManagement /> : <Navigate to="/" replace />}
-            />
-
-            <Route
-              path="/points-history"
-              element={can("pointsHistory") ? <PointsHistory /> : <Navigate to="/" replace />}
-            />
-
-            <Route path="/referrals" element={<ReferralProgram />} />
-
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
+        <div style={{ padding: "26px", overflowX: "hidden", maxWidth: "100%" }}>
+          {renderRoutes()}
         </div>
       </div>
     </div>
   );
+}
+
+function mobileActionButton(enabled, color) {
+  return {
+    backgroundColor: enabled ? color : "#cbd5e1",
+    color: "white",
+    border: "none",
+    padding: "10px",
+    borderRadius: "10px",
+    cursor: enabled ? "pointer" : "not-allowed",
+    fontWeight: "bold",
+    fontSize: "13px",
+  };
+}
+
+function desktopActionButton(enabled, color) {
+  return {
+    backgroundColor: enabled ? color : "#cbd5e1",
+    color: "white",
+    border: "none",
+    padding: "8px 12px",
+    borderRadius: "6px",
+    cursor: enabled ? "pointer" : "not-allowed",
+    fontWeight: "bold",
+  };
+}
+
+function bottomNavStyle(active) {
+  return {
+    border: "none",
+    backgroundColor: "white",
+    color: active ? "#253a95" : "#64748b",
+    textDecoration: "none",
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: "4px",
+    fontSize: "11px",
+    fontWeight: "bold",
+    cursor: "pointer",
+  };
 }
 
 export default function App() {
