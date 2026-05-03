@@ -22,6 +22,8 @@ function AmazonAssociateLinks() {
   const BORDER = "#dbe3ef";
   const MUTED = "#64748b";
 
+  const FILE_BASE = "https://eltham-konnect-backend-c2sf.onrender.com";
+
   const fetchItems = async () => {
     try {
       const res = await api.get("/api/amazon-associate");
@@ -302,7 +304,7 @@ function AmazonAssociateLinks() {
                     <td>
                       {item.imageUrl ? (
                         <img
-                          src={`${api.defaults.baseURL}${item.imageUrl}`}
+                          src={`${FILE_BASE}${item.imageUrl}`}
                           alt={item.title}
                           style={{
                             width: "70px",
