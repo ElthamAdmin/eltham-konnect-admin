@@ -304,7 +304,7 @@ function AmazonAssociateLinks() {
                     <td>
                       {item.imageUrl ? (
                         <img
-                          src={`${FILE_BASE}${item.imageUrl}`}
+                          src={item.imageUrl}
                           alt={item.title}
                           style={{
                             width: "70px",
