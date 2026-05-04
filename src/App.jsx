@@ -558,7 +558,10 @@ function bottomNavStyle(active) {
 export default function App() {
   return (
     <Routes>
-      <Route path="/login" element={<Login />} />
+      import Home from "./pages/Home";
+
+<Route path="/" element={<Home />} />
+<Route path="/login" element={<Login />} />
       <Route
         path="/*"
         element={
