@@ -177,20 +177,56 @@ const matchesLocation = (item) => {
     );
   }, [customers, dateFilter, locationFilter]);
 
-  const filteredPackages = useMemo(() => {
-  return packages.filter((pkg) => matchesLocation(pkg));
-}, [packages, locationFilter]);
+  const getJamaicaDateString = (value) => {
+  if (!value) return "";
+
+  try {
+    return new Intl.DateTimeFormat("en-CA", {
+      timeZone: "America/Jamaica",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(new Date(value));
+  } catch {
+    return "";
+  }
+};
+
+const isWithinSelectedRangeByJamaicaDate = (dateValue) => {
+  if (dateFilter === "all") return true;
+
+  const packageDate = getJamaicaDateString(dateValue);
+  const today = getJamaicaDateString(new Date());
+
+  if (!packageDate) return false;
+
+  if (dateFilter === "today") {
+    return packageDate === today;
+  }
+
+  return isWithinSelectedRange(dateValue);
+};
+
+const filteredPackages = useMemo(() => {
+  return packages.filter(
+    (pkg) =>
+      matchesLocation(pkg) &&
+      isWithinSelectedRangeByJamaicaDate(pkg.createdAt || pkg.dateReceived)
+  );
+}, [packages, dateFilter, locationFilter]);
 
   const filteredReadyPackages = useMemo(() => {
-    return packages.filter((pkg) => {
-      const isReady = pkg.status === "Ready for Pickup" || pkg.readyForPickup === true;
+  return packages.filter((pkg) => {
+    const isReady = pkg.status === "Ready for Pickup" || pkg.readyForPickup === true;
 
-      if (!isReady) return false;
-      if (!matchesLocation(pkg)) return false;
+    if (!isReady) return false;
+    if (!matchesLocation(pkg)) return false;
 
-      return true;
-    });
-  }, [packages, locationFilter]);
+    return isWithinSelectedRangeByJamaicaDate(
+      pkg.readyForPickupDate || pkg.statusUpdatedAt || pkg.createdAt || pkg.dateReceived
+    );
+  });
+}, [packages, dateFilter, locationFilter]);
 
   const filteredPaidInvoices = useMemo(() => {
   return invoices.filter((inv) => {
