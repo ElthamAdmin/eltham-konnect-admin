@@ -178,12 +178,8 @@ const matchesLocation = (item) => {
   }, [customers, dateFilter, locationFilter]);
 
   const filteredPackages = useMemo(() => {
-    return packages.filter(
-      (pkg) =>
-        matchesLocation(pkg) &&
-        isWithinSelectedRange(pkg.createdAt || pkg.dateReceived)
-    );
-  }, [packages, dateFilter, locationFilter]);
+  return packages.filter((pkg) => matchesLocation(pkg));
+}, [packages, locationFilter]);
 
   const filteredReadyPackages = useMemo(() => {
     return packages.filter((pkg) => {
@@ -192,14 +188,9 @@ const matchesLocation = (item) => {
       if (!isReady) return false;
       if (!matchesLocation(pkg)) return false;
 
-      return isWithinSelectedRange(
-        pkg.readyForPickupDate ||
-        pkg.statusUpdatedAt ||
-        pkg.createdAt ||
-        pkg.dateReceived
-      );
+      return true;
     });
-  }, [packages, dateFilter, locationFilter]);
+  }, [packages, locationFilter]);
 
   const filteredPaidInvoices = useMemo(() => {
   return invoices.filter((inv) => {
