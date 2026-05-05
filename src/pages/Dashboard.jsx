@@ -181,7 +181,7 @@ const matchesLocation = (item) => {
     return packages.filter(
       (pkg) =>
         matchesLocation(pkg) &&
-        isWithinSelectedRange(pkg.dateReceived || pkg.createdAt)
+        isWithinSelectedRange(pkg.createdAt || pkg.dateReceived)
     );
   }, [packages, dateFilter, locationFilter]);
 
@@ -194,9 +194,9 @@ const matchesLocation = (item) => {
 
       return isWithinSelectedRange(
         pkg.readyForPickupDate ||
-          pkg.statusUpdatedAt ||
-          pkg.dateReceived ||
-          pkg.createdAt
+        pkg.statusUpdatedAt ||
+        pkg.createdAt ||
+        pkg.dateReceived
       );
     });
   }, [packages, dateFilter, locationFilter]);
