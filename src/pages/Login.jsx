@@ -29,86 +29,123 @@ export default function Login() {
     <div
       style={{
         minHeight: "100vh",
-        display: "grid",
-        placeItems: "center",
-        backgroundColor: "#eef2f7",
-        padding: "20px",
+        backgroundColor: "#f4f7fb",
         fontFamily: "Arial, sans-serif",
       }}
     >
       <div
         style={{
-          width: "100%",
-          maxWidth: "520px",
-          backgroundColor: "white",
-          borderRadius: "12px",
-          border: "1px solid #e5e7eb",
-          padding: "26px",
+          backgroundColor: "#0B3D91",
+          color: "white",
+          padding: "22px 24px",
+          display: "flex",
+          alignItems: "center",
+          gap: "14px",
         }}
       >
-        <h1 style={{ marginTop: 0, marginBottom: "6px", color: "#1f3552" }}>
-          Eltham Konnect Admin Login
-        </h1>
-        <p style={{ marginTop: 0, marginBottom: "18px", color: "#64748b" }}>
-          Enter your staff email and password to begin your shift.
-        </p>
+        <div style={{ fontSize: "34px" }}>☰</div>
 
-        <form onSubmit={onSubmit}>
-          <label style={{ display: "block", fontWeight: "bold", marginBottom: "8px" }}>
-            Email
-          </label>
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="staff@elthamkonnect.com"
-            style={{
-              width: "100%",
-              padding: "12px",
-              borderRadius: "8px",
-              border: "1px solid #cbd5e1",
-              marginBottom: "14px",
-            }}
-          />
+        <div>
+          <div style={{ fontSize: "24px", fontWeight: "900" }}>
+            Eltham Konnect
+          </div>
+          <div style={{ fontSize: "14px", opacity: 0.9 }}>
+            Admin Portal
+          </div>
+        </div>
+      </div>
 
-          <label style={{ display: "block", fontWeight: "bold", marginBottom: "8px" }}>
-            Password
-          </label>
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="Your password"
+      <div style={{ padding: "28px 18px" }}>
+        <div
+          style={{
+            backgroundColor: "white",
+            borderRadius: "22px",
+            padding: "26px",
+            border: "1px solid #dbe3ef",
+            boxShadow: "0 8px 24px rgba(15,23,42,0.08)",
+            maxWidth: "520px",
+            margin: "0 auto",
+          }}
+        >
+          <h1
             style={{
-              width: "100%",
-              padding: "12px",
-              borderRadius: "8px",
-              border: "1px solid #cbd5e1",
-              marginBottom: "18px",
-            }}
-          />
-
-          <button
-            type="submit"
-            disabled={busy}
-            style={{
-              width: "100%",
-              padding: "12px",
-              borderRadius: "10px",
-              border: "none",
-              backgroundColor: busy ? "#94a3b8" : "#0B3D91",
-              color: "white",
-              cursor: busy ? "not-allowed" : "pointer",
-              fontWeight: "bold",
-              fontSize: "16px",
+              marginTop: 0,
+              marginBottom: "8px",
+              color: "#0f172a",
+              fontSize: "34px",
+              lineHeight: 1.1,
             }}
           >
-            {busy ? "Logging in..." : "Login"}
-          </button>
-        </form>
+            Admin Login
+          </h1>
 
-        <div style={{ marginTop: "18px", color: "#64748b", fontSize: "13px" }}>
-          Admin tip: Create staff users in <strong>System Users</strong> with passwords, then share their login details.
+          <p style={{ marginTop: 0, marginBottom: "24px", color: "#64748b" }}>
+            Enter your staff email and password to begin your shift.
+          </p>
+
+          <form onSubmit={onSubmit}>
+            <label style={{ display: "block", fontWeight: "bold", marginBottom: "8px" }}>
+              Email
+            </label>
+
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="staff@elthamkonnect.com"
+              style={{
+                width: "100%",
+                boxSizing: "border-box",
+                padding: "15px",
+                borderRadius: "14px",
+                border: "1px solid #cbd5e1",
+                marginBottom: "18px",
+                fontSize: "16px",
+              }}
+            />
+
+            <label style={{ display: "block", fontWeight: "bold", marginBottom: "8px" }}>
+              Password
+            </label>
+
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Your password"
+              style={{
+                width: "100%",
+                boxSizing: "border-box",
+                padding: "15px",
+                borderRadius: "14px",
+                border: "1px solid #cbd5e1",
+                marginBottom: "20px",
+                fontSize: "16px",
+              }}
+            />
+
+            <button
+              type="submit"
+              disabled={busy}
+              style={{
+                width: "100%",
+                padding: "15px",
+                borderRadius: "14px",
+                border: "none",
+                backgroundColor: busy ? "#94a3b8" : "#0B3D91",
+                color: "white",
+                cursor: busy ? "not-allowed" : "pointer",
+                fontWeight: "900",
+                fontSize: "16px",
+              }}
+            >
+              {busy ? "Logging in..." : "Login"}
+            </button>
+          </form>
+
+          <div style={{ marginTop: "18px", color: "#64748b", fontSize: "13px" }}>
+            Admin tip: Create staff users in <strong>System Users</strong> with passwords, then share their login details.
+          </div>
         </div>
       </div>
     </div>

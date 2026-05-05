@@ -36,7 +36,19 @@ function AppShell() {
   const [attendance, setAttendance] = useState(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  const isMobile = window.innerWidth <= 768;
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth <= 900);
+
+useEffect(() => {
+  const handleResize = () => {
+    setIsMobile(window.innerWidth <= 900);
+  };
+
+  handleResize();
+  window.addEventListener("resize", handleResize);
+
+  return () => window.removeEventListener("resize", handleResize);
+}, []);
+
   const permissions = user?.permissions || [];
 
   const can = (key) => permissions.includes(key) || user?.role === "Admin";
