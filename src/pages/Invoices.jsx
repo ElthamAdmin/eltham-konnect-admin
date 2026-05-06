@@ -7,6 +7,7 @@ function Invoices() {
   const [accounts, setAccounts] = useState([]);
   const [selectedAccountByInvoice, setSelectedAccountByInvoice] = useState({});
   const [paymentLinkByInvoice, setPaymentLinkByInvoice] = useState({});
+  const [chargeFormByInvoice, setChargeFormByInvoice] = useState({});
   const [searchTerm, setSearchTerm] = useState("");
   const [pageSize, setPageSize] = useState(25);
   const [currentPage, setCurrentPage] = useState(1);
@@ -25,10 +26,22 @@ function Invoices() {
       setInvoices(invoiceData);
 
       const links = {};
-      invoiceData.forEach((inv) => {
-        links[inv.invoiceNumber] = inv.paymentLink || "";
-      });
-      setPaymentLinkByInvoice(links);
+const chargeForms = {};
+
+invoiceData.forEach((inv) => {
+  links[inv.invoiceNumber] = inv.paymentLink || "";
+
+  chargeForms[inv.invoiceNumber] = {
+    customsDuty: inv.customsDuty || 0,
+    gct: inv.gct || 0,
+    processingFee: inv.processingFee || 0,
+    otherAdjustment: inv.otherAdjustment || 0,
+    adjustmentNote: inv.adjustmentNote || "",
+  };
+});
+
+setPaymentLinkByInvoice(links);
+setChargeFormByInvoice(chargeForms);
     } catch (error) {
       console.error("Error loading invoices:", error);
     }
@@ -65,6 +78,38 @@ function Invoices() {
       [invoiceNumber]: value,
     }));
   };
+
+  const handleChargeChange = (invoiceNumber, field, value) => {
+  setChargeFormByInvoice((prev) => ({
+    ...prev,
+    [invoiceNumber]: {
+      ...(prev[invoiceNumber] || {}),
+      [field]: value,
+    },
+  }));
+};
+
+const saveInvoiceCharges = async (invoiceNumber) => {
+  try {
+    const chargeForm = chargeFormByInvoice[invoiceNumber] || {};
+
+    const payload = {
+      customsDuty: Number(chargeForm.customsDuty || 0),
+      gct: Number(chargeForm.gct || 0),
+      processingFee: Number(chargeForm.processingFee || 0),
+      otherAdjustment: Number(chargeForm.otherAdjustment || 0),
+      adjustmentNote: chargeForm.adjustmentNote || "",
+    };
+
+    const res = await api.put(`/api/invoices/${invoiceNumber}/charges`, payload);
+
+    alert(res.data.message || "Invoice charges updated.");
+    await fetchInvoices();
+  } catch (error) {
+    console.error("Error updating invoice charges:", error);
+    alert(error?.response?.data?.message || "Could not update invoice charges.");
+  }
+};
 
   const savePaymentLink = async (invoiceNumber) => {
     try {
@@ -281,10 +326,14 @@ function Invoices() {
       const rowHeight = 9;
 
       const chargeRows = [
-        ["Subtotal", formatCurrency(inv.subtotal)],
-        ["Points Redeemed", Number(inv.pointsRedeemed || 0).toLocaleString()],
-        ["Final Total", formatCurrency(inv.finalTotal)],
-      ];
+  ["Shipping / Freight Subtotal", formatCurrency(inv.subtotal)],
+  ["Customs Duty", formatCurrency(inv.customsDuty)],
+  ["GCT", formatCurrency(inv.gct)],
+  ["Processing Fee", formatCurrency(inv.processingFee)],
+  ["Other Adjustment", formatCurrency(inv.otherAdjustment)],
+  ["EK Points Redeemed", `- ${formatCurrency(inv.pointsRedeemed)}`],
+  ["Final Total", formatCurrency(inv.finalTotal)],
+];
 
       chargeRows.forEach((row, index) => {
         if (index === chargeRows.length - 1) {
@@ -599,6 +648,10 @@ function Invoices() {
                 <th>Customer</th>
                 <th>Package Count</th>
                 <th>Subtotal</th>
+                <th>Customs Duty</th>
+                <th>GCT</th>
+                <th>Processing Fee</th>
+                <th>Other Adjustment</th>
                 <th>Points Redeemed</th>
                 <th>Final Total</th>
                 <th>Status</th>
@@ -621,9 +674,13 @@ function Invoices() {
                     <td>{inv.customerName}</td>
                     <td>{inv.packageCount}</td>
                     <td>{formatCurrency(inv.subtotal)}</td>
-                    <td>{Number(inv.pointsRedeemed || 0).toLocaleString()}</td>
+                    <td>{formatCurrency(inv.customsDuty)}</td>
+                    <td>{formatCurrency(inv.gct)}</td>
+                    <td>{formatCurrency(inv.processingFee)}</td>
+                    <td>{formatCurrency(inv.otherAdjustment)}</td>
+                    <td>{formatCurrency(inv.pointsRedeemed)}</td>
                     <td style={{ fontWeight: "bold" }}>
-                      {formatCurrency(inv.finalTotal)}
+                     {formatCurrency(inv.finalTotal)}
                     </td>
                     <td>{statusBadge(inv.status)}</td>
                     <td>{formatDate(inv.createdAt)}</td>
@@ -718,6 +775,87 @@ function Invoices() {
                           minWidth: "150px",
                         }}
                       >
+                        <div
+  style={{
+    display: "grid",
+    gap: "6px",
+    padding: "10px",
+    border: `1px solid ${BORDER}`,
+    borderRadius: "10px",
+    backgroundColor: "#f8fafc",
+  }}
+>
+  <strong style={{ color: ROYAL_BLUE, fontSize: "13px" }}>
+    Extra Charges
+  </strong>
+
+  <input
+    type="number"
+    placeholder="Customs Duty"
+    value={chargeFormByInvoice[inv.invoiceNumber]?.customsDuty ?? 0}
+    onChange={(e) =>
+      handleChargeChange(inv.invoiceNumber, "customsDuty", e.target.value)
+    }
+    disabled={inv.status === "Paid"}
+    style={{ padding: "8px", borderRadius: "8px", border: `1px solid ${BORDER}` }}
+  />
+
+  <input
+    type="number"
+    placeholder="GCT"
+    value={chargeFormByInvoice[inv.invoiceNumber]?.gct ?? 0}
+    onChange={(e) =>
+      handleChargeChange(inv.invoiceNumber, "gct", e.target.value)
+    }
+    disabled={inv.status === "Paid"}
+    style={{ padding: "8px", borderRadius: "8px", border: `1px solid ${BORDER}` }}
+  />
+
+  <input
+    type="number"
+    placeholder="Processing Fee"
+    value={chargeFormByInvoice[inv.invoiceNumber]?.processingFee ?? 0}
+    onChange={(e) =>
+      handleChargeChange(inv.invoiceNumber, "processingFee", e.target.value)
+    }
+    disabled={inv.status === "Paid"}
+    style={{ padding: "8px", borderRadius: "8px", border: `1px solid ${BORDER}` }}
+  />
+
+  <input
+    type="number"
+    placeholder="Other Adjustment"
+    value={chargeFormByInvoice[inv.invoiceNumber]?.otherAdjustment ?? 0}
+    onChange={(e) =>
+      handleChargeChange(inv.invoiceNumber, "otherAdjustment", e.target.value)
+    }
+    disabled={inv.status === "Paid"}
+    style={{ padding: "8px", borderRadius: "8px", border: `1px solid ${BORDER}` }}
+  />
+
+  <input
+    type="text"
+    placeholder="Adjustment note"
+    value={chargeFormByInvoice[inv.invoiceNumber]?.adjustmentNote ?? ""}
+    onChange={(e) =>
+      handleChargeChange(inv.invoiceNumber, "adjustmentNote", e.target.value)
+    }
+    disabled={inv.status === "Paid"}
+    style={{ padding: "8px", borderRadius: "8px", border: `1px solid ${BORDER}` }}
+  />
+
+  <button
+    onClick={() => saveInvoiceCharges(inv.invoiceNumber)}
+    disabled={inv.status === "Paid"}
+    style={{
+      ...actionButtonStyle,
+      backgroundColor: inv.status === "Paid" ? "#94a3b8" : "#7c3aed",
+      cursor: inv.status === "Paid" ? "not-allowed" : "pointer",
+    }}
+  >
+    Save Charges
+  </button>
+</div>
 
                       <button
   onClick={() => applyPointsToInvoice(inv.invoiceNumber)}
@@ -763,7 +901,7 @@ function Invoices() {
               ) : (
                 <tr>
                   <td
-                    colSpan="13"
+                    colSpan="9"
                     style={{
                       textAlign: "center",
                       padding: "20px",
