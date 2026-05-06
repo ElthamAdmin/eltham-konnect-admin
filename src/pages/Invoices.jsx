@@ -8,6 +8,7 @@ function Invoices() {
   const [selectedAccountByInvoice, setSelectedAccountByInvoice] = useState({});
   const [paymentLinkByInvoice, setPaymentLinkByInvoice] = useState({});
   const [chargeFormByInvoice, setChargeFormByInvoice] = useState({});
+  const [selectedChargeInvoice, setSelectedChargeInvoice] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [pageSize, setPageSize] = useState(25);
   const [currentPage, setCurrentPage] = useState(1);
@@ -510,6 +511,205 @@ const saveInvoiceCharges = async (invoiceNumber) => {
     </div>
   );
 
+  {selectedChargeInvoice && (
+  <div
+    style={{
+      position: "fixed",
+      inset: 0,
+      backgroundColor: "rgba(15,23,42,0.7)",
+      zIndex: 9999,
+      display: "flex",
+      justifyContent: "center",
+      alignItems: "center",
+      padding: "20px",
+    }}
+  >
+    <div
+      style={{
+        width: "100%",
+        maxWidth: "520px",
+        backgroundColor: WHITE,
+        borderRadius: "18px",
+        padding: "24px",
+        border: `1px solid ${BORDER}`,
+        boxShadow: "0 25px 60px rgba(0,0,0,0.25)",
+      }}
+    >
+      <h2
+        style={{
+          marginTop: 0,
+          color: ROYAL_BLUE,
+        }}
+      >
+        Invoice Charge Adjustments
+      </h2>
+
+      <p style={{ color: MUTED }}>
+        {selectedChargeInvoice.invoiceNumber}
+      </p>
+
+      <div
+        style={{
+          display: "grid",
+          gap: "12px",
+          marginTop: "20px",
+        }}
+      >
+        <input
+          type="number"
+          placeholder="Customs Duty"
+          value={
+            chargeFormByInvoice[selectedChargeInvoice.invoiceNumber]
+              ?.customsDuty ?? 0
+          }
+          onChange={(e) =>
+            handleChargeChange(
+              selectedChargeInvoice.invoiceNumber,
+              "customsDuty",
+              e.target.value
+            )
+          }
+          style={{
+            padding: "12px",
+            borderRadius: "10px",
+            border: `1px solid ${BORDER}`,
+          }}
+        />
+
+        <input
+          type="number"
+          placeholder="GCT"
+          value={
+            chargeFormByInvoice[selectedChargeInvoice.invoiceNumber]?.gct ?? 0
+          }
+          onChange={(e) =>
+            handleChargeChange(
+              selectedChargeInvoice.invoiceNumber,
+              "gct",
+              e.target.value
+            )
+          }
+          style={{
+            padding: "12px",
+            borderRadius: "10px",
+            border: `1px solid ${BORDER}`,
+          }}
+        />
+
+        <input
+          type="number"
+          placeholder="Processing Fee"
+          value={
+            chargeFormByInvoice[selectedChargeInvoice.invoiceNumber]
+              ?.processingFee ?? 0
+          }
+          onChange={(e) =>
+            handleChargeChange(
+              selectedChargeInvoice.invoiceNumber,
+              "processingFee",
+              e.target.value
+            )
+          }
+          style={{
+            padding: "12px",
+            borderRadius: "10px",
+            border: `1px solid ${BORDER}`,
+          }}
+        />
+
+        <input
+          type="number"
+          placeholder="Other Adjustment"
+          value={
+            chargeFormByInvoice[selectedChargeInvoice.invoiceNumber]
+              ?.otherAdjustment ?? 0
+          }
+          onChange={(e) =>
+            handleChargeChange(
+              selectedChargeInvoice.invoiceNumber,
+              "otherAdjustment",
+              e.target.value
+            )
+          }
+          style={{
+            padding: "12px",
+            borderRadius: "10px",
+            border: `1px solid ${BORDER}`,
+          }}
+        />
+
+        <textarea
+          placeholder="Adjustment Note"
+          rows="4"
+          value={
+            chargeFormByInvoice[selectedChargeInvoice.invoiceNumber]
+              ?.adjustmentNote ?? ""
+          }
+          onChange={(e) =>
+            handleChargeChange(
+              selectedChargeInvoice.invoiceNumber,
+              "adjustmentNote",
+              e.target.value
+            )
+          }
+          style={{
+            padding: "12px",
+            borderRadius: "10px",
+            border: `1px solid ${BORDER}`,
+            resize: "vertical",
+          }}
+        />
+      </div>
+
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "flex-end",
+          gap: "10px",
+          marginTop: "22px",
+          flexWrap: "wrap",
+        }}
+      >
+        <button
+          onClick={() => setSelectedChargeInvoice(null)}
+          style={{
+            backgroundColor: "#64748b",
+            color: WHITE,
+            border: "none",
+            padding: "10px 16px",
+            borderRadius: "8px",
+            cursor: "pointer",
+            fontWeight: "bold",
+          }}
+        >
+          Close
+        </button>
+
+        <button
+          onClick={async () => {
+            await saveInvoiceCharges(
+              selectedChargeInvoice.invoiceNumber
+            );
+
+            setSelectedChargeInvoice(null);
+          }}
+          style={{
+            backgroundColor: "#7c3aed",
+            color: WHITE,
+            border: "none",
+            padding: "10px 16px",
+            borderRadius: "8px",
+            cursor: "pointer",
+            fontWeight: "bold",
+          }}
+        >
+          Save Charges
+        </button>
+      </div>
+    </div>
+  </div>
+)}
+
   return (
     <div style={{ backgroundColor: LIGHT_BG, minHeight: "100vh" }}>
       <div style={{ marginBottom: "20px" }}>
@@ -775,87 +975,17 @@ const saveInvoiceCharges = async (invoiceNumber) => {
                           minWidth: "150px",
                         }}
                       >
-                        <div
+                        <button
+  onClick={() => setSelectedChargeInvoice(inv)}
+  disabled={inv.status === "Paid"}
   style={{
-    display: "grid",
-    gap: "6px",
-    padding: "10px",
-    border: `1px solid ${BORDER}`,
-    borderRadius: "10px",
-    backgroundColor: "#f8fafc",
+    ...actionButtonStyle,
+    backgroundColor: inv.status === "Paid" ? "#94a3b8" : "#7c3aed",
+    cursor: inv.status === "Paid" ? "not-allowed" : "pointer",
   }}
 >
-  <strong style={{ color: ROYAL_BLUE, fontSize: "13px" }}>
-    Extra Charges
-  </strong>
-
-  <input
-    type="number"
-    placeholder="Customs Duty"
-    value={chargeFormByInvoice[inv.invoiceNumber]?.customsDuty ?? 0}
-    onChange={(e) =>
-      handleChargeChange(inv.invoiceNumber, "customsDuty", e.target.value)
-    }
-    disabled={inv.status === "Paid"}
-    style={{ padding: "8px", borderRadius: "8px", border: `1px solid ${BORDER}` }}
-  />
-
-  <input
-    type="number"
-    placeholder="GCT"
-    value={chargeFormByInvoice[inv.invoiceNumber]?.gct ?? 0}
-    onChange={(e) =>
-      handleChargeChange(inv.invoiceNumber, "gct", e.target.value)
-    }
-    disabled={inv.status === "Paid"}
-    style={{ padding: "8px", borderRadius: "8px", border: `1px solid ${BORDER}` }}
-  />
-
-  <input
-    type="number"
-    placeholder="Processing Fee"
-    value={chargeFormByInvoice[inv.invoiceNumber]?.processingFee ?? 0}
-    onChange={(e) =>
-      handleChargeChange(inv.invoiceNumber, "processingFee", e.target.value)
-    }
-    disabled={inv.status === "Paid"}
-    style={{ padding: "8px", borderRadius: "8px", border: `1px solid ${BORDER}` }}
-  />
-
-  <input
-    type="number"
-    placeholder="Other Adjustment"
-    value={chargeFormByInvoice[inv.invoiceNumber]?.otherAdjustment ?? 0}
-    onChange={(e) =>
-      handleChargeChange(inv.invoiceNumber, "otherAdjustment", e.target.value)
-    }
-    disabled={inv.status === "Paid"}
-    style={{ padding: "8px", borderRadius: "8px", border: `1px solid ${BORDER}` }}
-  />
-
-  <input
-    type="text"
-    placeholder="Adjustment note"
-    value={chargeFormByInvoice[inv.invoiceNumber]?.adjustmentNote ?? ""}
-    onChange={(e) =>
-      handleChargeChange(inv.invoiceNumber, "adjustmentNote", e.target.value)
-    }
-    disabled={inv.status === "Paid"}
-    style={{ padding: "8px", borderRadius: "8px", border: `1px solid ${BORDER}` }}
-  />
-
-  <button
-    onClick={() => saveInvoiceCharges(inv.invoiceNumber)}
-    disabled={inv.status === "Paid"}
-    style={{
-      ...actionButtonStyle,
-      backgroundColor: inv.status === "Paid" ? "#94a3b8" : "#7c3aed",
-      cursor: inv.status === "Paid" ? "not-allowed" : "pointer",
-    }}
-  >
-    Save Charges
-  </button>
-</div>
+  Edit Charges
+</button>
 
                       <button
   onClick={() => applyPointsToInvoice(inv.invoiceNumber)}
@@ -901,7 +1031,7 @@ const saveInvoiceCharges = async (invoiceNumber) => {
               ) : (
                 <tr>
                   <td
-                    colSpan="9"
+                    colSpan="17"
                     style={{
                       textAlign: "center",
                       padding: "20px",
