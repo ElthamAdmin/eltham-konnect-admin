@@ -851,235 +851,149 @@ const saveInvoiceCharges = async (invoiceNumber) => {
             <div style={{ marginTop: "15px" }}>{paginationControls}</div>
 
       {selectedChargeInvoice && (
-        <div
+  <div
+    style={{
+      position: "fixed",
+      inset: 0,
+      backgroundColor: "rgba(15,23,42,0.7)",
+      zIndex: 9999,
+      display: "flex",
+      justifyContent: "center",
+      alignItems: "center",
+      padding: "20px",
+    }}
+  >
+    <div
+      style={{
+        width: "100%",
+        maxWidth: "520px",
+        backgroundColor: WHITE,
+        borderRadius: "18px",
+        padding: "24px",
+        border: `1px solid ${BORDER}`,
+        boxShadow: "0 25px 60px rgba(0,0,0,0.25)",
+      }}
+    >
+      <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>
+        Invoice Charge Adjustments
+      </h2>
+
+      <p style={{ color: MUTED, marginTop: 0 }}>
+        {selectedChargeInvoice.invoiceNumber}
+      </p>
+
+      <div style={{ display: "grid", gap: "10px", marginTop: "18px" }}>
+        <label style={{ fontWeight: "bold", color: "#334155" }}>
+          Customs Duty
+        </label>
+        <input
+          type="number"
+          value={chargeFormByInvoice[selectedChargeInvoice.invoiceNumber]?.customsDuty ?? 0}
+          onChange={(e) =>
+            handleChargeChange(selectedChargeInvoice.invoiceNumber, "customsDuty", e.target.value)
+          }
+          style={{ padding: "12px", borderRadius: "10px", border: `1px solid ${BORDER}` }}
+        />
+
+        <label style={{ fontWeight: "bold", color: "#334155" }}>
+          GCT
+        </label>
+        <input
+          type="number"
+          value={chargeFormByInvoice[selectedChargeInvoice.invoiceNumber]?.gct ?? 0}
+          onChange={(e) =>
+            handleChargeChange(selectedChargeInvoice.invoiceNumber, "gct", e.target.value)
+          }
+          style={{ padding: "12px", borderRadius: "10px", border: `1px solid ${BORDER}` }}
+        />
+
+        <label style={{ fontWeight: "bold", color: "#334155" }}>
+          Processing Fee
+        </label>
+        <input
+          type="number"
+          value={chargeFormByInvoice[selectedChargeInvoice.invoiceNumber]?.processingFee ?? 0}
+          onChange={(e) =>
+            handleChargeChange(selectedChargeInvoice.invoiceNumber, "processingFee", e.target.value)
+          }
+          style={{ padding: "12px", borderRadius: "10px", border: `1px solid ${BORDER}` }}
+        />
+
+        <label style={{ fontWeight: "bold", color: "#334155" }}>
+          Other Adjustment
+        </label>
+        <input
+          type="number"
+          value={chargeFormByInvoice[selectedChargeInvoice.invoiceNumber]?.otherAdjustment ?? 0}
+          onChange={(e) =>
+            handleChargeChange(selectedChargeInvoice.invoiceNumber, "otherAdjustment", e.target.value)
+          }
+          style={{ padding: "12px", borderRadius: "10px", border: `1px solid ${BORDER}` }}
+        />
+
+        <label style={{ fontWeight: "bold", color: "#334155" }}>
+          Adjustment Note
+        </label>
+        <textarea
+          rows="4"
+          value={chargeFormByInvoice[selectedChargeInvoice.invoiceNumber]?.adjustmentNote ?? ""}
+          onChange={(e) =>
+            handleChargeChange(selectedChargeInvoice.invoiceNumber, "adjustmentNote", e.target.value)
+          }
           style={{
-            position: "fixed",
-            inset: 0,
-            backgroundColor: "rgba(15,23,42,0.7)",
-            zIndex: 9999,
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "center",
-            padding: "20px",
+            padding: "12px",
+            borderRadius: "10px",
+            border: `1px solid ${BORDER}`,
+            resize: "vertical",
+          }}
+        />
+      </div>
+
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "flex-end",
+          gap: "10px",
+          marginTop: "22px",
+          flexWrap: "wrap",
+        }}
+      >
+        <button
+          onClick={() => setSelectedChargeInvoice(null)}
+          style={{
+            backgroundColor: "#64748b",
+            color: WHITE,
+            border: "none",
+            padding: "10px 16px",
+            borderRadius: "8px",
+            cursor: "pointer",
+            fontWeight: "bold",
           }}
         >
-          <div
-            style={{
-              width: "100%",
-              maxWidth: "520px",
-              backgroundColor: WHITE,
-              borderRadius: "18px",
-              padding: "24px",
-              border: `1px solid ${BORDER}`,
-              boxShadow: "0 25px 60px rgba(0,0,0,0.25)",
-            }}
-          >
-            <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>
-              Invoice Charge Adjustments
-            </h2>
+          Close
+        </button>
 
-            <p style={{ color: MUTED }}>{selectedChargeInvoice.invoiceNumber}</p>
-
-            <div style={{ display: "grid", gap: "12px", marginTop: "20px" }}>
-              <label style={{ fontWeight: "bold", color: "#334155" }}>Customs Duty</label>
-<input
-  type="number"
-  placeholder="Customs Duty"
-  value={
-    chargeFormByInvoice[selectedChargeInvoice.invoiceNumber]?.customsDuty ?? 0
-  }
-  onChange={(e) =>
-    handleChargeChange(selectedChargeInvoice.invoiceNumber, "customsDuty", e.target.value)
-  }
-  style={{ padding: "12px", borderRadius: "10px", border: `1px solid ${BORDER}` }}
-/>
-
-<label style={{ fontWeight: "bold", color: "#334155" }}>GCT</label>
-<input
-  type="number"
-  placeholder="GCT"
-  value={chargeFormByInvoice[selectedChargeInvoice.invoiceNumber]?.gct ?? 0}
-  onChange={(e) =>
-    handleChargeChange(selectedChargeInvoice.invoiceNumber, "gct", e.target.value)
-  }
-  style={{ padding: "12px", borderRadius: "10px", border: `1px solid ${BORDER}` }}
-/>
-
-<label style={{ fontWeight: "bold", color: "#334155" }}>Processing Fee</label>
-<input
-  type="number"
-  placeholder="Processing Fee"
-  value={
-    chargeFormByInvoice[selectedChargeInvoice.invoiceNumber]?.processingFee ?? 0
-  }
-  onChange={(e) =>
-    handleChargeChange(selectedChargeInvoice.invoiceNumber, "processingFee", e.target.value)
-  }
-  style={{ padding: "12px", borderRadius: "10px", border: `1px solid ${BORDER}` }}
-/>
-
-<label style={{ fontWeight: "bold", color: "#334155" }}>Other Adjustment</label>
-<input
-  type="number"
-  placeholder="Other Adjustment"
-  value={
-    chargeFormByInvoice[selectedChargeInvoice.invoiceNumber]?.otherAdjustment ?? 0
-  }
-  onChange={(e) =>
-    handleChargeChange(selectedChargeInvoice.invoiceNumber, "otherAdjustment", e.target.value)
-  }
-  style={{ padding: "12px", borderRadius: "10px", border: `1px solid ${BORDER}` }}
-/>
-
-<label style={{ fontWeight: "bold", color: "#334155" }}>Adjustment Note</label>
-<textarea
-  placeholder="Adjustment Note"
-  rows="4"
-  value={
-    chargeFormByInvoice[selectedChargeInvoice.invoiceNumber]?.adjustmentNote ?? ""
-  }
-  onChange={(e) =>
-    handleChargeChange(selectedChargeInvoice.invoiceNumber, "adjustmentNote", e.target.value)
-  }
-  style={{
-    padding: "12px",
-    borderRadius: "10px",
-    border: `1px solid ${BORDER}`,
-    resize: "vertical",
-  }}
-/>
-
-              <input
-                type="number"
-                placeholder="GCT"
-                value={
-                  chargeFormByInvoice[selectedChargeInvoice.invoiceNumber]?.gct ??
-                  0
-                }
-                onChange={(e) =>
-                  handleChargeChange(
-                    selectedChargeInvoice.invoiceNumber,
-                    "gct",
-                    e.target.value
-                  )
-                }
-                style={{
-                  padding: "12px",
-                  borderRadius: "10px",
-                  border: `1px solid ${BORDER}`,
-                }}
-              />
-
-              <input
-                type="number"
-                placeholder="Processing Fee"
-                value={
-                  chargeFormByInvoice[selectedChargeInvoice.invoiceNumber]
-                    ?.processingFee ?? 0
-                }
-                onChange={(e) =>
-                  handleChargeChange(
-                    selectedChargeInvoice.invoiceNumber,
-                    "processingFee",
-                    e.target.value
-                  )
-                }
-                style={{
-                  padding: "12px",
-                  borderRadius: "10px",
-                  border: `1px solid ${BORDER}`,
-                }}
-              />
-
-              <input
-                type="number"
-                placeholder="Other Adjustment"
-                value={
-                  chargeFormByInvoice[selectedChargeInvoice.invoiceNumber]
-                    ?.otherAdjustment ?? 0
-                }
-                onChange={(e) =>
-                  handleChargeChange(
-                    selectedChargeInvoice.invoiceNumber,
-                    "otherAdjustment",
-                    e.target.value
-                  )
-                }
-                style={{
-                  padding: "12px",
-                  borderRadius: "10px",
-                  border: `1px solid ${BORDER}`,
-                }}
-              />
-
-              <textarea
-                placeholder="Adjustment Note"
-                rows="4"
-                value={
-                  chargeFormByInvoice[selectedChargeInvoice.invoiceNumber]
-                    ?.adjustmentNote ?? ""
-                }
-                onChange={(e) =>
-                  handleChargeChange(
-                    selectedChargeInvoice.invoiceNumber,
-                    "adjustmentNote",
-                    e.target.value
-                  )
-                }
-                style={{
-                  padding: "12px",
-                  borderRadius: "10px",
-                  border: `1px solid ${BORDER}`,
-                  resize: "vertical",
-                }}
-              />
-            </div>
-
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "flex-end",
-                gap: "10px",
-                marginTop: "22px",
-                flexWrap: "wrap",
-              }}
-            >
-              <button
-                onClick={() => setSelectedChargeInvoice(null)}
-                style={{
-                  backgroundColor: "#64748b",
-                  color: WHITE,
-                  border: "none",
-                  padding: "10px 16px",
-                  borderRadius: "8px",
-                  cursor: "pointer",
-                  fontWeight: "bold",
-                }}
-              >
-                Close
-              </button>
-
-              <button
-                onClick={async () => {
-                  await saveInvoiceCharges(selectedChargeInvoice.invoiceNumber);
-                  setSelectedChargeInvoice(null);
-                }}
-                style={{
-                  backgroundColor: "#7c3aed",
-                  color: WHITE,
-                  border: "none",
-                  padding: "10px 16px",
-                  borderRadius: "8px",
-                  cursor: "pointer",
-                  fontWeight: "bold",
-                }}
-              >
-                Save Charges
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+        <button
+          onClick={async () => {
+            await saveInvoiceCharges(selectedChargeInvoice.invoiceNumber);
+            setSelectedChargeInvoice(null);
+          }}
+          style={{
+            backgroundColor: "#7c3aed",
+            color: WHITE,
+            border: "none",
+            padding: "10px 16px",
+            borderRadius: "8px",
+            cursor: "pointer",
+            fontWeight: "bold",
+          }}
+        >
+          Save Charges
+        </button>
+      </div>
+    </div>
+  </div>
+)}
     </div>
   );
 }
