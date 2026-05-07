@@ -273,7 +273,15 @@ function AmazonAssociateLinks() {
       >
         <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>Associate Items</h2>
 
-        <div style={{ overflowX: "auto" }}>
+        <div
+  style={{
+    overflowX: "auto",
+    overflowY: "auto",
+    maxHeight: "70vh",
+    border: `1px solid ${BORDER}`,
+    borderRadius: "12px",
+  }}
+>
           <table
             border="1"
             cellPadding="10"
@@ -284,7 +292,14 @@ function AmazonAssociateLinks() {
               borderColor: BORDER,
             }}
           >
-            <thead style={{ backgroundColor: "#eef4ff" }}>
+            <thead
+  style={{
+    backgroundColor: "#eef4ff",
+    position: "sticky",
+    top: 0,
+    zIndex: 5,
+  }}
+>
               <tr>
                 <th>Image</th>
                 <th>Title</th>
@@ -293,7 +308,17 @@ function AmazonAssociateLinks() {
                 <th>Button Text</th>
                 <th>Sort Order</th>
                 <th>Status</th>
-                <th>Action</th>
+                <th
+  style={{
+    position: "sticky",
+    right: 0,
+    backgroundColor: "#eef4ff",
+    zIndex: 6,
+    minWidth: "180px",
+  }}
+>
+  Action
+</th>
               </tr>
             </thead>
 
@@ -333,8 +358,17 @@ function AmazonAssociateLinks() {
                     <td>{item.buttonText}</td>
                     <td>{item.sortOrder}</td>
                     <td>{item.isActive ? "Active" : "Inactive"}</td>
-                    <td>
-                      <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                    <td
+  style={{
+    position: "sticky",
+    right: 0,
+    backgroundColor: WHITE,
+    zIndex: 4,
+    minWidth: "180px",
+    boxShadow: "-4px 0 8px rgba(15,23,42,0.08)",
+  }}
+>
+  <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
                         <button
                           onClick={() => loadForEdit(item)}
                           style={{
