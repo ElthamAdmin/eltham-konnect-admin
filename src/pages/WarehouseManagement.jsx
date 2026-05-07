@@ -232,9 +232,32 @@ function WarehouseManagement() {
       >
         <h2>Warehouse Package Flow</h2>
 
-        <div style={{ overflowX: "auto" }}>
-          <table border="1" cellPadding="10" style={{ width: "100%", minWidth: "1400px" }}>
-            <thead>
+        <div
+  style={{
+    overflowX: "auto",
+    overflowY: "auto",
+    maxHeight: "70vh",
+    border: "1px solid #e5e7eb",
+    borderRadius: "10px",
+  }}
+>
+          <table
+  border="1"
+  cellPadding="10"
+  style={{
+    width: "100%",
+    minWidth: "1400px",
+    borderCollapse: "collapse",
+  }}
+>
+            <thead
+  style={{
+    backgroundColor: "#eef4ff",
+    position: "sticky",
+    top: 0,
+    zIndex: 5,
+  }}
+>
               <tr>
                 <th>Tracking Number</th>
                 <th>Customer EKON ID</th>
@@ -244,7 +267,17 @@ function WarehouseManagement() {
                 <th>Status</th>
                 <th>Warehouse Location</th>
                 <th>Date Received</th>
-                <th>Actions</th>
+                <th
+  style={{
+    position: "sticky",
+    right: 0,
+    backgroundColor: "#eef4ff",
+    zIndex: 6,
+    minWidth: "180px",
+  }}
+>
+  Actions
+</th>
               </tr>
             </thead>
 
@@ -275,8 +308,17 @@ function WarehouseManagement() {
                         ? new Date(pkg.dateReceived).toISOString().split("T")[0]
                         : ""}
                     </td>
-                    <td>
-                      {getNextStatus(pkg.status) ? (
+                    <td
+  style={{
+    position: "sticky",
+    right: 0,
+    backgroundColor: "white",
+    zIndex: 4,
+    minWidth: "180px",
+    boxShadow: "-4px 0 8px rgba(15,23,42,0.08)",
+  }}
+>
+  {getNextStatus(pkg.status) ? (
                         <button
                           onClick={() =>
                             updateStatus(pkg.trackingNumber, getNextStatus(pkg.status))
