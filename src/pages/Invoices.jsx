@@ -12,6 +12,10 @@ function Invoices() {
   const [searchTerm, setSearchTerm] = useState("");
   const [pageSize, setPageSize] = useState(25);
   const [currentPage, setCurrentPage] = useState(1);
+  const [packages, setPackages] = useState([]);
+  const [selectedCustomerEkonId, setSelectedCustomerEkonId] = useState("");
+  const [selectedPackageIds, setSelectedPackageIds] = useState([]);
+  const [pointsToRedeem, setPointsToRedeem] = useState("");
 
   const ROYAL_BLUE = "#0B3D91";
   const GOLD = "#D4AF37";
@@ -60,11 +64,21 @@ setChargeFormByInvoice(chargeForms);
   useEffect(() => {
     fetchInvoices();
     fetchAccounts();
+    fetchPackages();
   }, []);
 
   useEffect(() => {
     setCurrentPage(1);
   }, [searchTerm, pageSize]);
+
+  const fetchPackages = async () => {
+  try {
+    const res = await api.get("/api/packages");
+    setPackages(res.data.data || []);
+  } catch (error) {
+    console.error("Error loading packages:", error);
+  }
+};
 
   const handleAccountChange = (invoiceNumber, accountNumber) => {
     setSelectedAccountByInvoice((prev) => ({
@@ -176,6 +190,76 @@ const saveInvoiceCharges = async (invoiceNumber) => {
       alert(error?.response?.data?.message || "Could not mark invoice as paid.");
     }
   };
+
+  const readyUninvoicedPackages = useMemo(() => {
+  return packages.filter(
+    (pkg) =>
+      pkg.readyForPickup === true &&
+      pkg.invoiceStatus !== "Issued" &&
+      pkg.invoiceStatus !== "Paid"
+  );
+}, [packages]);
+
+const customerOptions = useMemo(() => {
+  const map = {};
+
+  readyUninvoicedPackages.forEach((pkg) => {
+    map[pkg.customerEkonId] = pkg.customerName;
+  });
+
+  return Object.entries(map).map(([ekonId, name]) => ({
+    ekonId,
+    name,
+  }));
+}, [readyUninvoicedPackages]);
+
+const customerReadyPackages = useMemo(() => {
+  if (!selectedCustomerEkonId) return [];
+
+  return readyUninvoicedPackages.filter(
+    (pkg) => pkg.customerEkonId === selectedCustomerEkonId
+  );
+}, [readyUninvoicedPackages, selectedCustomerEkonId]);
+
+const togglePackageSelection = (packageId) => {
+  setSelectedPackageIds((prev) =>
+    prev.includes(packageId)
+      ? prev.filter((id) => id !== packageId)
+      : [...prev, packageId]
+  );
+};
+
+const generateSelectedInvoice = async () => {
+  if (!selectedCustomerEkonId) {
+    alert("Please select a customer.");
+    return;
+  }
+
+  if (selectedPackageIds.length === 0) {
+    alert("Please select at least one ready package.");
+    return;
+  }
+
+  try {
+    const res = await api.post("/api/invoices/generate-multiple", {
+      customerEkonId: selectedCustomerEkonId,
+      packageIds: selectedPackageIds,
+      pointsToRedeem: Number(pointsToRedeem || 0),
+    });
+
+    alert(res.data.message || "Invoice generated successfully.");
+
+    setSelectedCustomerEkonId("");
+    setSelectedPackageIds([]);
+    setPointsToRedeem("");
+
+    await fetchInvoices();
+    await fetchPackages();
+  } catch (error) {
+    console.error("Error generating selected invoice:", error);
+    alert(error?.response?.data?.message || "Could not generate invoice.");
+  }
+};
 
   const filteredInvoices = useMemo(() => {
     return invoices.filter((inv) =>
@@ -593,6 +677,118 @@ const saveInvoiceCharges = async (invoiceNumber) => {
           </div>
         </div>
       </div>
+
+      <div
+  style={{
+    backgroundColor: WHITE,
+    border: `1px solid ${BORDER}`,
+    borderRadius: "12px",
+    padding: "16px",
+    marginBottom: "16px",
+    boxShadow: "0 2px 8px rgba(15,23,42,0.04)",
+  }}
+>
+  <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>
+    Generate Invoice From Selected Packages
+  </h2>
+
+  <p style={{ color: MUTED }}>
+    Select only the packages the customer wants to pay for today.
+  </p>
+
+  <div style={{ display: "grid", gap: "12px" }}>
+    <select
+      value={selectedCustomerEkonId}
+      onChange={(e) => {
+        setSelectedCustomerEkonId(e.target.value);
+        setSelectedPackageIds([]);
+      }}
+      style={{
+        padding: "12px",
+        borderRadius: "8px",
+        border: `1px solid ${BORDER}`,
+      }}
+    >
+      <option value="">Select Customer With Ready Packages</option>
+      {customerOptions.map((customer) => (
+        <option key={customer.ekonId} value={customer.ekonId}>
+          {customer.name} ({customer.ekonId})
+        </option>
+      ))}
+    </select>
+
+    {selectedCustomerEkonId && (
+      <div
+        style={{
+          border: `1px solid ${BORDER}`,
+          borderRadius: "10px",
+          overflow: "hidden",
+        }}
+      >
+        {customerReadyPackages.length > 0 ? (
+          customerReadyPackages.map((pkg) => (
+            <label
+              key={pkg._id}
+              style={{
+                display: "grid",
+                gridTemplateColumns: "40px 1fr",
+                gap: "10px",
+                padding: "12px",
+                borderBottom: `1px solid ${BORDER}`,
+                cursor: "pointer",
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={selectedPackageIds.includes(pkg._id)}
+                onChange={() => togglePackageSelection(pkg._id)}
+              />
+
+              <div>
+                <strong>{pkg.trackingNumber}</strong>
+                <div style={{ color: MUTED, fontSize: "14px" }}>
+                  Weight: {pkg.weight || 0} lb | Status: {pkg.status} | Invoice:{" "}
+                  {pkg.invoiceStatus || "Pending"}
+                </div>
+              </div>
+            </label>
+          ))
+        ) : (
+          <div style={{ padding: "14px", color: MUTED }}>
+            No ready uninvoiced packages found for this customer.
+          </div>
+        )}
+      </div>
+    )}
+
+    <input
+      type="number"
+      placeholder="Optional EK points to redeem"
+      value={pointsToRedeem}
+      onChange={(e) => setPointsToRedeem(e.target.value)}
+      style={{
+        padding: "12px",
+        borderRadius: "8px",
+        border: `1px solid ${BORDER}`,
+      }}
+    />
+
+    <button
+      onClick={generateSelectedInvoice}
+      style={{
+        backgroundColor: ROYAL_BLUE,
+        color: WHITE,
+        border: "none",
+        padding: "12px 16px",
+        borderRadius: "8px",
+        cursor: "pointer",
+        fontWeight: "bold",
+      }}
+    >
+      Generate Invoice for Selected Packages
+    </button>
+  </div>
+</div>
 
       <div
         style={{
