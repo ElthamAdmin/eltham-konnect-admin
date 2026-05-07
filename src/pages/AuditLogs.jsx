@@ -286,11 +286,44 @@ function AuditLogs() {
       >
         <h2 style={{ marginTop: 0 }}>System Activity</h2>
 
-        <div style={{ overflowX: "auto" }}>
-          <table border="1" cellPadding="10" style={{ minWidth: "1800px", width: "100%" }}>
-            <thead>
+        <div
+  style={{
+    overflowX: "auto",
+    overflowY: "auto",
+    maxHeight: "70vh",
+    border: "1px solid #e5e7eb",
+    borderRadius: "10px",
+  }}
+>
+          <table
+  border="1"
+  cellPadding="10"
+  style={{
+    minWidth: "1800px",
+    width: "100%",
+    borderCollapse: "collapse",
+  }}
+>
+            <thead
+  style={{
+    backgroundColor: "#eef4ff",
+    position: "sticky",
+    top: 0,
+    zIndex: 5,
+  }}
+>
               <tr>
-                <th>Date & Time</th>
+                <th
+  style={{
+    position: "sticky",
+    left: 0,
+    backgroundColor: "#eef4ff",
+    zIndex: 6,
+    minWidth: "180px",
+  }}
+>
+  Date & Time
+</th>
                 <th>Audit No.</th>
                 <th>User</th>
                 <th>Role</th>
@@ -307,7 +340,18 @@ function AuditLogs() {
               {paginatedLogs.length > 0 ? (
                 paginatedLogs.map((log) => (
                   <tr key={log._id}>
-                    <td>{formatDateTime(log.createdAt)}</td>
+                    <td
+  style={{
+    position: "sticky",
+    left: 0,
+    backgroundColor: "white",
+    zIndex: 4,
+    minWidth: "180px",
+    boxShadow: "4px 0 8px rgba(15,23,42,0.08)",
+  }}
+>
+  {formatDateTime(log.createdAt)}
+</td>
                     <td>{log.auditNumber}</td>
                     <td>{log.performedByName || "System"}</td>
                     <td>{log.performedByRole || ""}</td>
