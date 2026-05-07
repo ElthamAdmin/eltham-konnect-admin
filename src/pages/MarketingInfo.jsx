@@ -799,7 +799,16 @@ function MarketingInfo() {
         {loadingCampaigns ? (
           <p>Loading campaigns...</p>
         ) : (
-          <div style={{ overflowX: "auto" }}>
+          <div
+  style={{
+    overflowX: "auto",
+    overflowY: "auto",
+    maxHeight: "70vh",
+    border: `1px solid ${BORDER}`,
+    borderRadius: "12px",
+    position: "relative",
+  }}
+>
             <table
               border="1"
               cellPadding="10"
@@ -810,18 +819,101 @@ function MarketingInfo() {
                 borderColor: BORDER,
               }}
             >
-              <thead style={{ backgroundColor: "#eef4ff" }}>
+              <thead
+  style={{
+    backgroundColor: "#eef4ff",
+    position: "sticky",
+    top: 0,
+    zIndex: 20,
+  }}
+>
                 <tr>
-                  <th>Campaign Number</th>
-                  <th>Campaign Name</th>
-                  <th>Channel</th>
-                  <th>Audience</th>
-                  <th>Budget</th>
-                  <th>Status</th>
-                  <th>Start Date</th>
-                  <th>End Date</th>
-                  <th>Notes</th>
-                  <th>Actions</th>
+                  <th
+  style={{
+    backgroundColor: "#eef4ff",
+    padding: "12px",
+    whiteSpace: "nowrap",
+  }}
+>
+  Campaign Number
+</th>
+                  <th
+  style={{
+    backgroundColor: "#eef4ff",
+    padding: "12px",
+    whiteSpace: "nowrap",
+  }}
+>
+  Campaign Name
+</th>
+                  <th
+  style={{
+    backgroundColor: "#eef4ff",
+    padding: "12px",
+    whiteSpace: "nowrap",
+  }}
+>
+  Channel
+</th>
+                  <th
+  style={{
+    backgroundColor: "#eef4ff",
+    padding: "12px",
+    whiteSpace: "nowrap",
+  }}
+>
+Audience</th>
+                  <th
+  style={{
+    backgroundColor: "#eef4ff",
+    padding: "12px",
+    whiteSpace: "nowrap",
+  }}
+>
+Budget</th>
+                  <th
+  style={{
+    backgroundColor: "#eef4ff",
+    padding: "12px",
+    whiteSpace: "nowrap",
+  }}
+>
+Status</th>
+                  <th
+  style={{
+    backgroundColor: "#eef4ff",
+    padding: "12px",
+    whiteSpace: "nowrap",
+  }}
+>
+Start Date</th>
+                  <th
+  style={{
+    backgroundColor: "#eef4ff",
+    padding: "12px",
+    whiteSpace: "nowrap",
+  }}
+>
+End Date</th>
+                  <th
+  style={{
+    backgroundColor: "#eef4ff",
+    padding: "12px",
+    whiteSpace: "nowrap",
+  }}
+>
+Notes</th>
+                  <th
+  style={{
+    position: "sticky",
+    right: 0,
+    backgroundColor: "#eef4ff",
+    zIndex: 25,
+    minWidth: "140px",
+  }}
+>
+  Actions
+</th>
                 </tr>
               </thead>
 
@@ -829,7 +921,15 @@ function MarketingInfo() {
                 {paginatedCampaigns.length > 0 ? (
                   paginatedCampaigns.map((campaign) => (
                     <tr key={campaign._id}>
-                      <td style={{ fontWeight: "bold", color: "#334155" }}>
+                      <td
+  style={{
+    position: "sticky",
+    right: 0,
+    backgroundColor: WHITE,
+    zIndex: 10,
+    minWidth: "140px",
+  }}
+>
                         {campaign.campaignNumber}
                       </td>
                       <td>{campaign.campaignName}</td>
