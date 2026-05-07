@@ -442,9 +442,24 @@ function Manifests() {
             })}
           </div>
         ) : (
-          <div style={{ overflowX: "auto" }}>
+          <div
+  style={{
+    overflowX: "auto",
+    overflowY: "auto",
+    maxHeight: "70vh",
+    border: `1px solid ${BORDER}`,
+    borderRadius: "12px",
+  }}
+>
             <table style={{ width: "100%", minWidth: "1250px", borderCollapse: "collapse", fontSize: "14px" }}>
-              <thead style={{ backgroundColor: "#eef4ff" }}>
+              <thead
+  style={{
+    backgroundColor: "#eef4ff",
+    position: "sticky",
+    top: 0,
+    zIndex: 5,
+  }}
+>
                 <tr>
                   <th style={thStyle}>Manifest Number</th>
                   <th style={thStyle}>Origin</th>
@@ -454,7 +469,18 @@ function Manifests() {
                   <th style={thStyle}>Packages</th>
                   <th style={thStyle}>Status</th>
                   <th style={thStyle}>Date</th>
-                  <th style={thStyle}>Actions</th>
+                  <th
+  style={{
+    ...thStyle,
+    position: "sticky",
+    right: 0,
+    backgroundColor: "#eef4ff",
+    zIndex: 6,
+    minWidth: "160px",
+  }}
+>
+  Actions
+</th>
                 </tr>
               </thead>
 
@@ -487,7 +513,19 @@ function Manifests() {
                           </span>
                         </td>
                         <td style={tdStyle}>{formatDate(manifest.createdAt)}</td>
-                        <td style={tdStyle}>{renderActions(manifest)}</td>
+                        <td
+  style={{
+    ...tdStyle,
+    position: "sticky",
+    right: 0,
+    backgroundColor: WHITE,
+    zIndex: 4,
+    boxShadow: "-4px 0 8px rgba(15,23,42,0.08)",
+    minWidth: "160px",
+  }}
+>
+  {renderActions(manifest)}
+</td>
                       </tr>
                     );
                   })
