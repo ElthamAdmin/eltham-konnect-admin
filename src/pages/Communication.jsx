@@ -652,7 +652,15 @@ function Communication() {
           <p>Loading communication logs...</p>
         ) : (
           <>
-            <div style={{ overflowX: "auto" }}>
+            <div
+  style={{
+    overflowX: "auto",
+    overflowY: "auto",
+    maxHeight: "70vh",
+    border: `1px solid ${BORDER}`,
+    borderRadius: "12px",
+  }}
+>
               <table
                 border="1"
                 cellPadding="10"
@@ -663,16 +671,50 @@ function Communication() {
                   borderColor: BORDER,
                 }}
               >
-                <thead style={{ backgroundColor: "#eef4ff" }}>
+                <thead
+  style={{
+    backgroundColor: "#eef4ff",
+    position: "sticky",
+    top: 0,
+    zIndex: 5,
+  }}
+>
                   <tr>
                     <th style={{ minWidth: "150px" }}>Log Number</th>
                     <th style={{ minWidth: "110px" }}>Customer EKON ID</th>
                     <th style={{ minWidth: "160px" }}>Customer Name</th>
                     <th style={{ minWidth: "90px" }}>Channel</th>
                     <th style={{ minWidth: "140px" }}>Subject</th>
-                    <th style={{ minWidth: "320px" }}>Message</th>
-                    <th style={{ minWidth: "90px" }}>Status</th>
-                    <th style={{ minWidth: "100px" }}>Date</th>
+                    <th
+  style={{
+    minWidth: "320px",
+    backgroundColor: "#eef4ff",
+  }}
+>
+  Message
+</th>
+                    <th
+  style={{
+    minWidth: "90px",
+    position: "sticky",
+    right: "100px",
+    backgroundColor: "#eef4ff",
+    zIndex: 6,
+  }}
+>
+  Status
+</th>
+                    <th
+  style={{
+    minWidth: "100px",
+    position: "sticky",
+    right: 0,
+    backgroundColor: "#eef4ff",
+    zIndex: 7,
+  }}
+>
+  Date
+</th>
                   </tr>
                 </thead>
 
@@ -716,7 +758,15 @@ function Communication() {
                               </button>
                             )}
                           </td>
-                          <td style={{ verticalAlign: "top" }}>
+                          <td
+  style={{
+    verticalAlign: "top",
+    position: "sticky",
+    right: "100px",
+    backgroundColor: WHITE,
+    zIndex: 4,
+  }}
+>
                             <span
                               style={{
                                 padding: "5px 10px",
@@ -732,9 +782,18 @@ function Communication() {
                               {log.status}
                             </span>
                           </td>
-                          <td style={{ verticalAlign: "top" }}>
-                            {formatDate(log.date || log.createdAt)}
-                          </td>
+                          <td
+  style={{
+    verticalAlign: "top",
+    position: "sticky",
+    right: 0,
+    backgroundColor: WHITE,
+    zIndex: 5,
+    boxShadow: "-4px 0 8px rgba(15,23,42,0.08)",
+  }}
+>
+  {formatDate(log.date || log.createdAt)}
+</td>
                         </tr>
                       );
                     })
