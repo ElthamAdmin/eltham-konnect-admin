@@ -403,23 +403,26 @@ useEffect(() => {
 
   return (
     <div
-      style={{
-        display: "flex",
-        minHeight: "100vh",
-        fontFamily: "Arial, sans-serif",
-        backgroundColor: "#eef2f7",
-      }}
-    >
+  style={{
+    display: "flex",
+    height: "100vh",
+    overflow: "hidden",
+    fontFamily: "Arial, sans-serif",
+    backgroundColor: "#eef2f7",
+  }}
+>
       <div
-        style={{
-          width: "250px",
-          minWidth: "250px",
-          backgroundColor: "#253a95",
-          color: "white",
-          display: "flex",
-          flexDirection: "column",
-        }}
-      >
+  style={{
+    width: "250px",
+    minWidth: "250px",
+    height: "100vh",
+    backgroundColor: "#253a95",
+    color: "white",
+    display: "flex",
+    flexDirection: "column",
+    overflowY: "auto",
+  }}
+>
         <div
           style={{
             padding: "22px 20px",
@@ -438,7 +441,16 @@ useEffect(() => {
         ))}
       </div>
 
-      <div style={{ flex: 1, minWidth: 0, overflowX: "hidden" }}>
+      <div
+  style={{
+    flex: 1,
+    minWidth: 0,
+    height: "100vh",
+    overflow: "hidden",
+    display: "flex",
+    flexDirection: "column",
+  }}
+>
         <div
           style={{
             minHeight: "76px",
@@ -517,9 +529,17 @@ useEffect(() => {
           </div>
         </div>
 
-        <div style={{ padding: "26px", overflowX: "hidden", maxWidth: "100%" }}>
-          {renderRoutes()}
-        </div>
+        <div
+  style={{
+    flex: 1,
+    padding: "26px",
+    overflowY: "auto",
+    overflowX: "hidden",
+    maxWidth: "100%",
+  }}
+>
+  {renderRoutes()}
+</div>
       </div>
     </div>
   );
