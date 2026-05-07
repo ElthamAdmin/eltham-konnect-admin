@@ -135,15 +135,40 @@ function PointsHistory() {
 
       {paginationControls}
 
-      <div style={{ overflowX: "auto" }}>
+      <div
+  style={{
+    overflowX: "auto",
+    overflowY: "auto",
+    maxHeight: "70vh",
+    border: "1px solid #e5e7eb",
+    borderRadius: "10px",
+  }}
+>
         <table
           border="1"
           cellPadding="10"
           style={{ width: "100%", minWidth: "1000px", borderCollapse: "collapse" }}
         >
-          <thead>
+          <thead
+  style={{
+    backgroundColor: "#eef4ff",
+    position: "sticky",
+    top: 0,
+    zIndex: 5,
+  }}
+>
             <tr>
-              <th>Customer EKON ID</th>
+              <th
+  style={{
+    position: "sticky",
+    left: 0,
+    backgroundColor: "#eef4ff",
+    zIndex: 6,
+    minWidth: "160px",
+  }}
+>
+  Customer EKON ID
+</th>
               <th>Customer Name</th>
               <th>Action</th>
               <th>Points</th>
@@ -155,7 +180,18 @@ function PointsHistory() {
             {paginatedHistory.length > 0 ? (
               paginatedHistory.map((item, index) => (
                 <tr key={item._id || index}>
-                  <td>{item.customerEkonId}</td>
+                  <td
+  style={{
+    position: "sticky",
+    left: 0,
+    backgroundColor: "white",
+    zIndex: 4,
+    minWidth: "160px",
+    boxShadow: "4px 0 8px rgba(15,23,42,0.08)",
+  }}
+>
+  {item.customerEkonId}
+</td>
                   <td>{item.customerName}</td>
                   <td>{item.action}</td>
                   <td>{item.points}</td>
