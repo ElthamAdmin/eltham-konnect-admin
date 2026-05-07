@@ -827,7 +827,15 @@ const generateSelectedInvoice = async () => {
       >
         <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>All Invoices</h2>
 
-        <div style={{ overflowX: "auto" }}>
+        <div
+  style={{
+    overflowX: "auto",
+    overflowY: "auto",
+    maxHeight: "70vh",
+    border: `1px solid ${BORDER}`,
+    borderRadius: "10px",
+  }}
+>
           <table
             border="1"
             cellPadding="10"
@@ -838,7 +846,14 @@ const generateSelectedInvoice = async () => {
               borderColor: BORDER,
             }}
           >
-            <thead style={{ backgroundColor: "#eef4ff" }}>
+            <thead
+  style={{
+    backgroundColor: "#eef4ff",
+    position: "sticky",
+    top: 0,
+    zIndex: 5,
+  }}
+>
               <tr>
                 <th>Invoice Number</th>
                 <th>Customer EKON ID</th>
@@ -856,7 +871,17 @@ const generateSelectedInvoice = async () => {
                 <th>Paid Date</th>
                 <th>Fygaro Payment Link</th>
                 <th>Receive Into Account</th>
-                <th>Actions</th>
+                <th
+  style={{
+    position: "sticky",
+    right: 0,
+    backgroundColor: "#eef4ff",
+    zIndex: 6,
+    minWidth: "170px",
+  }}
+>
+  Actions
+</th>
               </tr>
             </thead>
 
@@ -966,12 +991,13 @@ const generateSelectedInvoice = async () => {
                     <td>
                       <div
                         style={{
-                          display: "flex",
-                          flexDirection: "column",
-                          gap: "8px",
-                          minWidth: "150px",
-                        }}
-                      >
+    position: "sticky",
+    right: 0,
+    backgroundColor: WHITE,
+    zIndex: 4,
+    boxShadow: "-4px 0 8px rgba(15,23,42,0.08)",
+  }}
+>
                         <button
   onClick={() => setSelectedChargeInvoice(inv)}
   disabled={inv.status === "Paid"}
