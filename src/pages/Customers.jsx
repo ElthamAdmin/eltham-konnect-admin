@@ -422,9 +422,33 @@ function Customers() {
 
       {paginationControls}
 
-      <div style={{ overflowX: "auto" }}>
-        <table border="1" cellPadding="10" style={{ minWidth: "1500px", width: "100%" }}>
-          <thead>
+      <div
+  style={{
+    overflowX: "auto",
+    overflowY: "auto",
+    maxHeight: "70vh",
+    border: "1px solid #ddd",
+    borderRadius: "8px",
+    backgroundColor: "white",
+  }}
+>
+        <table
+  border="1"
+  cellPadding="10"
+  style={{
+    minWidth: "1500px",
+    width: "100%",
+    borderCollapse: "collapse",
+  }}
+>
+          <thead
+  style={{
+    backgroundColor: "#eef4ff",
+    position: "sticky",
+    top: 0,
+    zIndex: 5,
+  }}
+>
             <tr>
               <th>EKON ID</th>
               <th>Name</th>
@@ -436,7 +460,17 @@ function Customers() {
               <th>Sign Up Date</th>
               <th>Last Activity</th>
               <th>Status</th>
-              <th>Actions</th>
+              <th
+  style={{
+    position: "sticky",
+    right: 0,
+    backgroundColor: "#eef4ff",
+    zIndex: 6,
+    minWidth: "150px",
+  }}
+>
+  Actions
+</th>
             </tr>
           </thead>
 
@@ -454,8 +488,16 @@ function Customers() {
                   <td>{formatDate(customer.signUpDate)}</td>
                   <td>{formatDate(customer.lastActivityDate)}</td>
                   <td>{customer.status}</td>
-                  <td>
-                    <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                  <td
+  style={{
+    position: "sticky",
+    right: 0,
+    backgroundColor: "white",
+    zIndex: 4,
+    boxShadow: "-4px 0 8px rgba(15,23,42,0.08)",
+  }}
+>
+  <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
                       <button
                         onClick={() => handleEdit(customer)}
                         style={{
