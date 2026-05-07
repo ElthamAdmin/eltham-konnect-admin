@@ -921,17 +921,7 @@ Notes</th>
                 {paginatedCampaigns.length > 0 ? (
                   paginatedCampaigns.map((campaign) => (
                     <tr key={campaign._id}>
-                      <td
-  style={{
-    position: "sticky",
-    right: 0,
-    backgroundColor: WHITE,
-    zIndex: 10,
-    minWidth: "140px",
-  }}
->
-                        {campaign.campaignNumber}
-                      </td>
+                      <td>{campaign.campaignNumber}</td>
                       <td>{campaign.campaignName}</td>
                       <td>{campaign.channel}</td>
                       <td>{campaign.audience}</td>
@@ -955,9 +945,18 @@ Notes</th>
                       <td>{campaign.startDate ? String(campaign.startDate).slice(0, 10) : ""}</td>
                       <td>{campaign.endDate ? String(campaign.endDate).slice(0, 10) : ""}</td>
                       <td style={{ color: "#475569" }}>{campaign.notes}</td>
-                      <td>
-                        <button
-                          onClick={() => handleEdit(campaign)}
+                      <td
+  style={{
+    position: "sticky",
+    right: 0,
+    backgroundColor: WHITE,
+    zIndex: 10,
+    minWidth: "140px",
+    boxShadow: "-4px 0 8px rgba(15,23,42,0.08)",
+  }}
+>
+  <button
+    onClick={() => handleEdit(campaign)}
                           style={{
                             backgroundColor: ROYAL_BLUE,
                             color: WHITE,
