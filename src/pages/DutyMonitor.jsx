@@ -228,9 +228,24 @@ export default function DutyMonitor() {
       >
         <h2 style={{ marginTop: 0 }}>Staff on Duty</h2>
 
-        <div style={{ overflowX: "auto" }}>
+        <div
+  style={{
+    overflowX: "auto",
+    overflowY: "auto",
+    maxHeight: "70vh",
+    border: "1px solid #e5e7eb",
+    borderRadius: "10px",
+  }}
+>
           <table border="1" cellPadding="10" style={{ minWidth: "1350px", width: "100%" }}>
-            <thead>
+            <thead
+  style={{
+    backgroundColor: "#eef4ff",
+    position: "sticky",
+    top: 0,
+    zIndex: 5,
+  }}
+>
               <tr>
                 <th>User ID</th>
                 <th>Full Name</th>
@@ -243,7 +258,17 @@ export default function DutyMonitor() {
                 <th>Clock Out</th>
                 <th>Lunch Minutes</th>
                 <th>Worked Minutes</th>
-                <th>Admin Action</th>
+                <th
+  style={{
+    position: "sticky",
+    right: 0,
+    backgroundColor: "#eef4ff",
+    zIndex: 6,
+    minWidth: "160px",
+  }}
+>
+  Admin Action
+</th>
               </tr>
             </thead>
             <tbody>
@@ -270,8 +295,17 @@ export default function DutyMonitor() {
                       <td>{formatTime(a?.clockOutTime)}</td>
                       <td>{a?.lunchMinutes ?? ""}</td>
                       <td>{a?.workedMinutes ?? ""}</td>
-                      <td>
-                        {canForce ? (
+                      <td
+  style={{
+    position: "sticky",
+    right: 0,
+    backgroundColor: "white",
+    zIndex: 4,
+    minWidth: "160px",
+    boxShadow: "-4px 0 8px rgba(15,23,42,0.08)",
+  }}
+>
+  {canForce ? (
                           <button
                             onClick={() => forceClockOut(u.userId, u.fullName)}
                             style={{
@@ -413,9 +447,24 @@ export default function DutyMonitor() {
       >
         <h2 style={{ marginTop: 0 }}>Staff Work Summary</h2>
 
-        <div style={{ overflowX: "auto" }}>
+        <div
+  style={{
+    overflowX: "auto",
+    overflowY: "auto",
+    maxHeight: "55vh",
+    border: "1px solid #e5e7eb",
+    borderRadius: "10px",
+  }}
+>
           <table border="1" cellPadding="10" style={{ minWidth: "1000px", width: "100%" }}>
-            <thead>
+            <thead
+  style={{
+    backgroundColor: "#eef4ff",
+    position: "sticky",
+    top: 0,
+    zIndex: 5,
+  }}
+>
               <tr>
                 <th>User ID</th>
                 <th>Full Name</th>
@@ -463,9 +512,24 @@ export default function DutyMonitor() {
       >
         <h2 style={{ marginTop: 0 }}>Attendance History Records</h2>
 
-        <div style={{ overflowX: "auto" }}>
+        <div
+  style={{
+    overflowX: "auto",
+    overflowY: "auto",
+    maxHeight: "70vh",
+    border: "1px solid #e5e7eb",
+    borderRadius: "10px",
+  }}
+>
           <table border="1" cellPadding="10" style={{ minWidth: "1450px", width: "100%" }}>
-            <thead>
+            <thead
+  style={{
+    backgroundColor: "#eef4ff",
+    position: "sticky",
+    top: 0,
+    zIndex: 5,
+  }}
+>
               <tr>
                 <th>Work Date</th>
                 <th>User ID</th>
