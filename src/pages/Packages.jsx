@@ -267,7 +267,7 @@ const clearWeightAnalysisFilter = async () => {
         (pkg) =>
           pkg.customerEkonId === customerEkonId &&
           (pkg.status === "Ready for Pickup" || pkg.readyForPickup === true) &&
-          pkg.invoiceStatus !== "Invoiced"
+          pkg.invoiceStatus !== "Issued" && pkg.invoiceStatus !== "Paid"
       );
 
       if (readyPackages.length === 0) {
@@ -675,7 +675,14 @@ const clearWeightAnalysisFilter = async () => {
         borderColor: BORDER,
       }}
     >
-      <thead style={{ backgroundColor: "#eef4ff" }}>
+      <thead
+  style={{
+    backgroundColor: "#eef4ff",
+    position: "sticky",
+    top: 0,
+    zIndex: 5,
+  }}
+>
         <tr>
           <th>Billed Weight</th>
           <th>Package Count</th>
@@ -919,12 +926,14 @@ const clearWeightAnalysisFilter = async () => {
 
       <div
         style={{
-          overflowX: "auto",
-          backgroundColor: WHITE,
-          border: `1px solid ${BORDER}`,
-          borderRadius: "12px",
-          boxShadow: "0 2px 8px rgba(15,23,42,0.04)",
-        }}
+  overflowX: "auto",
+  overflowY: "auto",
+  maxHeight: "70vh",
+  backgroundColor: WHITE,
+  border: `1px solid ${BORDER}`,
+  borderRadius: "12px",
+  boxShadow: "0 2px 8px rgba(15,23,42,0.04)",
+}}
       >
         <table
           border="1"
@@ -936,7 +945,14 @@ const clearWeightAnalysisFilter = async () => {
             borderColor: BORDER,
           }}
         >
-          <thead style={{ backgroundColor: "#eef4ff" }}>
+          <thead
+  style={{
+    backgroundColor: "#eef4ff",
+    position: "sticky",
+    top: 0,
+    zIndex: 5,
+  }}
+>
             <tr>
               <th style={{ width: "48px" }}>
                 <input
@@ -963,7 +979,17 @@ const clearWeightAnalysisFilter = async () => {
               <th style={{ minWidth: "160px" }}>Notes</th>
               <th style={{ width: "170px" }}>Uploaded At</th>
               <th style={{ width: "80px" }}>File</th>
-              <th style={{ width: "220px" }}>Actions</th>
+              <th
+  style={{
+    width: "220px",
+    position: "sticky",
+    right: 0,
+    backgroundColor: "#eef4ff",
+    zIndex: 6,
+  }}
+>
+  Actions
+</th>
             </tr>
           </thead>
 
@@ -1034,8 +1060,16 @@ const clearWeightAnalysisFilter = async () => {
                       )}
                     </td>
 
-                    <td>
-                      <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                    <td
+  style={{
+    position: "sticky",
+    right: 0,
+    backgroundColor: WHITE,
+    zIndex: 4,
+    boxShadow: "-4px 0 8px rgba(15,23,42,0.08)",
+  }}
+>
+  <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
                         {nextStatus ? (
                           <button
                             onClick={() => updateStatus(pkg.trackingNumber, nextStatus)}
