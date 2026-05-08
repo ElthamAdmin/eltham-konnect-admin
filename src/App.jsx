@@ -30,6 +30,7 @@ import NoticeBoard from "./pages/NoticeBoard";
 import RewardsHubAdmin from "./pages/RewardsHubAdmin";
 import RewardsHubAnalytics from "./pages/RewardsHubAnalytics";
 import IntegrationLogs from "./pages/IntegrationLogs";
+import FreightPartners from "./pages/FreightPartners";
 
 function AppShell() {
   const { user, logout, refreshMyDuty } = useAuth();
@@ -92,6 +93,7 @@ useEffect(() => {
     { label: "Duty", path: "/duty-monitor", show: can("users") },
     { label: "Audit", path: "/audit-logs", show: can("users") },
     { label: "Integrations", path: "/integration-logs", show: can("users") },
+    { label: "Freight Partners", path: "/freight-partners", show: can("users") },
     { label: "Settings", path: "/settings", show: can("settings") },
     { label: "Warehouse", path: "/warehouse-management", show: can("warehouse") },
     { label: "Points", path: "/points-history", show: can("pointsHistory") },
@@ -199,6 +201,7 @@ useEffect(() => {
       <Route path="/duty-monitor" element={can("users") ? <DutyMonitor /> : <Navigate to="/" replace />} />
       <Route path="/audit-logs" element={can("users") ? <AuditLogs /> : <Navigate to="/" replace />} />
       <Route path="/integration-logs" element={can("users") ? <IntegrationLogs /> : <Navigate to="/" replace />} />
+      <Route path="/freight-partners" element={can("users") ? <FreightPartners /> : <Navigate to="/" replace />} />
       <Route path="/settings" element={can("settings") ? <Settings /> : <Navigate to="/" replace />} />
       <Route path="/warehouse-management" element={can("warehouse") ? <WarehouseManagement /> : <Navigate to="/" replace />} />
       <Route path="/points-history" element={can("pointsHistory") ? <PointsHistory /> : <Navigate to="/" replace />} />
