@@ -3,6 +3,7 @@ import api from "../api";
 
 function UnmatchedPackages() {
   const [packages, setPackages] = useState([]);
+  const [customers, setCustomers] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
 
   const ROYAL_BLUE = "#0B3D91";
@@ -20,8 +21,18 @@ function UnmatchedPackages() {
     }
   };
 
+  const fetchCustomers = async () => {
+    try {
+      const res = await api.get("/api/customers");
+      setCustomers(res.data.data || []);
+    } catch (error) {
+      console.error("Error loading customers:", error);
+    }
+  };
+
   useEffect(() => {
     fetchUnmatchedPackages();
+    fetchCustomers();
   }, []);
 
   const filteredPackages = useMemo(() => {
@@ -31,6 +42,12 @@ function UnmatchedPackages() {
         .includes(searchTerm.toLowerCase())
     );
   }, [packages, searchTerm]);
+
+  const activeCustomers = useMemo(() => {
+    return customers
+      .filter((customer) => customer.status !== "Deleted")
+      .sort((a, b) => String(a.name || "").localeCompare(String(b.name || "")));
+  }, [customers]);
 
   const formatDate = (value) => {
     if (!value) return "";
@@ -66,6 +83,39 @@ function UnmatchedPackages() {
     );
   };
 
+  const resolvePackage = async (pkg) => {
+    const customerEkonId = prompt(
+      `Enter the correct customer EKON ID for tracking ${pkg.trackingNumber}:`,
+      pkg.customerEkonId || ""
+    );
+
+    if (!customerEkonId) return;
+
+    const selectedCustomer = customers.find(
+      (customer) => customer.ekonId === customerEkonId.trim()
+    );
+
+    const confirmed = window.confirm(
+      selectedCustomer
+        ? `Assign package ${pkg.trackingNumber} to ${selectedCustomer.name} (${selectedCustomer.ekonId})?`
+        : `Customer ${customerEkonId} was not found in the loaded customer list. Try resolving anyway?`
+    );
+
+    if (!confirmed) return;
+
+    try {
+      const res = await api.put(`/api/unmatched-packages/${pkg.unmatchedNumber}/resolve`, {
+        customerEkonId: customerEkonId.trim(),
+      });
+
+      alert(res.data.message || "Package resolved successfully.");
+      await fetchUnmatchedPackages();
+    } catch (error) {
+      console.error("Error resolving unmatched package:", error);
+      alert(error?.response?.data?.message || "Could not resolve unmatched package.");
+    }
+  };
+
   return (
     <div>
       <div style={{ marginBottom: "20px" }}>
@@ -96,6 +146,11 @@ function UnmatchedPackages() {
             border: `1px solid ${BORDER}`,
           }}
         />
+
+        <div style={{ marginTop: "10px", color: MUTED, fontSize: "13px" }}>
+          Tip: Copy the customer EKON ID from the customer list or type it when assigning.
+          Loaded customers: {activeCustomers.length}
+        </div>
       </div>
 
       <div
@@ -123,7 +178,7 @@ function UnmatchedPackages() {
             border="1"
             cellPadding="10"
             style={{
-              minWidth: "1600px",
+              minWidth: "1750px",
               width: "100%",
               borderCollapse: "collapse",
               borderColor: BORDER,
@@ -149,6 +204,17 @@ function UnmatchedPackages() {
                 <th>Issue Reason</th>
                 <th>Status</th>
                 <th>Date Received</th>
+                <th
+                  style={{
+                    position: "sticky",
+                    right: 0,
+                    backgroundColor: "#eef4ff",
+                    zIndex: 6,
+                    minWidth: "170px",
+                  }}
+                >
+                  Actions
+                </th>
               </tr>
             </thead>
 
@@ -169,11 +235,43 @@ function UnmatchedPackages() {
                     </td>
                     <td>{statusBadge(pkg.status)}</td>
                     <td>{formatDate(pkg.dateReceived || pkg.createdAt)}</td>
+                    <td
+                      style={{
+                        position: "sticky",
+                        right: 0,
+                        backgroundColor: WHITE,
+                        zIndex: 4,
+                        minWidth: "170px",
+                        boxShadow: "-4px 0 8px rgba(15,23,42,0.08)",
+                      }}
+                    >
+                      {pkg.status === "Pending Review" ? (
+                        <button
+                          onClick={() => resolvePackage(pkg)}
+                          style={{
+                            backgroundColor: ROYAL_BLUE,
+                            color: WHITE,
+                            border: "none",
+                            padding: "8px 12px",
+                            borderRadius: "8px",
+                            cursor: "pointer",
+                            fontWeight: "bold",
+                            width: "100%",
+                          }}
+                        >
+                          Assign Customer
+                        </button>
+                      ) : (
+                        <span style={{ color: MUTED, fontWeight: "bold" }}>
+                          Resolved
+                        </span>
+                      )}
+                    </td>
                   </tr>
                 ))
               ) : (
                 <tr>
-                  <td colSpan="11" style={{ textAlign: "center", color: MUTED }}>
+                  <td colSpan="12" style={{ textAlign: "center", color: MUTED }}>
                     No unmatched packages found.
                   </td>
                 </tr>
