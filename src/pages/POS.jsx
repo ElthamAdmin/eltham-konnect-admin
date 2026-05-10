@@ -80,10 +80,12 @@ function POS() {
       const allInvoices = invoicesRes.data.data || [];
 
       const readyPackages = allPackages.filter(
-        (pkg) =>
-          pkg.customerEkonId === ekonId &&
-          pkg.status === "Ready for Pickup"
-      );
+  (pkg) =>
+    pkg.customerEkonId === ekonId &&
+    pkg.status === "Ready for Pickup" &&
+    pkg.readyForPickup === true &&
+    pkg.invoiceStatus !== "Paid"
+);
 
       const existingUnpaidInvoice = allInvoices
         .filter(
@@ -138,6 +140,11 @@ function POS() {
         return;
       }
 
+      if (checkoutPackages.length === 0) {
+  alert("No unpaid ready packages available for checkout.");
+  return;
+}
+
       const res = await api.post("/api/invoices", {
         customerEkonId: ekonId,
         pointsToRedeem: Number(pointsToRedeem) || 0,
@@ -168,20 +175,30 @@ function POS() {
         { receivingAccountNumber }
       );
 
-      setInvoice(res.data.data);
-      alert("Invoice marked as paid and account updated.");
+      setInvoice(null);
+setPackages([]);
+setReceivingAccountNumber("");
+alert("Invoice marked as paid, account updated, and packages cleared from POS.");
 
-      await loadCustomerPackages();
+await loadCustomerPackages();
+
     } catch (error) {
       console.error("Error marking invoice paid:", error);
       alert(error?.response?.data?.message || "Could not mark invoice as paid.");
     }
   };
 
-  const estimatedTotal = packages.reduce(
-    (sum, pkg) => sum + getChargeByWeight(pkg.weight),
-    0
-  );
+  const checkoutPackages = packages.filter(
+  (pkg) =>
+    pkg.status === "Ready for Pickup" &&
+    pkg.readyForPickup === true &&
+    pkg.invoiceStatus !== "Paid"
+);
+
+const estimatedTotal = checkoutPackages.reduce(
+  (sum, pkg) => sum + getChargeByWeight(pkg.weight),
+  0
+);
 
   const cardStyle = {
     backgroundColor: "white",
@@ -317,7 +334,7 @@ function POS() {
             Mark Invoice Paid
           </button>
         </div>
-      ) : packages.length > 0 ? (
+      ) : checkoutPackages.length > 0 ? (
         <div style={cardStyle}>
           <h2>Ready Packages</h2>
 
@@ -334,7 +351,7 @@ function POS() {
               </tr>
             </thead>
             <tbody>
-              {packages.map((pkg) => (
+              {checkoutPackages.map((pkg) => (
                 <tr key={pkg._id}>
                   <td>{pkg.trackingNumber}</td>
                   <td>{pkg.courier}</td>
