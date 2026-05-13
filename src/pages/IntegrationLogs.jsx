@@ -9,6 +9,7 @@ function IntegrationLogs() {
   const [pageSize, setPageSize] = useState(25);
   const [currentPage, setCurrentPage] = useState(1);
   const [expandedPayloads, setExpandedPayloads] = useState({});
+  const [syncingLtw, setSyncingLtw] = useState(false);
 
   const ROYAL_BLUE = "#0B3D91";
   const WHITE = "#ffffff";
@@ -24,6 +25,33 @@ function IntegrationLogs() {
       alert(error?.response?.data?.message || "Could not load integration logs.");
     }
   };
+
+  const syncLtwPackages = async () => {
+  const confirmed = window.confirm(
+    "Sync the latest LTW packages into EKOS now? Start with page 1 and 10 packages for safety."
+  );
+
+  if (!confirmed) return;
+
+  try {
+    setSyncingLtw(true);
+
+    const res = await api.get("/api/integrations/ltw/sync-packages?page=1&limit=10");
+
+    const summary = res.data?.data || {};
+
+    alert(
+      `LTW Sync Complete\n\nImported: ${summary.importedCount || 0}\nDuplicates: ${summary.duplicateCount || 0}\nUnmatched: ${summary.unmatchedCount || 0}\nFailed: ${summary.failedCount || 0}`
+    );
+
+    await fetchLogs();
+  } catch (error) {
+    console.error("LTW sync error:", error);
+    alert(error?.response?.data?.message || "LTW sync failed.");
+  } finally {
+    setSyncingLtw(false);
+  }
+};
 
   useEffect(() => {
     fetchLogs();
@@ -220,20 +248,38 @@ function IntegrationLogs() {
           </p>
         </div>
 
-        <button
-          onClick={fetchLogs}
-          style={{
-            backgroundColor: "#16a34a",
-            color: WHITE,
-            border: "none",
-            padding: "10px 16px",
-            borderRadius: "8px",
-            cursor: "pointer",
-            fontWeight: "bold",
-          }}
-        >
-          Refresh
-        </button>
+        <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+  <button
+    onClick={syncLtwPackages}
+    disabled={syncingLtw}
+    style={{
+      backgroundColor: syncingLtw ? "#94a3b8" : "#f59e0b",
+      color: syncingLtw ? "white" : "black",
+      border: "none",
+      padding: "10px 16px",
+      borderRadius: "8px",
+      cursor: syncingLtw ? "not-allowed" : "pointer",
+      fontWeight: "bold",
+    }}
+  >
+    {syncingLtw ? "Syncing LTW..." : "Sync LTW Packages"}
+  </button>
+
+  <button
+    onClick={fetchLogs}
+    style={{
+      backgroundColor: "#16a34a",
+      color: WHITE,
+      border: "none",
+      padding: "10px 16px",
+      borderRadius: "8px",
+      cursor: "pointer",
+      fontWeight: "bold",
+    }}
+  >
+    Refresh
+  </button>
+</div>
       </div>
 
       <div
