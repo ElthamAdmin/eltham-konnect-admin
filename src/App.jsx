@@ -29,6 +29,7 @@ import ReferralProgram from "./pages/ReferralProgram";
 import NoticeBoard from "./pages/NoticeBoard";
 import RewardsHubAdmin from "./pages/RewardsHubAdmin";
 import RewardsHubAnalytics from "./pages/RewardsHubAnalytics";
+import DebtManager from "./pages/DebtManager";
 import IntegrationLogs from "./pages/IntegrationLogs";
 import FreightPartners from "./pages/FreightPartners";
 import UnmatchedPackages from "./pages/UnmatchedPackages";
@@ -82,6 +83,7 @@ useEffect(() => {
     { label: "PreAlerts", path: "/prealerts", show: can("packages") },
     { label: "Support", path: "/support-tickets", show: can("support") },
     { label: "Finance", path: "/finance", show: can("finance") },
+    { label: "Debt Manager", path: "/debt-manager", show: can("finance") },
     { label: "HR", path: "/hr", show: canAccessHR },
     { label: "Notice Board", path: "/notice-board", show: can("communication") },
     { label: "Communication", path: "/communication", show: can("communication") },
@@ -191,6 +193,7 @@ useEffect(() => {
       <Route path="/prealerts" element={can("packages") ? <PreAlerts /> : <Navigate to="/" replace />} />
       <Route path="/support-tickets" element={can("support") ? <SupportTickets /> : <Navigate to="/" replace />} />
       <Route path="/finance" element={can("finance") ? <Finance /> : <Navigate to="/" replace />} />
+      <Route path="/debt-manager" element={can("finance") ? <DebtManager /> : <Navigate to="/" replace />} />
       <Route path="/hr" element={canAccessHR ? <HR /> : <Navigate to="/" replace />} />
       <Route path="/communication" element={can("communication") ? <Communication /> : <Navigate to="/" replace />} />
       <Route path="/team-hub" element={can("communication") ? <TeamHub /> : <Navigate to="/" replace />} />
