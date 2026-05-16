@@ -1,6 +1,7 @@
 function FinancialExports() {
-  const API_BASE =
-    import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
+ const API_BASE =
+  import.meta.env.VITE_API_BASE_URL ||
+  "https://eltham-konnect-backend-c2sf.onrender.com";
 
   const exportFile = (path) => {
     window.open(`${API_BASE}${path}`, "_blank");
