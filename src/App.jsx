@@ -46,6 +46,7 @@ import TaxCenter from "./pages/TaxCenter";
 import Budgeting from "./pages/Budgeting";
 import FinancialExports from "./pages/FinancialExports";
 import AccountingPeriods from "./pages/AccountingPeriods";
+import FiscalYears from "./pages/FiscalYears";
 import IntegrationLogs from "./pages/IntegrationLogs";
 import FreightPartners from "./pages/FreightPartners";
 import UnmatchedPackages from "./pages/UnmatchedPackages";
@@ -115,6 +116,7 @@ useEffect(() => {
     { label: "Budgeting", path: "/budgeting", show: can("finance") },
     { label: "Exports", path: "/financial-exports", show: can("finance") },
     { label: "Accounting Periods", path: "/accounting-periods", show: can("finance") },
+    { label: "Fiscal Years", path: "/fiscal-years", show: can("finance") },
     { label: "Debt Manager", path: "/debt-manager", show: can("finance") },
     { label: "HR", path: "/hr", show: canAccessHR },
     { label: "Notice Board", path: "/notice-board", show: can("communication") },
@@ -241,6 +243,7 @@ useEffect(() => {
       <Route path="/budgeting" element={can("finance") ? <Budgeting /> : <Navigate to="/" replace />} />
       <Route path="/financial-exports" element={can("finance") ? <FinancialExports /> : <Navigate to="/" replace />} />
       <Route path="/accounting-periods" element={can("finance") ? <AccountingPeriods /> : <Navigate to="/" replace />} />
+      <Route path="/fiscal-years" element={can("finance") ? <FiscalYears /> : <Navigate to="/" replace />} />
       <Route path="/debt-manager" element={can("finance") ? <DebtManager /> : <Navigate to="/" replace />} />
       <Route path="/hr" element={canAccessHR ? <HR /> : <Navigate to="/" replace />} />
       <Route path="/communication" element={can("communication") ? <Communication /> : <Navigate to="/" replace />} />
