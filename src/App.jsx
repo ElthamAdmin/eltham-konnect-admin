@@ -41,6 +41,7 @@ import AccountsReceivable from "./pages/AccountsReceivable";
 import AccountsPayable from "./pages/AccountsPayable";
 import BankingReconciliation from "./pages/BankingReconciliation";
 import CashFlowStatement from "./pages/CashFlowStatement";
+import FixedAssets from "./pages/FixedAssets";
 import IntegrationLogs from "./pages/IntegrationLogs";
 import FreightPartners from "./pages/FreightPartners";
 import UnmatchedPackages from "./pages/UnmatchedPackages";
@@ -105,6 +106,7 @@ useEffect(() => {
     { label: "Accounts Payable", path: "/accounts-payable", show: can("finance") },
     { label: "Banking", path: "/banking-reconciliation", show: can("finance") },
     { label: "Cash Flow", path: "/cash-flow-statement", show: can("finance") },
+    { label: "Fixed Assets", path: "/fixed-assets", show: can("finance") },
     { label: "Debt Manager", path: "/debt-manager", show: can("finance") },
     { label: "HR", path: "/hr", show: canAccessHR },
     { label: "Notice Board", path: "/notice-board", show: can("communication") },
@@ -226,6 +228,7 @@ useEffect(() => {
       <Route path="/accounts-payable" element={can("finance") ? <AccountsPayable /> : <Navigate to="/" replace />} />
       <Route path="/banking-reconciliation" element={can("finance") ? <BankingReconciliation /> : <Navigate to="/" replace />} />
       <Route path="/cash-flow-statement" element={can("finance") ? <CashFlowStatement /> : <Navigate to="/" replace />} />
+      <Route path="/fixed-assets" element={can("finance") ? <FixedAssets /> : <Navigate to="/" replace />} />
       <Route path="/debt-manager" element={can("finance") ? <DebtManager /> : <Navigate to="/" replace />} />
       <Route path="/hr" element={canAccessHR ? <HR /> : <Navigate to="/" replace />} />
       <Route path="/communication" element={can("communication") ? <Communication /> : <Navigate to="/" replace />} />
