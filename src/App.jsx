@@ -131,9 +131,9 @@ useEffect(() => {
     { label: "Users", path: "/users", show: can("users") },
     { label: "Duty", path: "/duty-monitor", show: can("users") },
     { label: "Audit", path: "/audit-logs", show: can("users") },
-    { label: "Integrations", path: "/integration-logs", show: can("users") },
-    { label: "Freight Partners", path: "/freight-partners", show: can("users") },
-    { label: "Unmatched", path: "/unmatched-packages", show: can("users") },
+    { label: "Integrations", path: "/integration-logs", show: can("integrations") },
+{ label: "Freight Partners", path: "/freight-partners", show: can("freightPartners") },
+{ label: "Unmatched", path: "/unmatched-packages", show: can("unmatched") },
     { label: "Settings", path: "/settings", show: can("settings") },
     { label: "Warehouse", path: "/warehouse-management", show: can("warehouse") },
     { label: "Points", path: "/points-history", show: can("pointsHistory") },
@@ -259,9 +259,9 @@ useEffect(() => {
       <Route path="/users" element={can("users") ? <SystemUsers /> : <Navigate to="/" replace />} />
       <Route path="/duty-monitor" element={can("users") ? <DutyMonitor /> : <Navigate to="/" replace />} />
       <Route path="/audit-logs" element={can("users") ? <AuditLogs /> : <Navigate to="/" replace />} />
-      <Route path="/integration-logs" element={can("users") ? <IntegrationLogs /> : <Navigate to="/" replace />} />
-      <Route path="/freight-partners" element={can("users") ? <FreightPartners /> : <Navigate to="/" replace />} />
-      <Route path="/unmatched-packages" element={can("users") ? <UnmatchedPackages /> : <Navigate to="/" replace />} />
+      <Route path="/integration-logs" element={can("integrations") ? <IntegrationLogs /> : <Navigate to="/" replace />} />
+<Route path="/freight-partners" element={can("freightPartners") ? <FreightPartners /> : <Navigate to="/" replace />} />
+<Route path="/unmatched-packages" element={can("unmatched") ? <UnmatchedPackages /> : <Navigate to="/" replace />} />
       <Route path="/settings" element={can("settings") ? <Settings /> : <Navigate to="/" replace />} />
       <Route path="/warehouse-management" element={can("warehouse") ? <WarehouseManagement /> : <Navigate to="/" replace />} />
       <Route path="/points-history" element={can("pointsHistory") ? <PointsHistory /> : <Navigate to="/" replace />} />
