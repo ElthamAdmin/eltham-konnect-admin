@@ -39,6 +39,7 @@ import BalanceSheet from "./pages/BalanceSheet";
 import ClosePeriod from "./pages/ClosePeriod";
 import AccountsReceivable from "./pages/AccountsReceivable";
 import AccountsPayable from "./pages/AccountsPayable";
+import BankingReconciliation from "./pages/BankingReconciliation";
 import IntegrationLogs from "./pages/IntegrationLogs";
 import FreightPartners from "./pages/FreightPartners";
 import UnmatchedPackages from "./pages/UnmatchedPackages";
@@ -101,6 +102,7 @@ useEffect(() => {
     { label: "Close Period", path: "/close-period", show: can("finance") },
     { label: "Accounts Receivable", path: "/accounts-receivable", show: can("finance") },
     { label: "Accounts Payable", path: "/accounts-payable", show: can("finance") },
+    { label: "Banking", path: "/banking-reconciliation", show: can("finance") },
     { label: "Debt Manager", path: "/debt-manager", show: can("finance") },
     { label: "HR", path: "/hr", show: canAccessHR },
     { label: "Notice Board", path: "/notice-board", show: can("communication") },
@@ -220,6 +222,7 @@ useEffect(() => {
       <Route path="/close-period" element={can("finance") ? <ClosePeriod /> : <Navigate to="/" replace />} />
       <Route path="/accounts-receivable" element={can("finance") ? <AccountsReceivable /> : <Navigate to="/" replace />} />
       <Route path="/accounts-payable" element={can("finance") ? <AccountsPayable /> : <Navigate to="/" replace />} />
+      <Route path="/banking-reconciliation" element={can("finance") ? <BankingReconciliation /> : <Navigate to="/" replace />} />
       <Route path="/debt-manager" element={can("finance") ? <DebtManager /> : <Navigate to="/" replace />} />
       <Route path="/hr" element={canAccessHR ? <HR /> : <Navigate to="/" replace />} />
       <Route path="/communication" element={can("communication") ? <Communication /> : <Navigate to="/" replace />} />
