@@ -474,127 +474,126 @@ function SystemUsers() {
         {loading ? (
           <div style={{ color: "#64748b" }}>Loading users...</div>
         ) : (
-          <table border="1" cellPadding="10" style={{ width: "100%" }}>
-            <thead>
-              <tr>
-                <th>User ID</th>
-                <th>Full Name</th>
-                <th>Email</th>
-                <th>Phone</th>
-                <th>Role</th>
-                <th>Branch</th>
-                <th>Status</th>
-                <th>Permissions</th>
-                <th>Linked Employee</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
+          <div
+  style={{
+    overflowX: "auto",
+    overflowY: "auto",
+    maxHeight: "75vh",
+    border: "1px solid #e5e7eb",
+    borderRadius: "10px",
+  }}
+>
+  <table
+    border="1"
+    cellPadding="10"
+    style={{
+      minWidth: "1500px",
+      width: "100%",
+      borderCollapse: "collapse",
+    }}
+  >
+    <thead style={{ backgroundColor: "#eef4ff", position: "sticky", top: 0, zIndex: 2 }}>
+      <tr>
+        <th>User ID</th>
+        <th>Full Name</th>
+        <th>Email</th>
+        <th>Phone</th>
+        <th>Role</th>
+        <th>Branch</th>
+        <th>Status</th>
+        <th>Permissions</th>
+        <th>Linked Employee</th>
+        <th
+          style={{
+            position: "sticky",
+            right: 0,
+            backgroundColor: "#eef4ff",
+            zIndex: 3,
+            minWidth: "170px",
+          }}
+        >
+          Actions
+        </th>
+      </tr>
+    </thead>
 
-            <tbody>
-              {users.length > 0 ? (
-                users.map((user, index) => (
-                  <tr key={user._id || index}>
-                    <td>{user.userId}</td>
-                    <td>{user.fullName}</td>
-                    <td>{user.email}</td>
-                    <td>{user.phone}</td>
-                    <td>{badgeStyle(user.role, "role")}</td>
-                    <td>{user.branch}</td>
-                    <td>{badgeStyle(user.status, "status")}</td>
-                    <td>
-                      <div style={{ fontSize: "12px", lineHeight: "1.5" }}>
-                        {(user.permissions || []).join(", ")}
-                      </div>
-                    </td>
-                    <td>{user.linkedEmployeeId || "-"}</td>
-                    <td>
-                      <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                        <button
-                          onClick={() => updateRole(user)}
-                          style={{
-                            backgroundColor: "#0B3D91",
-                            color: "white",
-                            border: "none",
-                            padding: "6px 10px",
-                            borderRadius: "4px",
-                            cursor: "pointer",
-                          }}
-                        >
-                          Change Role
-                        </button>
+    <tbody>
+      {users.length > 0 ? (
+        users.map((user, index) => (
+          <tr key={user._id || index}>
+            <td>{user.userId}</td>
+            <td>{user.fullName}</td>
+            <td>{user.email}</td>
+            <td>{user.phone}</td>
+            <td>{badgeStyle(user.role, "role")}</td>
+            <td>{user.branch}</td>
+            <td>{badgeStyle(user.status, "status")}</td>
+            <td>
+              <div style={{ fontSize: "12px", lineHeight: "1.5", maxWidth: "220px" }}>
+                {(user.permissions || []).join(", ")}
+              </div>
+            </td>
+            <td>{user.linkedEmployeeId || "-"}</td>
+            <td
+              style={{
+                position: "sticky",
+                right: 0,
+                backgroundColor: "white",
+                zIndex: 1,
+                minWidth: "170px",
+              }}
+            >
+              <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                <button onClick={() => updateRole(user)} style={actionButton("#0B3D91")}>
+                  Change Role
+                </button>
 
-                        <button
-                          onClick={() => updatePermissions(user)}
-                          style={{
-                            backgroundColor: "#7c3aed",
-                            color: "white",
-                            border: "none",
-                            padding: "6px 10px",
-                            borderRadius: "4px",
-                            cursor: "pointer",
-                          }}
-                        >
-                          Update Permissions
-                        </button>
+                <button onClick={() => updatePermissions(user)} style={actionButton("#7c3aed")}>
+                  Update Permissions
+                </button>
 
-                        <button
-                          onClick={() => resetPassword(user)}
-                          style={{
-                            backgroundColor: "#ea580c",
-                            color: "white",
-                            border: "none",
-                            padding: "6px 10px",
-                            borderRadius: "4px",
-                            cursor: "pointer",
-                          }}
-                        >
-                          Reset Password
-                        </button>
+                <button onClick={() => resetPassword(user)} style={actionButton("#ea580c")}>
+                  Reset Password
+                </button>
 
-                        {user.status === "Active" ? (
-                          <button
-                            onClick={() => updateStatus(user.userId, "Inactive")}
-                            style={{
-                              backgroundColor: "#dc2626",
-                              color: "white",
-                              border: "none",
-                              padding: "6px 10px",
-                              borderRadius: "4px",
-                              cursor: "pointer",
-                            }}
-                          >
-                            Deactivate
-                          </button>
-                        ) : (
-                          <button
-                            onClick={() => updateStatus(user.userId, "Active")}
-                            style={{
-                              backgroundColor: "#16a34a",
-                              color: "white",
-                              border: "none",
-                              padding: "6px 10px",
-                              borderRadius: "4px",
-                              cursor: "pointer",
-                            }}
-                          >
-                            Activate
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan="10">No system users found.</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+                {user.status === "Active" ? (
+                  <button onClick={() => updateStatus(user.userId, "Inactive")} style={actionButton("#dc2626")}>
+                    Deactivate
+                  </button>
+                ) : (
+                  <button onClick={() => updateStatus(user.userId, "Active")} style={actionButton("#16a34a")}>
+                    Activate
+                  </button>
+                )}
+              </div>
+            </td>
+          </tr>
+        ))
+      ) : (
+        <tr>
+          <td colSpan="10">No system users found.</td>
+        </tr>
+      )}
+    </tbody>
+  </table>
+</div>
         )}
       </div>
     </div>
   );
+}
+
+function actionButton(backgroundColor) {
+  return {
+    backgroundColor,
+    color: "white",
+    border: "none",
+    padding: "6px 10px",
+    borderRadius: "4px",
+    cursor: "pointer",
+    fontWeight: "bold",
+    whiteSpace: "nowrap",
+  };
 }
 
 export default SystemUsers;
