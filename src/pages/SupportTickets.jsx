@@ -65,7 +65,33 @@ function SupportTickets() {
       open: tickets.filter((t) => t.status === "Open").length,
       inProgress: tickets.filter((t) => t.status === "In Progress").length,
       resolved: tickets.filter((t) => t.status === "Resolved").length,
-      closed: tickets.filter((t) => t.status === "Closed").length,
+            closed: tickets.filter((t) => t.status === "Closed").length,
+
+      avgFirstResponse:
+        tickets.length > 0
+          ? Math.round(
+              tickets.reduce(
+                (sum, t) => sum + (t.firstResponseMinutes || 0),
+                0
+              ) / tickets.length
+            )
+          : 0,
+
+      avgResolution:
+        tickets.length > 0
+          ? Math.round(
+              tickets.reduce(
+                (sum, t) => sum + (t.resolutionMinutes || 0),
+                0
+              ) / tickets.length
+            )
+          : 0,
+
+      reopened:
+        tickets.reduce(
+          (sum, t) => sum + (t.reopenedCount || 0),
+          0
+        ),
     };
   }, [tickets]);
 
@@ -358,6 +384,54 @@ function SupportTickets() {
           </div>
           <div style={{ color: "#334155", fontWeight: "bold" }}>Closed</div>
         </div>
+
+                <div style={metricCardStyle}>
+          <div
+            style={{
+              fontSize: "26px",
+              fontWeight: "bold",
+              color: "#0891b2",
+              marginBottom: "8px",
+            }}
+          >
+            {summary.avgFirstResponse} mins
+          </div>
+          <div style={{ color: "#334155", fontWeight: "bold" }}>
+            Avg First Response
+          </div>
+        </div>
+
+        <div style={metricCardStyle}>
+          <div
+            style={{
+              fontSize: "26px",
+              fontWeight: "bold",
+              color: "#7c3aed",
+              marginBottom: "8px",
+            }}
+          >
+            {summary.avgResolution} mins
+          </div>
+          <div style={{ color: "#334155", fontWeight: "bold" }}>
+            Avg Resolution
+          </div>
+        </div>
+
+        <div style={metricCardStyle}>
+          <div
+            style={{
+              fontSize: "30px",
+              fontWeight: "bold",
+              color: "#dc2626",
+              marginBottom: "8px",
+            }}
+          >
+            {summary.reopened}
+          </div>
+          <div style={{ color: "#334155", fontWeight: "bold" }}>
+            Reopened Tickets
+          </div>
+        </div>
       </div>
 
       {showForm && (
@@ -519,6 +593,71 @@ function SupportTickets() {
                 <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
                   <span style={statusBadgeStyle(ticket.status)}>{ticket.status}</span>
                   <span style={{ color: MUTED, fontSize: "13px" }}>{formatDate(ticket.date || ticket.createdAt)}</span>
+                </div>
+              </div>
+
+                            <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns:
+                    "repeat(auto-fit, minmax(180px, 1fr))",
+                  gap: "10px",
+                  marginBottom: "14px",
+                }}
+              >
+                <div
+                  style={{
+                    backgroundColor: "#eff6ff",
+                    padding: "10px",
+                    borderRadius: "8px",
+                  }}
+                >
+                  <strong>Priority:</strong><br />
+                  {ticket.priority || "Medium"}
+                </div>
+
+                <div
+                  style={{
+                    backgroundColor: "#fefce8",
+                    padding: "10px",
+                    borderRadius: "8px",
+                  }}
+                >
+                  <strong>Category:</strong><br />
+                  {ticket.category || "General"}
+                </div>
+
+                <div
+                  style={{
+                    backgroundColor: "#f0fdf4",
+                    padding: "10px",
+                    borderRadius: "8px",
+                  }}
+                >
+                  <strong>First Response:</strong><br />
+                  {ticket.firstResponseMinutes || 0} mins
+                </div>
+
+                <div
+                  style={{
+                    backgroundColor: "#faf5ff",
+                    padding: "10px",
+                    borderRadius: "8px",
+                  }}
+                >
+                  <strong>Resolution:</strong><br />
+                  {ticket.resolutionMinutes || 0} mins
+                </div>
+
+                <div
+                  style={{
+                    backgroundColor: "#fff1f2",
+                    padding: "10px",
+                    borderRadius: "8px",
+                  }}
+                >
+                  <strong>Reopened:</strong><br />
+                  {ticket.reopenedCount || 0}
                 </div>
               </div>
 
