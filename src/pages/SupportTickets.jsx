@@ -875,9 +875,13 @@ const getOverdueLabel = (ticket) => {
 >
   <option value="">Assign Staff</option>
   {supportStaff.map((staff) => (
-    <option key={staff.userId} value={staff.userId}>
-      {staff.fullName} ({staff.role})
-    </option>
+    <option
+  key={staff.userId}
+  value={staff.userId}
+  disabled={staff.dutyStatus !== "Clocked In"}
+>
+  {staff.fullName} ({staff.role}) - {staff.dutyStatus || "Off Duty"}
+</option>
   ))}
 </select>
 
