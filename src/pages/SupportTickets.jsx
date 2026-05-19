@@ -3,6 +3,9 @@ import api from "../api";
 
 function SupportTickets() {
   const [tickets, setTickets] = useState([]);
+  const [supportStaff, setSupportStaff] = useState([]);
+  const [internalNotes, setInternalNotes] = useState({});
+  const [satisfactionScores, setSatisfactionScores] = useState({});
   const [showForm, setShowForm] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
   const [replyFiles, setReplyFiles] = useState({});
@@ -36,8 +39,18 @@ function SupportTickets() {
     }
   };
 
+  const fetchSupportStaff = async () => {
+  try {
+    const res = await api.get("/api/support-tickets/staff");
+    setSupportStaff(res.data.data || []);
+  } catch (error) {
+    console.error("Could not load support staff:", error);
+  }
+};
+
   useEffect(() => {
     fetchTickets();
+    fetchSupportStaff();
   }, []);
 
   useEffect(() => {
@@ -175,6 +188,81 @@ function SupportTickets() {
       alert(error?.response?.data?.message || "Update failed");
     }
   };
+
+  const assignTicket = async (ticketNumber, assignedToUserId) => {
+  try {
+    await api.put(`/api/support-tickets/${ticketNumber}/assign`, {
+      assignedToUserId,
+    });
+    await fetchTickets();
+  } catch (error) {
+    alert(error?.response?.data?.message || "Could not assign ticket.");
+  }
+};
+
+const addInternalNote = async (ticketNumber) => {
+  try {
+    const note = internalNotes[ticketNumber] || "";
+
+    if (!note.trim()) {
+      alert("Please enter an internal note.");
+      return;
+    }
+
+    await api.post(`/api/support-tickets/${ticketNumber}/internal-note`, {
+      note,
+    });
+
+    setInternalNotes((prev) => ({ ...prev, [ticketNumber]: "" }));
+    await fetchTickets();
+  } catch (error) {
+    alert(error?.response?.data?.message || "Could not add internal note.");
+  }
+};
+
+const updateSatisfaction = async (ticketNumber) => {
+  try {
+    const customerSatisfaction = satisfactionScores[ticketNumber] || 0;
+
+    if (!customerSatisfaction) {
+      alert("Please select a satisfaction score.");
+      return;
+    }
+
+    await api.put(`/api/support-tickets/${ticketNumber}/satisfaction`, {
+      customerSatisfaction,
+    });
+
+    await fetchTickets();
+  } catch (error) {
+    alert(error?.response?.data?.message || "Could not update satisfaction score.");
+  }
+};
+
+const reopenTicket = async (ticketNumber) => {
+  try {
+    await api.put(`/api/support-tickets/${ticketNumber}/reopen`);
+    await fetchTickets();
+  } catch (error) {
+    alert(error?.response?.data?.message || "Could not reopen ticket.");
+  }
+};
+
+const getOverdueLabel = (ticket) => {
+  if (["Resolved", "Closed"].includes(ticket.status)) return "Completed";
+
+  const created = new Date(ticket.createdAt);
+  if (Number.isNaN(created.getTime())) return "Unknown";
+
+  const hoursOpen = (Date.now() - created.getTime()) / 36e5;
+
+  if (ticket.priority === "Critical" && hoursOpen > 2) return "Overdue";
+  if (ticket.priority === "High" && hoursOpen > 6) return "Overdue";
+  if (ticket.priority === "Medium" && hoursOpen > 24) return "Overdue";
+  if (ticket.priority === "Low" && hoursOpen > 48) return "Overdue";
+
+  return "Within SLA";
+};
 
   const formatDate = (v) => {
     if (!v) return "";
@@ -659,6 +747,39 @@ function SupportTickets() {
                   <strong>Reopened:</strong><br />
                   {ticket.reopenedCount || 0}
                 </div>
+
+                <div
+  style={{
+    backgroundColor: "#ecfeff",
+    padding: "10px",
+    borderRadius: "8px",
+  }}
+>
+  <strong>Assigned To:</strong><br />
+  {ticket.assignedTo || "Unassigned"}
+</div>
+
+<div
+  style={{
+    backgroundColor: getOverdueLabel(ticket) === "Overdue" ? "#fee2e2" : "#dcfce7",
+    padding: "10px",
+    borderRadius: "8px",
+  }}
+>
+  <strong>SLA Status:</strong><br />
+  {getOverdueLabel(ticket)}
+</div>
+
+<div
+  style={{
+    backgroundColor: "#f8fafc",
+    padding: "10px",
+    borderRadius: "8px",
+  }}
+>
+  <strong>CSAT:</strong><br />
+  {ticket.customerSatisfaction ? `${ticket.customerSatisfaction}/5` : "Not Rated"}
+</div>
               </div>
 
               <div
@@ -743,6 +864,38 @@ function SupportTickets() {
                   Closed
                 </button>
 
+                <select
+  value={ticket.assignedToUserId || ""}
+  onChange={(e) => assignTicket(ticket.ticketNumber, e.target.value)}
+  style={{
+    padding: "9px 12px",
+    borderRadius: "8px",
+    border: `1px solid ${BORDER}`,
+  }}
+>
+  <option value="">Assign Staff</option>
+  {supportStaff.map((staff) => (
+    <option key={staff.userId} value={staff.userId}>
+      {staff.fullName} ({staff.role})
+    </option>
+  ))}
+</select>
+
+<button
+  onClick={() => reopenTicket(ticket.ticketNumber)}
+  style={{
+    backgroundColor: "#0891b2",
+    color: WHITE,
+    border: "none",
+    padding: "9px 12px",
+    borderRadius: "8px",
+    cursor: "pointer",
+    fontWeight: "bold",
+  }}
+>
+  Reopen
+</button>
+
                 <button
                   onClick={() =>
                     setExpandedTicket(
@@ -806,6 +959,120 @@ function SupportTickets() {
                       {ticket.message}
                     </div>
                   </div>
+
+                  <div
+  style={{
+    backgroundColor: "#f1f5f9",
+    border: `1px solid ${BORDER}`,
+    borderRadius: "10px",
+    padding: "14px",
+  }}
+>
+  <h4 style={{ marginTop: 0 }}>Internal Staff Notes</h4>
+
+  {(ticket.internalNotes || []).map((note) => (
+    <div
+      key={note._id}
+      style={{
+        backgroundColor: "white",
+        border: `1px solid ${BORDER}`,
+        borderRadius: "8px",
+        padding: "10px",
+        marginBottom: "8px",
+      }}
+    >
+      <strong>{note.addedBy || "Staff"}</strong>
+      <div style={{ color: MUTED, fontSize: "12px" }}>
+        {formatDate(note.createdAt)}
+      </div>
+      <div>{note.note}</div>
+    </div>
+  ))}
+
+  <textarea
+    placeholder="Add internal note. Customers cannot see this."
+    value={internalNotes[ticket.ticketNumber] || ""}
+    onChange={(e) =>
+      setInternalNotes((prev) => ({
+        ...prev,
+        [ticket.ticketNumber]: e.target.value,
+      }))
+    }
+    style={{
+      width: "100%",
+      padding: "10px",
+      minHeight: "80px",
+      borderRadius: "8px",
+      border: `1px solid ${BORDER}`,
+      marginTop: "8px",
+    }}
+  />
+
+  <button
+    onClick={() => addInternalNote(ticket.ticketNumber)}
+    style={{
+      backgroundColor: "#475569",
+      color: WHITE,
+      border: "none",
+      padding: "9px 12px",
+      borderRadius: "8px",
+      cursor: "pointer",
+      fontWeight: "bold",
+      marginTop: "8px",
+    }}
+  >
+    Save Internal Note
+  </button>
+</div>
+
+<div
+  style={{
+    backgroundColor: "#fefce8",
+    border: `1px solid ${BORDER}`,
+    borderRadius: "10px",
+    padding: "14px",
+  }}
+>
+  <h4 style={{ marginTop: 0 }}>Customer Satisfaction</h4>
+
+  <select
+    value={satisfactionScores[ticket.ticketNumber] || ticket.customerSatisfaction || ""}
+    onChange={(e) =>
+      setSatisfactionScores((prev) => ({
+        ...prev,
+        [ticket.ticketNumber]: Number(e.target.value),
+      }))
+    }
+    style={{
+      padding: "9px 12px",
+      borderRadius: "8px",
+      border: `1px solid ${BORDER}`,
+      marginRight: "8px",
+    }}
+  >
+    <option value="">Select Rating</option>
+    <option value={5}>5 - Excellent</option>
+    <option value={4}>4 - Good</option>
+    <option value={3}>3 - Fair</option>
+    <option value={2}>2 - Poor</option>
+    <option value={1}>1 - Very Poor</option>
+  </select>
+
+  <button
+    onClick={() => updateSatisfaction(ticket.ticketNumber)}
+    style={{
+      backgroundColor: GOLD,
+      color: "black",
+      border: "none",
+      padding: "9px 12px",
+      borderRadius: "8px",
+      cursor: "pointer",
+      fontWeight: "bold",
+    }}
+  >
+    Save Rating
+  </button>
+</div>
 
                   {(ticket.replies || []).map((reply) => (
                     <div
