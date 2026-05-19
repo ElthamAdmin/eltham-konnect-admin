@@ -10,6 +10,11 @@ function POS() {
   const [rateMap, setRateMap] = useState({});
   const [accounts, setAccounts] = useState([]);
   const [receivingAccountNumber, setReceivingAccountNumber] = useState("");
+  const [drawer, setDrawer] = useState(null);
+  const [drawerHistory, setDrawerHistory] = useState([]);
+  const [openingFloat, setOpeningFloat] = useState("");
+  const [closingCashCount, setClosingCashCount] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState("Cash");
 
   const loadRates = async () => {
     try {
@@ -38,6 +43,88 @@ function POS() {
     }
   };
 
+    const loadDrawer = async () => {
+    try {
+      const res = await api.get("/api/pos/drawer/open");
+      setDrawer(res.data.data || null);
+    } catch (error) {
+      console.error("Error loading POS drawer:", error);
+    }
+  };
+
+  const loadDrawerHistory = async () => {
+    try {
+      const res = await api.get("/api/pos/drawer/history");
+      setDrawerHistory(res.data.data || []);
+    } catch (error) {
+      console.error("Error loading drawer history:", error);
+    }
+  };
+
+  const openDrawer = async () => {
+    try {
+      if (!openingFloat && Number(openingFloat) !== 0) {
+        alert("Enter opening cash float.");
+        return;
+      }
+
+      const res = await api.post("/api/pos/drawer/open", {
+        openingFloat: Number(openingFloat || 0),
+      });
+
+      setDrawer(res.data.data);
+      setOpeningFloat("");
+      await loadDrawerHistory();
+      alert("Cash drawer opened.");
+    } catch (error) {
+      alert(error?.response?.data?.message || "Could not open cash drawer.");
+    }
+  };
+
+  const closeDrawer = async () => {
+    try {
+      if (!drawer) {
+        alert("No open cash drawer.");
+        return;
+      }
+
+      if (closingCashCount === "") {
+        alert("Enter closing cash count.");
+        return;
+      }
+
+      const res = await api.put("/api/pos/drawer/close", {
+        closingCashCount: Number(closingCashCount || 0),
+      });
+
+      setDrawer(null);
+      setClosingCashCount("");
+      await loadDrawerHistory();
+
+      alert(
+        `Drawer closed. Cash variance: JMD ${Number(
+          res.data.data.cashVariance || 0
+        ).toLocaleString()}`
+      );
+    } catch (error) {
+      alert(error?.response?.data?.message || "Could not close cash drawer.");
+    }
+  };
+
+  const recordDrawerSale = async (amount) => {
+    try {
+      await api.post("/api/pos/drawer/sale", {
+        paymentMethod,
+        amount: Number(amount || 0),
+      });
+
+      await loadDrawer();
+      await loadDrawerHistory();
+    } catch (error) {
+      throw error;
+    }
+  };
+
   const getChargeByWeight = (weight, activeRateMap = rateMap) => {
     const roundedWeight = Math.ceil(Number(weight || 0));
     return activeRateMap[roundedWeight] || 0;
@@ -62,6 +149,8 @@ function POS() {
 
       const freshRateMap = await loadRates();
       await loadAccounts();
+      await loadDrawer();
+      await loadDrawerHistory();
 
       const foundCustomer = (customersRes.data.data || []).find(
         (c) => c.ekonId === ekonId
@@ -170,6 +259,8 @@ function POS() {
     }
 
     try {
+            await recordDrawerSale(invoice.finalTotal);
+
       const res = await api.put(
         `/api/invoices/pay/${invoice.invoiceNumber}`,
         { receivingAccountNumber }
@@ -211,6 +302,120 @@ const estimatedTotal = checkoutPackages.reduce(
   return (
     <div>
       <h1>POS Checkout</h1>
+
+            <div style={cardStyle}>
+        <h2>Cash Drawer / Register</h2>
+
+        {drawer ? (
+          <>
+            <p><strong>Drawer:</strong> {drawer.drawerNumber}</p>
+            <p><strong>Cashier:</strong> {drawer.openedByName}</p>
+            <p><strong>Opening Float:</strong> JMD {Number(drawer.openingFloat || 0).toLocaleString()}</p>
+            <p><strong>Cash Sales:</strong> JMD {Number(drawer.totalCashSales || 0).toLocaleString()}</p>
+            <p><strong>Card Sales:</strong> JMD {Number(drawer.totalCardSales || 0).toLocaleString()}</p>
+            <p><strong>Transfer Sales:</strong> JMD {Number(drawer.totalTransferSales || 0).toLocaleString()}</p>
+            <p><strong>Total Sales:</strong> JMD {Number(drawer.totalSales || 0).toLocaleString()}</p>
+            <p><strong>Expected Cash:</strong> JMD {Number(drawer.expectedCash || 0).toLocaleString()}</p>
+
+            <div style={{ display: "flex", gap: "12px", flexWrap: "wrap", marginTop: "12px" }}>
+              <input
+                type="number"
+                placeholder="Closing Cash Count"
+                value={closingCashCount}
+                onChange={(e) => setClosingCashCount(e.target.value)}
+                style={{
+                  padding: "10px",
+                  minWidth: "220px",
+                  borderRadius: "6px",
+                  border: "1px solid #cbd5e1",
+                }}
+              />
+
+              <button
+                onClick={closeDrawer}
+                style={{
+                  backgroundColor: "#dc2626",
+                  color: "white",
+                  border: "none",
+                  padding: "10px 16px",
+                  borderRadius: "6px",
+                  cursor: "pointer",
+                }}
+              >
+                Close Drawer
+              </button>
+            </div>
+          </>
+        ) : (
+          <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
+            <input
+              type="number"
+              placeholder="Opening Cash Float"
+              value={openingFloat}
+              onChange={(e) => setOpeningFloat(e.target.value)}
+              style={{
+                padding: "10px",
+                minWidth: "220px",
+                borderRadius: "6px",
+                border: "1px solid #cbd5e1",
+              }}
+            />
+
+            <button
+              onClick={openDrawer}
+              style={{
+                backgroundColor: "#16a34a",
+                color: "white",
+                border: "none",
+                padding: "10px 16px",
+                borderRadius: "6px",
+                cursor: "pointer",
+              }}
+            >
+              Open Drawer
+            </button>
+          </div>
+        )}
+
+        {drawerHistory.length > 0 && (
+          <div style={{ marginTop: "18px" }}>
+            <h3>Recent Drawer Sessions</h3>
+            <table border="1" cellPadding="10" style={{ width: "100%" }}>
+              <thead>
+                <tr>
+                  <th>Drawer</th>
+                  <th>Cashier</th>
+                  <th>Status</th>
+                  <th>Total Sales</th>
+                  <th>Expected Cash</th>
+                  <th>Closing Cash</th>
+                  <th>Variance</th>
+                </tr>
+              </thead>
+              <tbody>
+                {drawerHistory.slice(0, 5).map((item) => (
+                  <tr key={item._id}>
+                    <td>{item.drawerNumber}</td>
+                    <td>{item.openedByName}</td>
+                    <td>{item.status}</td>
+                    <td>JMD {Number(item.totalSales || 0).toLocaleString()}</td>
+                    <td>JMD {Number(item.expectedCash || 0).toLocaleString()}</td>
+                    <td>JMD {Number(item.closingCashCount || 0).toLocaleString()}</td>
+                    <td
+                      style={{
+                        color: Number(item.cashVariance || 0) === 0 ? "#16a34a" : "#dc2626",
+                        fontWeight: "bold",
+                      }}
+                    >
+                      JMD {Number(item.cashVariance || 0).toLocaleString()}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
 
       <div style={cardStyle}>
         <h2>Find Customer</h2>
@@ -316,6 +521,28 @@ const estimatedTotal = checkoutPackages.reduce(
                 </option>
               ))}
             </select>
+
+                        <div style={{ marginTop: "12px" }}>
+              <label style={{ display: "block", marginBottom: "8px", fontWeight: "bold" }}>
+                Payment Method
+              </label>
+              <select
+                value={paymentMethod}
+                onChange={(e) => setPaymentMethod(e.target.value)}
+                style={{
+                  padding: "10px",
+                  minWidth: "260px",
+                  borderRadius: "6px",
+                  border: "1px solid #cbd5e1",
+                }}
+              >
+                <option value="Cash">Cash</option>
+                <option value="Card">Card</option>
+                <option value="Bank Transfer">Bank Transfer</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+            
           </div>
 
           <button
