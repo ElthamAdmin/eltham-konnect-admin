@@ -3,6 +3,7 @@ import api from "../api";
 
 function AmazonAssociateLinks() {
   const [items, setItems] = useState([]);
+  const [dashboard, setDashboard] = useState(null);
   const [imageFile, setImageFile] = useState(null);
   const [editingItemNumber, setEditingItemNumber] = useState("");
   const [isEditing, setIsEditing] = useState(false);
@@ -11,6 +12,13 @@ function AmazonAssociateLinks() {
     title: "",
     description: "",
     affiliateLink: "",
+    productType: "Amazon Affiliate",
+    category: "General",
+    sourceSupplier: "",
+    costPrice: 0,
+    sellingPrice: 0,
+    quantityInStock: 0,
+    lowStockAlertLevel: 2,
     buttonText: "Shop on Amazon",
     sortOrder: 0,
     isActive: true,
@@ -28,6 +36,8 @@ function AmazonAssociateLinks() {
     try {
       const res = await api.get("/api/amazon-associate");
       setItems(res.data.data || []);
+      const dashboardRes = await api.get("/api/amazon-associate/dashboard");
+      setDashboard(dashboardRes.data.data || null);
     } catch (error) {
       console.error("Error loading Amazon associate items:", error);
       alert(error?.response?.data?.message || "Could not load Amazon associate items.");
@@ -47,11 +57,18 @@ function AmazonAssociateLinks() {
     }));
   };
 
-  const resetForm = () => {
+    const resetForm = () => {
     setFormData({
       title: "",
       description: "",
       affiliateLink: "",
+      productType: "Amazon Affiliate",
+      category: "General",
+      sourceSupplier: "",
+      costPrice: 0,
+      sellingPrice: 0,
+      quantityInStock: 0,
+      lowStockAlertLevel: 2,
       buttonText: "Shop on Amazon",
       sortOrder: 0,
       isActive: true,
@@ -66,8 +83,13 @@ function AmazonAssociateLinks() {
 
   const saveItem = async () => {
     try {
-      if (!formData.title || !formData.affiliateLink) {
-        alert("Title and affiliate link are required.");
+            if (!formData.title) {
+        alert("Product title is required.");
+        return;
+      }
+
+      if (formData.productType === "Amazon Affiliate" && !formData.affiliateLink) {
+        alert("Affiliate link is required for Amazon affiliate products.");
         return;
       }
 
@@ -75,6 +97,13 @@ function AmazonAssociateLinks() {
       payload.append("title", formData.title);
       payload.append("description", formData.description);
       payload.append("affiliateLink", formData.affiliateLink);
+      payload.append("productType", formData.productType);
+      payload.append("category", formData.category);
+      payload.append("sourceSupplier", formData.sourceSupplier);
+      payload.append("costPrice", formData.costPrice);
+      payload.append("sellingPrice", formData.sellingPrice);
+      payload.append("quantityInStock", formData.quantityInStock);
+      payload.append("lowStockAlertLevel", formData.lowStockAlertLevel);
       payload.append("buttonText", formData.buttonText);
       payload.append("sortOrder", formData.sortOrder);
       payload.append("isActive", formData.isActive);
@@ -100,11 +129,18 @@ function AmazonAssociateLinks() {
     }
   };
 
-  const loadForEdit = (item) => {
+    const loadForEdit = (item) => {
     setFormData({
       title: item.title || "",
       description: item.description || "",
       affiliateLink: item.affiliateLink || "",
+      productType: item.productType || "Amazon Affiliate",
+      category: item.category || "General",
+      sourceSupplier: item.sourceSupplier || "",
+      costPrice: item.costPrice || 0,
+      sellingPrice: item.sellingPrice || 0,
+      quantityInStock: item.quantityInStock || 0,
+      lowStockAlertLevel: item.lowStockAlertLevel || 2,
       buttonText: item.buttonText || "Shop on Amazon",
       sortOrder: item.sortOrder ?? 0,
       isActive: Boolean(item.isActive),
@@ -134,11 +170,39 @@ function AmazonAssociateLinks() {
   return (
     <div style={{ backgroundColor: LIGHT_BG, minHeight: "100vh" }}>
       <div style={{ marginBottom: "20px" }}>
-        <h1 style={{ margin: 0, color: "#0f172a" }}>Amazon Associate Links</h1>
+        <h1 style={{ margin: 0, color: "#0f172a" }}>Storefront & Amazon Associate Dashboard</h1>
         <p style={{ margin: "6px 0 0 0", color: MUTED }}>
-          Upload product images and attach your Amazon associate links for customers.
+          Manage Amazon affiliate links and EK-owned inventory products for the customer storefront.
         </p>
       </div>
+      <div
+  style={{
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))",
+    gap: "14px",
+    marginTop: "18px",
+  }}
+>
+  <div style={{ backgroundColor: WHITE, border: `1px solid ${BORDER}`, borderRadius: "12px", padding: "16px" }}>
+    <h2 style={{ margin: 0, color: ROYAL_BLUE }}>{dashboard?.totalItems || 0}</h2>
+    <p style={{ marginBottom: 0, color: MUTED, fontWeight: "bold" }}>Total Storefront Items</p>
+  </div>
+
+  <div style={{ backgroundColor: WHITE, border: `1px solid ${BORDER}`, borderRadius: "12px", padding: "16px" }}>
+    <h2 style={{ margin: 0, color: "#16a34a" }}>JMD {Number(dashboard?.inventoryValue || 0).toLocaleString()}</h2>
+    <p style={{ marginBottom: 0, color: MUTED, fontWeight: "bold" }}>Inventory Cost Value</p>
+  </div>
+
+  <div style={{ backgroundColor: WHITE, border: `1px solid ${BORDER}`, borderRadius: "12px", padding: "16px" }}>
+    <h2 style={{ margin: 0, color: "#7c3aed" }}>JMD {Number(dashboard?.potentialProfit || 0).toLocaleString()}</h2>
+    <p style={{ marginBottom: 0, color: MUTED, fontWeight: "bold" }}>Potential Profit</p>
+  </div>
+
+  <div style={{ backgroundColor: WHITE, border: `1px solid ${BORDER}`, borderRadius: "12px", padding: "16px" }}>
+    <h2 style={{ margin: 0, color: "#dc2626" }}>{dashboard?.lowStockItems?.length || 0}</h2>
+    <p style={{ marginBottom: 0, color: MUTED, fontWeight: "bold" }}>Low Stock Items</p>
+  </div>
+</div>
 
       <div
         style={{
@@ -183,6 +247,70 @@ function AmazonAssociateLinks() {
             name="buttonText"
             placeholder="Button Text"
             value={formData.buttonText}
+            onChange={handleChange}
+            style={{ padding: "10px" }}
+          />
+
+                    <select
+            name="productType"
+            value={formData.productType}
+            onChange={handleChange}
+            style={{ padding: "10px" }}
+          >
+            <option value="Amazon Affiliate">Amazon Affiliate</option>
+            <option value="EK Inventory">EK Inventory</option>
+          </select>
+
+          <input
+            type="text"
+            name="category"
+            placeholder="Category e.g. Hair, Colognes, Candles"
+            value={formData.category}
+            onChange={handleChange}
+            style={{ padding: "10px" }}
+          />
+
+          <input
+            type="text"
+            name="sourceSupplier"
+            placeholder="Supplier / Source e.g. Bath & Body Works"
+            value={formData.sourceSupplier}
+            onChange={handleChange}
+            style={{ padding: "10px" }}
+          />
+
+          <input
+            type="number"
+            name="costPrice"
+            placeholder="Cost Price"
+            value={formData.costPrice}
+            onChange={handleChange}
+            style={{ padding: "10px" }}
+          />
+
+          <input
+            type="number"
+            name="sellingPrice"
+            placeholder="Selling Price"
+            value={formData.sellingPrice}
+            onChange={handleChange}
+            style={{ padding: "10px" }}
+          />
+
+          <input
+            type="number"
+            name="quantityInStock"
+            placeholder="Quantity In Stock"
+            value={formData.quantityInStock}
+            onChange={handleChange}
+            style={{ padding: "10px" }}
+          />
+
+          <input
+            type="number"
+            name="lowStockAlertLevel"
+            placeholder="Low Stock Alert Level"
+            value={formData.lowStockAlertLevel}
             onChange={handleChange}
             style={{ padding: "10px" }}
           />
@@ -304,6 +432,10 @@ function AmazonAssociateLinks() {
                 <th>Image</th>
                 <th>Title</th>
                 <th>Description</th>
+                <th>Type</th>
+                <th>Category</th>
+                <th>Price</th>
+                <th>Stock</th>
                 <th>Link</th>
                 <th>Button Text</th>
                 <th>Sort Order</th>
@@ -345,15 +477,31 @@ function AmazonAssociateLinks() {
                     </td>
                     <td>{item.title}</td>
                     <td>{item.description || "-"}</td>
+                                        <td>{item.productType || "Amazon Affiliate"}</td>
+                    <td>{item.category || "General"}</td>
                     <td>
-                      <a
-                        href={item.affiliateLink}
-                        target="_blank"
-                        rel="noreferrer"
-                        style={{ color: ROYAL_BLUE, fontWeight: "bold" }}
-                      >
-                        View Link
-                      </a>
+                      {item.productType === "EK Inventory"
+                        ? `JMD ${Number(item.sellingPrice || 0).toLocaleString()}`
+                        : "—"}
+                    </td>
+                    <td>
+                      {item.productType === "EK Inventory"
+                        ? Number(item.quantityInStock || 0)
+                        : "—"}
+                    </td>
+                    <td>
+                      {item.affiliateLink ? (
+                        <a
+                          href={item.affiliateLink}
+                          target="_blank"
+                          rel="noreferrer"
+                          style={{ color: ROYAL_BLUE, fontWeight: "bold" }}
+                        >
+                          View Link
+                        </a>
+                      ) : (
+                        "—"
+                      )}
                     </td>
                     <td>{item.buttonText}</td>
                     <td>{item.sortOrder}</td>
@@ -404,7 +552,7 @@ function AmazonAssociateLinks() {
                 ))
               ) : (
                 <tr>
-                  <td colSpan="8" style={{ textAlign: "center", color: MUTED }}>
+                  <td colSpan="12" style={{ textAlign: "center", color: MUTED }}>
                     No Amazon associate items found.
                   </td>
                 </tr>
