@@ -6,6 +6,8 @@ function AccountsPayable() {
   const [payables, setPayables] = useState([]);
   const [activeForm, setActiveForm] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
+  const [accounts, setAccounts] = useState([]);
+  const [paymentAccountNumber, setPaymentAccountNumber] = useState("");
 
   const [vendorForm, setVendorForm] = useState({
     vendorName: "",
@@ -33,13 +35,15 @@ function AccountsPayable() {
 
   const loadData = async () => {
     try {
-      const [vendorRes, payableRes] = await Promise.all([
+      const [vendorRes, payableRes, accountsRes] = await Promise.all([
         api.get("/api/accounts-payable/vendors"),
         api.get("/api/accounts-payable"),
+        api.get("/api/financial-accounts"),
       ]);
 
       setVendors(vendorRes.data.data || []);
       setPayables(payableRes.data.data || []);
+      setAccounts(accountsRes.data.data || []);
     } catch (error) {
       console.error("Accounts payable error:", error);
       alert(error?.response?.data?.message || "Could not load accounts payable.");
@@ -143,6 +147,27 @@ function AccountsPayable() {
     }
   };
 
+    const markPayablePaid = async (payableNumber) => {
+    try {
+      if (!paymentAccountNumber) {
+        alert("Please select the account used to pay this bill.");
+        return;
+      }
+
+      await api.put(`/api/accounts-payable/${payableNumber}/mark-paid`, {
+        paymentAccountNumber,
+        paymentDate: new Date().toISOString().slice(0, 10),
+      });
+
+      alert("Payable marked as paid successfully.");
+      setPaymentAccountNumber("");
+      await loadData();
+    } catch (error) {
+      console.error("Mark paid error:", error);
+      alert(error?.response?.data?.message || "Could not mark payable as paid.");
+    }
+  };
+
   return (
     <div>
       <h1 style={{ margin: 0 }}>Accounts Payable</h1>
@@ -212,13 +237,29 @@ function AccountsPayable() {
         </div>
       )}
 
-      <div style={panel(BORDER)}>
-        <input
-          placeholder="Search payables by vendor, bill number, status, or description"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          style={{ ...input(BORDER), width: "100%" }}
-        />
+            <div style={panel(BORDER)}>
+        <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: "12px" }}>
+          <input
+            placeholder="Search payables by vendor, bill number, status, or description"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            style={{ ...input(BORDER), width: "100%" }}
+          />
+
+          <select
+            value={paymentAccountNumber}
+            onChange={(e) => setPaymentAccountNumber(e.target.value)}
+            style={{ ...input(BORDER), width: "100%" }}
+          >
+            <option value="">Select Payment Account</option>
+            {accounts.map((account) => (
+              <option key={account._id} value={account.accountNumber}>
+                {account.accountName} ({account.accountType}) - JMD{" "}
+                {Number(account.balance || 0).toLocaleString()}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
       <div style={panel(BORDER)}>
@@ -239,6 +280,8 @@ function AccountsPayable() {
                 <th>Paid</th>
                 <th>Balance Due</th>
                 <th>Status</th>
+                <th>Payment Account</th>
+                <th>Action</th>
               </tr>
             </thead>
 
@@ -256,12 +299,27 @@ function AccountsPayable() {
                     <td>{money(p.amount)}</td>
                     <td>{money(p.amountPaid)}</td>
                     <td style={{ fontWeight: "bold" }}>{money(p.balanceDue)}</td>
-                    <td>{getDueStatus(p)}</td>
+                                        <td>{getDueStatus(p)}</td>
+                    <td>{p.paymentAccountName || "—"}</td>
+                    <td>
+                      {getDueStatus(p) === "Paid" ? (
+                        <span style={{ color: "#16a34a", fontWeight: "bold" }}>
+                          Paid
+                        </span>
+                      ) : (
+                        <button
+                          onClick={() => markPayablePaid(p.payableNumber)}
+                          style={button("#16a34a")}
+                        >
+                          Mark Paid
+                        </button>
+                      )}
+                    </td>
                   </tr>
                 ))
               ) : (
                 <tr>
-                  <td colSpan="11" style={{ textAlign: "center", color: MUTED }}>
+                  <td colSpan="13" style={{ textAlign: "center", color: MUTED }}>
                     No accounts payable records found.
                   </td>
                 </tr>
