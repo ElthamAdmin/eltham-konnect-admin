@@ -878,10 +878,16 @@ const getOverdueLabel = (ticket) => {
     <option
   key={staff.userId}
   value={staff.userId}
-  disabled={staff.dutyStatus !== "Clocked In"}
+  disabled={[
+    "Vacation Leave",
+    "Sick Leave",
+    "Out of Office",
+    "Absent",
+  ].includes(staff.dutyStatus)}
 >
   {staff.fullName} ({staff.role}) - {staff.dutyStatus || "Off Duty"}
 </option>
+
   ))}
 </select>
 
