@@ -12,4 +12,24 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    const status = error?.response?.status;
+    const message = error?.response?.data?.message || "";
+
+    const isExpiredToken =
+      status === 401 &&
+      String(message).toLowerCase().includes("expired");
+
+    if (isExpiredToken) {
+      localStorage.removeItem("ek_token");
+      localStorage.removeItem("ek_user");
+      window.location.href = "/login";
+    }
+
+    return Promise.reject(error);
+  }
+);
+
 export default api;
