@@ -11,6 +11,7 @@ function TeamHub() {
   const [newChannelName, setNewChannelName] = useState("");
   const [newChannelDescription, setNewChannelDescription] = useState("");
   const [message, setMessage] = useState("");
+  const [attachments, setAttachments] = useState([]);
   const [loadingMessages, setLoadingMessages] = useState(false);
 
   const ROYAL_BLUE = "#0B3D91";
@@ -109,13 +110,21 @@ function TeamHub() {
     }
 
     try {
-      const res = await api.post("/api/team-hub/messages", {
-        channelId: activeChannel._id,
-        message,
-      });
+      const formData = new FormData();
+formData.append("channelId", activeChannel._id);
+formData.append("message", message);
+
+attachments.forEach((file) => {
+  formData.append("attachments", file);
+});
+
+const res = await api.post("/api/team-hub/messages", formData, {
+  headers: { "Content-Type": "multipart/form-data" },
+});
 
       setMessages((prev) => [...prev, res.data.data]);
       setMessage("");
+      setAttachments([]);
     } catch (error) {
       console.error("Error sending message:", error);
       alert(error?.response?.data?.message || "Unable to send message.");
@@ -410,6 +419,27 @@ overflowY: "auto",
                       {item.message}
                     </div>
 
+                    {item.attachments?.length > 0 && (
+  <div style={{ marginTop: "10px", display: "grid", gap: "8px" }}>
+    {item.attachments.map((file, index) => (
+      <a
+        key={index}
+        href={`${api.defaults.baseURL}${file.fileUrl}`}
+        target="_blank"
+        rel="noreferrer"
+        style={{
+          color: mine ? "#fff7cc" : ROYAL_BLUE,
+          fontWeight: "bold",
+          textDecoration: "underline",
+          wordBreak: "break-word",
+        }}
+      >
+        📎 {file.originalName || file.fileName}
+      </a>
+    ))}
+  </div>
+)}
+
                     <div
                       style={{
                         fontSize: "11px",
@@ -457,6 +487,17 @@ overflowY: "auto",
               fontSize: "14px",
             }}
           />
+
+          <input
+  type="file"
+  multiple
+  onChange={(e) => setAttachments(Array.from(e.target.files || []))}
+  disabled={!activeChannel}
+  style={{
+    maxWidth: "220px",
+    fontSize: "13px",
+  }}
+/>
 
           <button
             type="submit"
