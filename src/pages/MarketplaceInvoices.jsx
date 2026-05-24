@@ -5,6 +5,7 @@ function MarketplaceInvoices() {
   const [invoices, setInvoices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [paymentLinks, setPaymentLinks] = useState({});
+  const [chargeInputs, setChargeInputs] = useState({});
 
   const ROYAL_BLUE = "#0B3D91";
   const GOLD = "#D4AF37";
@@ -20,10 +21,18 @@ function MarketplaceInvoices() {
       setInvoices(res.data.data || []);
 
       const links = {};
-      (res.data.data || []).forEach((invoice) => {
-        links[invoice.invoiceNumber] = invoice.paymentLink || "";
-      });
-      setPaymentLinks(links);
+const charges = {};
+
+(res.data.data || []).forEach((invoice) => {
+  links[invoice.invoiceNumber] = invoice.paymentLink || "";
+  charges[invoice.invoiceNumber] = {
+    deliveryFee: invoice.deliveryFee || 0,
+    discount: invoice.discount || 0,
+  };
+});
+
+setPaymentLinks(links);
+setChargeInputs(charges);
     } catch (error) {
       alert(error?.response?.data?.message || "Could not load marketplace invoices.");
     } finally {
@@ -79,6 +88,25 @@ function MarketplaceInvoices() {
     printWindow.document.close();
     printWindow.print();
   };
+
+  const saveCharges = async (invoiceNumber) => {
+  try {
+    const values = chargeInputs[invoiceNumber] || {};
+
+    const res = await api.put(`/api/marketplace-invoices/${invoiceNumber}/charges`, {
+      deliveryFee: Number(values.deliveryFee || 0),
+      discount: Number(values.discount || 0),
+    });
+
+    alert(res.data.message || "Marketplace invoice charges updated.");
+    await fetchInvoices();
+  } catch (error) {
+    alert(
+      error?.response?.data?.message ||
+        "Could not update marketplace invoice charges."
+    );
+  }
+};
 
   useEffect(() => {
     fetchInvoices();
@@ -164,6 +192,76 @@ function MarketplaceInvoices() {
                   <span>Total</span>
                   <strong>JMD {Number(invoice.finalTotal || 0).toLocaleString()}</strong>
                 </div>
+                {invoice.status !== "Paid" && (
+  <div
+    style={{
+      marginTop: "14px",
+      display: "grid",
+      gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+      gap: "10px",
+      alignItems: "end",
+    }}
+  >
+    <label style={{ display: "grid", gap: "6px", fontWeight: "bold", color: TEXT }}>
+      Delivery Fee
+      <input
+        type="number"
+        value={chargeInputs[invoice.invoiceNumber]?.deliveryFee || 0}
+        onChange={(e) =>
+          setChargeInputs((prev) => ({
+            ...prev,
+            [invoice.invoiceNumber]: {
+              ...(prev[invoice.invoiceNumber] || {}),
+              deliveryFee: e.target.value,
+            },
+          }))
+        }
+        style={{
+          padding: "10px",
+          borderRadius: "10px",
+          border: `1px solid ${BORDER}`,
+        }}
+      />
+    </label>
+
+    <label style={{ display: "grid", gap: "6px", fontWeight: "bold", color: TEXT }}>
+      Discount
+      <input
+        type="number"
+        value={chargeInputs[invoice.invoiceNumber]?.discount || 0}
+        onChange={(e) =>
+          setChargeInputs((prev) => ({
+            ...prev,
+            [invoice.invoiceNumber]: {
+              ...(prev[invoice.invoiceNumber] || {}),
+              discount: e.target.value,
+            },
+          }))
+        }
+        style={{
+          padding: "10px",
+          borderRadius: "10px",
+          border: `1px solid ${BORDER}`,
+        }}
+      />
+    </label>
+
+    <button
+      onClick={() => saveCharges(invoice.invoiceNumber)}
+      style={{
+        backgroundColor: GOLD,
+        color: "#111827",
+        border: "none",
+        padding: "11px 14px",
+        borderRadius: "10px",
+        fontWeight: "bold",
+        cursor: "pointer",
+      }}
+    >
+      Save Charges
+    </button>
+  </div>
+)}
               </div>
 
               <div style={{ marginTop: "16px", display: "grid", gridTemplateColumns: "1fr auto auto auto", gap: "10px", alignItems: "center" }}>
