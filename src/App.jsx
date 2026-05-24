@@ -129,7 +129,7 @@ useEffect(() => {
     { label: "Rewards", path: "/rewards-hub-admin", show: can("marketing") },
     { label: "Analytics", path: "/rewards-hub-analytics", show: can("marketing") },
     { label: "Business Analytics", path: "/business-analytics", show: can("finance") },
-    { label: "Amazon", path: "/amazon-associate", show: can("marketing") },
+    { label: "Marketplace", path: "/amazon-associate", show: can("marketing") },
     { label: "Users", path: "/users", show: can("users") },
     { label: "Duty", path: "/duty-monitor", show: can("users") },
     { label: "Audit", path: "/audit-logs", show: can("users") },

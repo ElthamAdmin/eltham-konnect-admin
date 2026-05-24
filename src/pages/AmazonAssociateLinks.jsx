@@ -32,6 +32,36 @@ function AmazonAssociateLinks() {
 
   const FILE_BASE = "https://eltham-konnect-backend-c2sf.onrender.com";
 
+const isInventoryProduct = formData.productType === "EK Inventory";
+const estimatedProfit =
+  Number(formData.sellingPrice || 0) - Number(formData.costPrice || 0);
+const estimatedMargin =
+  Number(formData.sellingPrice || 0) > 0
+    ? ((estimatedProfit / Number(formData.sellingPrice || 0)) * 100).toFixed(1)
+    : "0.0";
+
+const inputStyle = {
+  padding: "11px",
+  border: `1px solid ${BORDER}`,
+  borderRadius: "10px",
+  fontSize: "14px",
+};
+
+const labelStyle = {
+  display: "flex",
+  flexDirection: "column",
+  gap: "6px",
+  color: TEXT || "#0f172a",
+  fontWeight: "bold",
+  fontSize: "13px",
+};
+
+const sectionTitleStyle = {
+  margin: "22px 0 12px 0",
+  color: ROYAL_BLUE,
+  fontSize: "18px",
+};
+
   const fetchItems = async () => {
     try {
       const res = await api.get("/api/amazon-associate");
@@ -170,9 +200,9 @@ function AmazonAssociateLinks() {
   return (
     <div style={{ backgroundColor: LIGHT_BG, minHeight: "100vh" }}>
       <div style={{ marginBottom: "20px" }}>
-        <h1 style={{ margin: 0, color: "#0f172a" }}>Storefront & Amazon Associate Dashboard</h1>
+        <h1 style={{ margin: 0, color: "#0f172a" }}>EK Marketplace Manager</h1>
         <p style={{ margin: "6px 0 0 0", color: MUTED }}>
-          Manage Amazon affiliate links and EK-owned inventory products for the customer storefront.
+          Manage Amazon affiliate items, EK-owned inventory, Bath & Body Works products, colognes, sale finds, and customer storefront items.
         </p>
       </div>
       <div
@@ -214,149 +244,250 @@ function AmazonAssociateLinks() {
         }}
       >
         <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>
-          {isEditing ? "Edit Associate Item" : "Add Associate Item"}
+          {isEditing ? "Edit Marketplace Product" : "Add Marketplace Product"}
         </h2>
 
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
-            gap: "15px",
-          }}
-        >
-          <input
-            type="text"
-            name="title"
-            placeholder="Product Title"
-            value={formData.title}
-            onChange={handleChange}
-            style={{ padding: "10px" }}
-          />
+        <div>
+  <h3 style={sectionTitleStyle}>Product Details</h3>
 
-          <input
-            type="text"
-            name="affiliateLink"
-            placeholder="Amazon Associate Link"
-            value={formData.affiliateLink}
-            onChange={handleChange}
-            style={{ padding: "10px" }}
-          />
+  <div
+    style={{
+      display: "grid",
+      gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+      gap: "15px",
+    }}
+  >
+    <label style={labelStyle}>
+      Product Name
+      <input
+        type="text"
+        name="title"
+        placeholder="Example: Bath & Body Works Mist Set"
+        value={formData.title}
+        onChange={handleChange}
+        style={inputStyle}
+      />
+    </label>
 
-          <input
-            type="text"
-            name="buttonText"
-            placeholder="Button Text"
-            value={formData.buttonText}
-            onChange={handleChange}
-            style={{ padding: "10px" }}
-          />
+    <label style={labelStyle}>
+      Product Type
+      <select
+        name="productType"
+        value={formData.productType}
+        onChange={handleChange}
+        style={inputStyle}
+      >
+        <option value="Amazon Affiliate">Amazon Affiliate</option>
+        <option value="EK Inventory">EK Inventory</option>
+      </select>
+    </label>
 
-                    <select
-            name="productType"
-            value={formData.productType}
-            onChange={handleChange}
-            style={{ padding: "10px" }}
-          >
-            <option value="Amazon Affiliate">Amazon Affiliate</option>
-            <option value="EK Inventory">EK Inventory</option>
-          </select>
+    <label style={labelStyle}>
+      Category
+      <input
+        type="text"
+        name="category"
+        placeholder="Body Mist, Lotion, Cologne, Amazon Finds"
+        value={formData.category}
+        onChange={handleChange}
+        style={inputStyle}
+      />
+    </label>
 
-          <input
-            type="text"
-            name="category"
-            placeholder="Category e.g. Hair, Colognes, Candles"
-            value={formData.category}
-            onChange={handleChange}
-            style={{ padding: "10px" }}
-          />
+    <label style={labelStyle}>
+      Supplier / Source
+      <input
+        type="text"
+        name="sourceSupplier"
+        placeholder="Bath & Body Works, Amazon, Local Supplier"
+        value={formData.sourceSupplier}
+        onChange={handleChange}
+        style={inputStyle}
+      />
+    </label>
+  </div>
 
-          <input
-            type="text"
-            name="sourceSupplier"
-            placeholder="Supplier / Source e.g. Bath & Body Works"
-            value={formData.sourceSupplier}
-            onChange={handleChange}
-            style={{ padding: "10px" }}
-          />
+  <h3 style={sectionTitleStyle}>Pricing & Inventory</h3>
 
-          <input
-            type="number"
-            name="costPrice"
-            placeholder="Cost Price"
-            value={formData.costPrice}
-            onChange={handleChange}
-            style={{ padding: "10px" }}
-          />
+  <div
+    style={{
+      display: "grid",
+      gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+      gap: "15px",
+    }}
+  >
+    <label style={labelStyle}>
+      Cost Price — What EK Paid
+      <input
+        type="number"
+        name="costPrice"
+        placeholder="Example: 1800"
+        value={formData.costPrice}
+        onChange={handleChange}
+        style={inputStyle}
+      />
+    </label>
 
-          <input
-            type="number"
-            name="sellingPrice"
-            placeholder="Selling Price"
-            value={formData.sellingPrice}
-            onChange={handleChange}
-            style={{ padding: "10px" }}
-          />
+    <label style={labelStyle}>
+      Selling Price — Customer Pays
+      <input
+        type="number"
+        name="sellingPrice"
+        placeholder="Example: 3000"
+        value={formData.sellingPrice}
+        onChange={handleChange}
+        style={inputStyle}
+      />
+    </label>
 
-          <input
-            type="number"
-            name="quantityInStock"
-            placeholder="Quantity In Stock"
-            value={formData.quantityInStock}
-            onChange={handleChange}
-            style={{ padding: "10px" }}
-          />
+    <label style={labelStyle}>
+      Quantity In Stock
+      <input
+        type="number"
+        name="quantityInStock"
+        placeholder="Example: 5"
+        value={formData.quantityInStock}
+        onChange={handleChange}
+        style={inputStyle}
+        disabled={!isInventoryProduct}
+      />
+    </label>
 
-          <input
-            type="number"
-            name="lowStockAlertLevel"
-            placeholder="Low Stock Alert Level"
-            value={formData.lowStockAlertLevel}
-            onChange={handleChange}
-            style={{ padding: "10px" }}
-          />
+    <label style={labelStyle}>
+      Low Stock Alert Level
+      <input
+        type="number"
+        name="lowStockAlertLevel"
+        placeholder="Example: 2"
+        value={formData.lowStockAlertLevel}
+        onChange={handleChange}
+        style={inputStyle}
+        disabled={!isInventoryProduct}
+      />
+    </label>
+  </div>
 
-          <input
-            type="number"
-            name="sortOrder"
-            placeholder="Sort Order"
-            value={formData.sortOrder}
-            onChange={handleChange}
-            style={{ padding: "10px" }}
-          />
+  {isInventoryProduct && (
+    <div
+      style={{
+        marginTop: "14px",
+        backgroundColor: "#f8fafc",
+        border: `1px solid ${BORDER}`,
+        borderRadius: "12px",
+        padding: "14px",
+        display: "grid",
+        gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+        gap: "12px",
+      }}
+    >
+      <div>
+        <strong style={{ color: "#16a34a" }}>
+          JMD {Number(estimatedProfit || 0).toLocaleString()}
+        </strong>
+        <div style={{ color: MUTED, fontSize: "13px" }}>Estimated Profit Per Item</div>
+      </div>
 
-          <input
-            id="amazon-associate-image"
-            type="file"
-            accept=".jpg,.jpeg,.png,.webp"
-            onChange={(e) => setImageFile(e.target.files[0] || null)}
-            style={{ padding: "10px" }}
-          />
+      <div>
+        <strong style={{ color: ROYAL_BLUE }}>{estimatedMargin}%</strong>
+        <div style={{ color: MUTED, fontSize: "13px" }}>Estimated Margin</div>
+      </div>
+    </div>
+  )}
 
-          <label
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "10px",
-              fontWeight: "bold",
-            }}
-          >
-            <input
-              type="checkbox"
-              name="isActive"
-              checked={formData.isActive}
-              onChange={handleChange}
-            />
-            Active
-          </label>
+  <h3 style={sectionTitleStyle}>Amazon / Button Setup</h3>
 
-          <textarea
-            name="description"
-            placeholder="Short Description"
-            value={formData.description}
-            onChange={handleChange}
-            style={{ padding: "10px", minHeight: "100px", gridColumn: "1 / -1" }}
-          />
-        </div>
+  <div
+    style={{
+      display: "grid",
+      gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+      gap: "15px",
+    }}
+  >
+    <label style={labelStyle}>
+      Amazon Associate Link
+      <input
+        type="text"
+        name="affiliateLink"
+        placeholder="Paste Amazon affiliate link here"
+        value={formData.affiliateLink}
+        onChange={handleChange}
+        style={inputStyle}
+      />
+    </label>
+
+    <label style={labelStyle}>
+      Button Text
+      <input
+        type="text"
+        name="buttonText"
+        placeholder={isInventoryProduct ? "Request Item" : "Shop on Amazon"}
+        value={formData.buttonText}
+        onChange={handleChange}
+        style={inputStyle}
+      />
+    </label>
+
+    <label style={labelStyle}>
+      Sort Order
+      <input
+        type="number"
+        name="sortOrder"
+        placeholder="0"
+        value={formData.sortOrder}
+        onChange={handleChange}
+        style={inputStyle}
+      />
+    </label>
+
+    <label style={labelStyle}>
+      Product Image
+      <input
+        id="amazon-associate-image"
+        type="file"
+        accept=".jpg,.jpeg,.png,.webp"
+        onChange={(e) => setImageFile(e.target.files[0] || null)}
+        style={inputStyle}
+      />
+    </label>
+
+    <label
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: "10px",
+        fontWeight: "bold",
+        backgroundColor: "#f8fafc",
+        padding: "12px",
+        borderRadius: "10px",
+        border: `1px solid ${BORDER}`,
+      }}
+    >
+      <input
+        type="checkbox"
+        name="isActive"
+        checked={formData.isActive}
+        onChange={handleChange}
+      />
+      Show this product on the customer storefront
+    </label>
+  </div>
+
+  <h3 style={sectionTitleStyle}>Product Description</h3>
+
+  <textarea
+    name="description"
+    placeholder="Describe the product in a customer-friendly way. Example: Sweet fragrance mist, perfect for gifting or everyday use."
+    value={formData.description}
+    onChange={handleChange}
+    style={{
+      ...inputStyle,
+      minHeight: "110px",
+      width: "100%",
+      boxSizing: "border-box",
+      resize: "vertical",
+    }}
+  />
+</div>
 
         <div style={{ display: "flex", gap: "10px", marginTop: "18px", flexWrap: "wrap" }}>
           <button
@@ -399,7 +530,7 @@ function AmazonAssociateLinks() {
           border: `1px solid ${BORDER}`,
         }}
       >
-        <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>Associate Items</h2>
+        <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>Marketplace Products</h2>
 
         <div
   style={{
