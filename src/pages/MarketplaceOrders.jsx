@@ -41,6 +41,29 @@ function MarketplaceOrders() {
     }
   };
 
+  const generateInvoice = async (orderNumber) => {
+  try {
+    const confirmed = window.confirm(
+      "Generate a separate marketplace invoice for this order?"
+    );
+
+    if (!confirmed) return;
+
+    const res = await api.post(`/api/marketplace-invoices/generate/${orderNumber}`, {
+      deliveryFee: 0,
+      discount: 0,
+    });
+
+    alert(res.data.message || "Marketplace invoice generated successfully.");
+    await fetchOrders();
+  } catch (error) {
+    alert(
+      error?.response?.data?.message ||
+        "Could not generate marketplace invoice."
+    );
+  }
+};
+
   useEffect(() => {
     fetchOrders();
   }, []);
@@ -107,6 +130,24 @@ function MarketplaceOrders() {
 <option value="Completed">Completed</option>
 <option value="Cancelled">Cancelled</option>
                   </select>
+
+                  <button
+  onClick={() => generateInvoice(order.orderNumber)}
+  style={{
+    marginTop: "10px",
+    backgroundColor: ROYAL_BLUE,
+    color: WHITE,
+    border: "none",
+    padding: "9px 12px",
+    borderRadius: "10px",
+    fontWeight: "bold",
+    cursor: "pointer",
+    width: "100%",
+  }}
+>
+  Generate Marketplace Invoice
+</button>
+
                 </div>
               </div>
 
