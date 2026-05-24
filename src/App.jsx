@@ -19,6 +19,7 @@ import Communication from "./pages/Communication";
 import TeamHub from "./pages/TeamHub";
 import WarehouseManagement from "./pages/WarehouseManagement";
 import AmazonAssociateLinks from "./pages/AmazonAssociateLinks";
+import MarketplaceOrders from "./pages/MarketplaceOrders";
 import Settings from "./pages/Settings";
 import AuditLogs from "./pages/AuditLogs";
 import PreAlerts from "./pages/PreAlerts";
@@ -130,6 +131,7 @@ useEffect(() => {
     { label: "Analytics", path: "/rewards-hub-analytics", show: can("marketing") },
     { label: "Business Analytics", path: "/business-analytics", show: can("finance") },
     { label: "Marketplace", path: "/amazon-associate", show: can("marketing") },
+    { label: "Market Orders", path: "/marketplace-orders", show: can("marketing") },
     { label: "Users", path: "/users", show: can("users") },
     { label: "Duty", path: "/duty-monitor", show: can("users") },
     { label: "Audit", path: "/audit-logs", show: can("users") },
@@ -259,6 +261,7 @@ useEffect(() => {
       <Route path="/rewards-hub-analytics" element={can("marketing") ? <RewardsHubAnalytics /> : <Navigate to="/" replace />} />
       <Route path="/business-analytics" element={can("finance") ? <BusinessAnalytics /> : <Navigate to="/" replace />} />
       <Route path="/amazon-associate" element={can("marketing") ? <AmazonAssociateLinks /> : <Navigate to="/" replace />} />
+      <Route path="/marketplace-orders" element={can("marketing") ? <MarketplaceOrders /> : <Navigate to="/" replace />} />
       <Route path="/users" element={can("users") ? <SystemUsers /> : <Navigate to="/" replace />} />
       <Route path="/duty-monitor" element={can("users") ? <DutyMonitor /> : <Navigate to="/" replace />} />
       <Route path="/audit-logs" element={can("users") ? <AuditLogs /> : <Navigate to="/" replace />} />
