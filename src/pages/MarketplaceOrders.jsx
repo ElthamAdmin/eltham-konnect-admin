@@ -98,12 +98,14 @@ function MarketplaceOrders() {
                     }}
                   >
                     <option value="Pending Review">Pending Review</option>
-                    <option value="Awaiting Payment">Awaiting Payment</option>
-                    <option value="Paid">Paid</option>
-                    <option value="Preparing">Preparing</option>
-                    <option value="Ready For Pickup">Ready For Pickup</option>
-                    <option value="Delivered">Delivered</option>
-                    <option value="Cancelled">Cancelled</option>
+<option value="Approved">Approved</option>
+<option value="Awaiting Payment">Awaiting Payment</option>
+<option value="Paid">Paid</option>
+<option value="Preparing">Preparing</option>
+<option value="Ready For Pickup">Ready For Pickup</option>
+<option value="Out For Delivery">Out For Delivery</option>
+<option value="Completed">Completed</option>
+<option value="Cancelled">Cancelled</option>
                   </select>
                 </div>
               </div>
