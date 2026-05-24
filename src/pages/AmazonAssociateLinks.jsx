@@ -51,7 +51,7 @@ const labelStyle = {
   display: "flex",
   flexDirection: "column",
   gap: "6px",
-  color: TEXT || "#0f172a",
+  color: "#0f172a",
   fontWeight: "bold",
   fontSize: "13px",
 };
