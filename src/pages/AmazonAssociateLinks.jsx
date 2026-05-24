@@ -62,6 +62,20 @@ const sectionTitleStyle = {
   fontSize: "18px",
 };
 
+const inventoryHealthColor =
+  dashboard?.inventoryHealth === "Critical"
+    ? "#dc2626"
+    : dashboard?.inventoryHealth === "Moderate"
+    ? "#f59e0b"
+    : "#16a34a";
+
+const intelligenceCardStyle = {
+  backgroundColor: WHITE,
+  border: `1px solid ${BORDER}`,
+  borderRadius: "12px",
+  padding: "16px",
+};
+
   const fetchItems = async () => {
     try {
       const res = await api.get("/api/amazon-associate");
@@ -211,26 +225,152 @@ const sectionTitleStyle = {
     gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))",
     gap: "14px",
     marginTop: "18px",
+    marginBottom: "18px",
   }}
 >
-  <div style={{ backgroundColor: WHITE, border: `1px solid ${BORDER}`, borderRadius: "12px", padding: "16px" }}>
+  <div style={intelligenceCardStyle}>
     <h2 style={{ margin: 0, color: ROYAL_BLUE }}>{dashboard?.totalItems || 0}</h2>
     <p style={{ marginBottom: 0, color: MUTED, fontWeight: "bold" }}>Total Storefront Items</p>
   </div>
 
-  <div style={{ backgroundColor: WHITE, border: `1px solid ${BORDER}`, borderRadius: "12px", padding: "16px" }}>
-    <h2 style={{ margin: 0, color: "#16a34a" }}>JMD {Number(dashboard?.inventoryValue || 0).toLocaleString()}</h2>
+  <div style={intelligenceCardStyle}>
+    <h2 style={{ margin: 0, color: "#16a34a" }}>
+      JMD {Number(dashboard?.inventoryValue || 0).toLocaleString()}
+    </h2>
     <p style={{ marginBottom: 0, color: MUTED, fontWeight: "bold" }}>Inventory Cost Value</p>
   </div>
 
-  <div style={{ backgroundColor: WHITE, border: `1px solid ${BORDER}`, borderRadius: "12px", padding: "16px" }}>
-    <h2 style={{ margin: 0, color: "#7c3aed" }}>JMD {Number(dashboard?.potentialProfit || 0).toLocaleString()}</h2>
+  <div style={intelligenceCardStyle}>
+    <h2 style={{ margin: 0, color: "#7c3aed" }}>
+      JMD {Number(dashboard?.potentialProfit || 0).toLocaleString()}
+    </h2>
     <p style={{ marginBottom: 0, color: MUTED, fontWeight: "bold" }}>Potential Profit</p>
   </div>
 
-  <div style={{ backgroundColor: WHITE, border: `1px solid ${BORDER}`, borderRadius: "12px", padding: "16px" }}>
+  <div style={intelligenceCardStyle}>
     <h2 style={{ margin: 0, color: "#dc2626" }}>{dashboard?.lowStockItems?.length || 0}</h2>
     <p style={{ marginBottom: 0, color: MUTED, fontWeight: "bold" }}>Low Stock Items</p>
+  </div>
+
+  <div style={intelligenceCardStyle}>
+    <h2 style={{ margin: 0, color: "#0f172a" }}>{dashboard?.totalUnitsSold || 0}</h2>
+    <p style={{ marginBottom: 0, color: MUTED, fontWeight: "bold" }}>Units Sold</p>
+  </div>
+
+  <div style={intelligenceCardStyle}>
+    <h2 style={{ margin: 0, color: "#16a34a" }}>
+      JMD {Number(dashboard?.totalRevenue || 0).toLocaleString()}
+    </h2>
+    <p style={{ marginBottom: 0, color: MUTED, fontWeight: "bold" }}>Marketplace Revenue</p>
+  </div>
+
+  <div style={intelligenceCardStyle}>
+    <h2 style={{ margin: 0, color: "#7c3aed" }}>
+      JMD {Number(dashboard?.totalProfit || 0).toLocaleString()}
+    </h2>
+    <p style={{ marginBottom: 0, color: MUTED, fontWeight: "bold" }}>Actual Profit</p>
+  </div>
+
+  <div style={intelligenceCardStyle}>
+    <h2 style={{ margin: 0, color: inventoryHealthColor }}>
+      {dashboard?.inventoryHealth || "Healthy"}
+    </h2>
+    <p style={{ marginBottom: 0, color: MUTED, fontWeight: "bold" }}>Inventory Health</p>
+  </div>
+</div>
+
+<div
+  style={{
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+    gap: "16px",
+    marginBottom: "20px",
+  }}
+>
+  <div style={intelligenceCardStyle}>
+    <h3 style={{ marginTop: 0, color: ROYAL_BLUE }}>Best Sellers</h3>
+
+    {dashboard?.bestSellingProducts?.length > 0 ? (
+      dashboard.bestSellingProducts.map((item) => (
+        <div
+          key={item.itemNumber}
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            gap: "12px",
+            borderTop: `1px solid ${BORDER}`,
+            paddingTop: "10px",
+            marginTop: "10px",
+          }}
+        >
+          <div>
+            <div style={{ fontWeight: "bold", color: "#0f172a" }}>{item.title}</div>
+            <div style={{ color: MUTED, fontSize: "13px" }}>
+              Sold: {Number(item.unitsSold || 0)}
+            </div>
+          </div>
+          <strong>JMD {Number(item.totalRevenue || 0).toLocaleString()}</strong>
+        </div>
+      ))
+    ) : (
+      <div style={{ color: MUTED, fontWeight: "bold" }}>No sales recorded yet.</div>
+    )}
+  </div>
+
+  <div style={intelligenceCardStyle}>
+    <h3 style={{ marginTop: 0, color: "#dc2626" }}>Low / Zero Stock Alerts</h3>
+
+    {(dashboard?.zeroStockItems?.length || 0) > 0 && (
+      <div style={{ marginBottom: "12px", color: "#dc2626", fontWeight: "bold" }}>
+        {dashboard.zeroStockItems.length} product(s) are out of stock.
+      </div>
+    )}
+
+    {dashboard?.lowStockItems?.length > 0 ? (
+      dashboard.lowStockItems.slice(0, 5).map((item) => (
+        <div
+          key={item.itemNumber}
+          style={{
+            borderTop: `1px solid ${BORDER}`,
+            paddingTop: "10px",
+            marginTop: "10px",
+          }}
+        >
+          <div style={{ fontWeight: "bold", color: "#0f172a" }}>{item.title}</div>
+          <div style={{ color: MUTED, fontSize: "13px" }}>
+            Stock: {Number(item.quantityInStock || 0)} / Alert Level:{" "}
+            {Number(item.lowStockAlertLevel || 0)}
+          </div>
+        </div>
+      ))
+    ) : (
+      <div style={{ color: MUTED, fontWeight: "bold" }}>No low stock items.</div>
+    )}
+  </div>
+
+  <div style={intelligenceCardStyle}>
+    <h3 style={{ marginTop: 0, color: "#f59e0b" }}>Slow Moving Inventory</h3>
+
+    {dashboard?.slowMovingItems?.length > 0 ? (
+      dashboard.slowMovingItems.slice(0, 5).map((item) => (
+        <div
+          key={item.itemNumber}
+          style={{
+            borderTop: `1px solid ${BORDER}`,
+            paddingTop: "10px",
+            marginTop: "10px",
+          }}
+        >
+          <div style={{ fontWeight: "bold", color: "#0f172a" }}>{item.title}</div>
+          <div style={{ color: MUTED, fontSize: "13px" }}>
+            Stock: {Number(item.quantityInStock || 0)} • Sold:{" "}
+            {Number(item.unitsSold || 0)}
+          </div>
+        </div>
+      ))
+    ) : (
+      <div style={{ color: MUTED, fontWeight: "bold" }}>No slow moving items detected.</div>
+    )}
   </div>
 </div>
 
@@ -567,6 +707,9 @@ const sectionTitleStyle = {
                 <th>Category</th>
                 <th>Price</th>
                 <th>Stock</th>
+                <th>Sold</th>
+                <th>Revenue</th>
+                <th>Profit</th>
                 <th>Link</th>
                 <th>Button Text</th>
                 <th>Sort Order</th>
@@ -616,12 +759,27 @@ const sectionTitleStyle = {
                         : "—"}
                     </td>
                     <td>
-                      {item.productType === "EK Inventory"
-                        ? Number(item.quantityInStock || 0)
-                        : "—"}
-                    </td>
-                    <td>
-                      {item.affiliateLink ? (
+  {item.productType === "EK Inventory"
+    ? Number(item.quantityInStock || 0)
+    : "—"}
+</td>
+<td>
+  {item.productType === "EK Inventory"
+    ? Number(item.unitsSold || 0)
+    : "—"}
+</td>
+<td>
+  {item.productType === "EK Inventory"
+    ? `JMD ${Number(item.totalRevenue || 0).toLocaleString()}`
+    : "—"}
+</td>
+<td>
+  {item.productType === "EK Inventory"
+    ? `JMD ${Number(item.totalProfit || 0).toLocaleString()}`
+    : "—"}
+</td>
+<td>
+  {item.affiliateLink ? (
                         <a
                           href={item.affiliateLink}
                           target="_blank"
@@ -683,7 +841,7 @@ const sectionTitleStyle = {
                 ))
               ) : (
                 <tr>
-                  <td colSpan="12" style={{ textAlign: "center", color: MUTED }}>
+                  <td colSpan="15" style={{ textAlign: "center", color: MUTED }}>
                     No Amazon associate items found.
                   </td>
                 </tr>
