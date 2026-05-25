@@ -1,10 +1,33 @@
-function FinancialExports() {
- const API_BASE =
-  import.meta.env.VITE_API_BASE_URL ||
-  "https://eltham-konnect-backend-c2sf.onrender.com";
+import api from "../api";
 
-  const exportFile = (path) => {
-    window.open(`${API_BASE}${path}`, "_blank");
+function FinancialExports() {
+  const exportFile = async (path, filename) => {
+    try {
+      const response = await api.get(path, {
+        responseType: "blob",
+      });
+
+      const blob = new Blob([response.data], {
+        type: "text/csv;charset=utf-8;",
+      });
+
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+
+      link.href = url;
+      link.setAttribute("download", filename);
+      document.body.appendChild(link);
+      link.click();
+
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Export download error:", error);
+      alert(
+        error?.response?.data?.message ||
+          "Could not download export. Please try again."
+      );
+    }
   };
 
   const reports = [
@@ -12,16 +35,25 @@ function FinancialExports() {
       title: "Trial Balance",
       description: "Export account balances for accounting verification.",
       path: "/api/financial-exports/trial-balance",
+      filename: "trial-balance.csv",
     },
     {
       title: "General Ledger",
       description: "Export all posted debit and credit ledger transactions.",
       path: "/api/financial-exports/general-ledger",
+      filename: "general-ledger.csv",
     },
     {
       title: "Profit & Loss",
       description: "Export revenue, expenses, and net profit/loss.",
       path: "/api/financial-exports/profit-loss",
+      filename: "profit-loss.csv",
+    },
+    {
+      title: "Balance Sheet",
+      description: "Export assets, liabilities, and equity balances.",
+      path: "/api/financial-exports/balance-sheet",
+      filename: "balance-sheet.csv",
     },
   ];
 
@@ -29,7 +61,8 @@ function FinancialExports() {
     <div>
       <h1 style={{ margin: 0 }}>Financial Statement Exports</h1>
       <p style={{ marginTop: "6px", color: "#64748b" }}>
-        Download corporate accounting reports for review, accounting, banking, and TAJ preparation.
+        Download corporate accounting reports for review, accounting, banking,
+        and TAJ preparation.
       </p>
 
       <div
@@ -50,14 +83,16 @@ function FinancialExports() {
               padding: "18px",
             }}
           >
-            <h2 style={{ marginTop: 0, color: "#0B3D91" }}>{report.title}</h2>
+            <h2 style={{ marginTop: 0, color: "#0B3D91" }}>
+              {report.title}
+            </h2>
 
             <p style={{ color: "#64748b", minHeight: "48px" }}>
               {report.description}
             </p>
 
             <button
-              onClick={() => exportFile(report.path)}
+              onClick={() => exportFile(report.path, report.filename)}
               style={{
                 backgroundColor: "#0B3D91",
                 color: "white",
