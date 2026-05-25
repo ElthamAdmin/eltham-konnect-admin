@@ -315,13 +315,15 @@ doc.save(`payslip-${safeEmployeeName}-${safePayPeriod}.pdf`);
   });
 
   const [accountForm, setAccountForm] = useState({
-    accountName: "",
-    accountType: "Bank",
-    bankName: "",
-    openingBalance: "",
-    currentBalance: "",
-    status: "Active",
-  });
+  accountName: "",
+  accountType: "Bank",
+  bankName: "",
+  openingBalance: "",
+  currentBalance: "",
+  currency: "JMD",
+  exchangeRate: 1,
+  status: "Active",
+});
 
   const [transactionForm, setTransactionForm] = useState({
     accountNumber: "",
@@ -957,13 +959,15 @@ const getSummaryQuery = () => {
     alert(res.data.message);
 
     setAccountForm({
-      accountName: "",
-      accountType: "Bank",
-      bankName: "",
-      openingBalance: "",
-      currentBalance: "",
-      status: "Active",
-    });
+  accountName: "",
+  accountType: "Bank",
+  bankName: "",
+  openingBalance: "",
+  currentBalance: "",
+  currency: "JMD",
+  exchangeRate: 1,
+  status: "Active",
+});
 
     setEditingAccountNumber("");
     setIsEditingAccount(false);
@@ -982,7 +986,9 @@ const getSummaryQuery = () => {
     bankName: account.bankName || "",
     openingBalance: account.openingBalance ?? "",
     currentBalance: account.currentBalance ?? "",
-    status: account.status || "Active",
+    currency: account.currency || "JMD",
+exchangeRate: account.exchangeRate || 1,
+status: account.status || "Active",
   });
 
   setEditingAccountNumber(account.accountNumber);
@@ -2975,6 +2981,28 @@ const getSummaryQuery = () => {
   onChange={handleAccountChange}
   style={{ padding: "10px" }}
 />
+
+<select
+  name="currency"
+  value={accountForm.currency}
+  onChange={handleAccountChange}
+  style={{ padding: "10px" }}
+>
+  <option value="JMD">JMD</option>
+  <option value="USD">USD</option>
+</select>
+
+{accountForm.currency !== "JMD" && (
+  <input
+    type="number"
+    step="0.01"
+    name="exchangeRate"
+    placeholder="Exchange Rate"
+    value={accountForm.exchangeRate}
+    onChange={handleAccountChange}
+    style={{ padding: "10px" }}
+  />
+)}
             </div>
 
             <select
@@ -3099,6 +3127,7 @@ const getSummaryQuery = () => {
                     <th>Bank Name</th>
                     <th>Opening Balance</th>
                     <th>Current Balance</th>
+                    <th>JMD Equivalent</th>
                     <th>Currency</th>
                     <th>Status</th>
                     <th>Action</th>
@@ -3113,7 +3142,14 @@ const getSummaryQuery = () => {
                         <td>{account.accountType}</td>
                         <td>{account.bankName}</td>
                         <td>{formatCurrency(account.openingBalance)}</td>
-                        <td>{formatCurrency(account.currentBalance)}</td>
+                        <td>{account.currency || "JMD"}{" "}
+{Number(account.currentBalance || 0).toLocaleString()}</td>
+<td>
+  JMD{" "}
+  {Number(
+    account.baseCurrencyBalance || account.currentBalance || 0
+  ).toLocaleString()}
+</td>
                         <td>{account.currency}</td>
                         <td>{statusBadge(account.status)}</td>
 <td>
