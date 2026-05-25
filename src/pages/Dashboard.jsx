@@ -102,7 +102,8 @@ function Dashboard() {
     borderRadius: "16px",
     padding: "24px",
     border: "1px solid #e2e8f0",
-    boxShadow: "0 10px 24px rgba(15, 23, 42, 0.06)",
+    boxShadow: "0 16px 36px rgba(15, 23, 42, 0.08)",
+background: "linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)",
   };
 
   const COLORS = ["#16a34a", "#0ea5e9", "#dc2626", "#f97316"];
@@ -145,11 +146,12 @@ function Dashboard() {
         </div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))", gap: "20px" }}>
-        <DashboardCard title={`Outstanding Revenue - ${filterLabel}`} value={money(outstandingRevenue)} color="#dc2626" link="/invoices" linkText="View Invoices" />
-        <DashboardCard title={`Expenses + Payroll - ${filterLabel}`} value={money(totalExpenses + totalPayroll)} color="#dc2626" link="/finance" linkText="View Finance" />
-        <DashboardCard title={`Net Position - ${filterLabel}`} value={money(netPosition)} color={netPosition >= 0 ? "#16a34a" : "#dc2626"} link="/finance" linkText="View Finance" />
-      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))", gap: "20px" }}>
+  <DashboardCard title={`Paid Revenue - ${filterLabel}`} value={money(paidInvoicesTotal)} color="#16a34a" link="/invoices" linkText="View Invoices" />
+  <DashboardCard title={`Outstanding Revenue - ${filterLabel}`} value={money(outstandingRevenue)} color="#dc2626" link="/invoices" linkText="View Invoices" />
+  <DashboardCard title={`Expenses + Payroll - ${filterLabel}`} value={money(totalExpenses + totalPayroll)} color="#f97316" link="/finance" linkText="View Finance" />
+  <DashboardCard title={`Net Position - ${filterLabel}`} value={money(netPosition)} color={netPosition >= 0 ? "#16a34a" : "#dc2626"} link="/finance" linkText="View Finance" />
+</div>
 
       <div style={cardStyle}>
         <div style={{ display: "flex", justifyContent: "space-between", gap: "12px", flexWrap: "wrap", marginBottom: "18px" }}>
@@ -188,7 +190,8 @@ function DashboardCard({ title, value, color, link, linkText }) {
         borderRadius: "16px",
         padding: "26px",
         border: "1px solid #e2e8f0",
-        boxShadow: "0 10px 24px rgba(15, 23, 42, 0.06)",
+        boxShadow: "0 14px 34px rgba(15, 23, 42, 0.08)",
+        background: "linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)",
       }}
     >
       <h2 style={{ margin: 0, color, fontSize: "30px" }}>{value}</h2>

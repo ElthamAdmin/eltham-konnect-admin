@@ -309,7 +309,7 @@ const subNavItemStyle = (active) => ({
       >
         <div
           style={{
-            backgroundColor: "#253a95",
+            background: "linear-gradient(180deg, #102a63 0%, #183b8c 48%, #0f2558 100%)",
             color: "white",
             padding: "16px",
             position: "sticky",
@@ -339,14 +339,12 @@ const subNavItemStyle = (active) => ({
               ☰
             </button>
 
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: "18px", fontWeight: "bold" }}>
-                Eltham Konnect
-              </div>
-              <div style={{ fontSize: "12px", opacity: 0.9 }}>
-                {user?.fullName} • {user?.role}
-              </div>
-            </div>
+            <div>
+  <div style={{ fontSize: "22px", fontWeight: "900" }}>Eltham Konnect</div>
+  <div style={{ fontSize: "12px", opacity: 0.75, marginTop: "4px" }}>
+    EKOS Admin ERP
+  </div>
+</div>
 
             <div
               style={{
@@ -501,7 +499,7 @@ const subNavItemStyle = (active) => ({
     height: "100vh",
     overflow: "hidden",
     fontFamily: "Arial, sans-serif",
-    backgroundColor: "#eef2f7",
+    background: "linear-gradient(135deg, #eef3fb 0%, #f8fafc 100%)",
   }}
 >
       <div
@@ -662,7 +660,7 @@ const subNavItemStyle = (active) => ({
         <div
   style={{
     flex: 1,
-    padding: "26px",
+    padding: "28px",
     overflowY: "auto",
     overflowX: "hidden",
     maxWidth: "100%",

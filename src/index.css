@@ -55,3 +55,33 @@ a {
 button {
   font-family: inherit;
 }
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: #eef3fb;
+}
+
+button, a, select {
+  transition: all 0.2s ease;
+}
+
+a:hover {
+  opacity: 0.85;
+}
+
+button:hover {
+  transform: translateY(-1px);
+}
+
+@media (max-width: 768px) {
+  table {
+    font-size: 13px;
+  }
+
+  th, td {
+    padding: 8px;
+  }
+}
