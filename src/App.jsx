@@ -21,6 +21,7 @@ import WarehouseManagement from "./pages/WarehouseManagement";
 import AmazonAssociateLinks from "./pages/AmazonAssociateLinks";
 import MarketplaceOrders from "./pages/MarketplaceOrders";
 import MarketplaceInvoices from "./pages/MarketplaceInvoices";
+import MarketplaceProductsPage from "./pages/MarketplaceProductsPage";
 import Settings from "./pages/Settings";
 import AuditLogs from "./pages/AuditLogs";
 import PreAlerts from "./pages/PreAlerts";
@@ -134,6 +135,7 @@ useEffect(() => {
     { label: "Marketplace", path: "/amazon-associate", show: can("marketing") },
     { label: "Market Orders", path: "/marketplace-orders", show: can("marketing") },
     { label: "Market Invoices", path: "/marketplace-invoices", show: can("marketing") },
+    { label: "Market Inventory", path: "/marketplace-products", show: can("marketing") },
     { label: "Users", path: "/users", show: can("users") },
     { label: "Duty", path: "/duty-monitor", show: can("users") },
     { label: "Audit", path: "/audit-logs", show: can("users") },
@@ -265,6 +267,7 @@ useEffect(() => {
       <Route path="/amazon-associate" element={can("marketing") ? <AmazonAssociateLinks /> : <Navigate to="/" replace />} />
       <Route path="/marketplace-orders" element={can("marketing") ? <MarketplaceOrders /> : <Navigate to="/" replace />} />
       <Route path="/marketplace-invoices" element={can("marketing") ? <MarketplaceInvoices /> : <Navigate to="/" replace />} />
+      <Route path="/marketplace-products" element={can("marketing") ? <MarketplaceProductsPage /> : <Navigate to="/" replace />} />
       <Route path="/users" element={can("users") ? <SystemUsers /> : <Navigate to="/" replace />} />
       <Route path="/duty-monitor" element={can("users") ? <DutyMonitor /> : <Navigate to="/" replace />} />
       <Route path="/audit-logs" element={can("users") ? <AuditLogs /> : <Navigate to="/" replace />} />
