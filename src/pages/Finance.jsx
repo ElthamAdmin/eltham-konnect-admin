@@ -669,8 +669,11 @@ const getSummaryQuery = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
 }, [activeTab, payrollForm.employeeId, payrollForm.payPeriod, hrEmployees]);
 
-  const formatCurrency = (value) =>
-    `JMD ${Number(value || 0).toLocaleString()}`;
+  const formatCurrency = (value, currency = "JMD") =>
+  `${currency} ${Number(value || 0).toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
 
   const formatDate = (value) => {
     if (!value) return "";
@@ -1794,7 +1797,10 @@ status: account.status || "Active",
                   .filter((account) => account.status === "Active")
                   .map((account) => (
                     <option key={account._id} value={account.accountNumber}>
-                      {account.accountName} ({account.accountType}) - {formatCurrency(account.currentBalance)}
+                      {account.accountName} ({account.accountType}) - {formatCurrency(
+  account.currentBalance,
+  account.currency || "JMD"
+)}
                     </option>
                   ))}
               </select>
