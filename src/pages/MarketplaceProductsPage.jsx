@@ -1,8 +1,5 @@
 import { useEffect, useState } from "react";
-import axios from "axios";
-
-const API_BASE =
-  import.meta.env.VITE_API_BASE_URL || "/api";
+import api from "../api";
 
 export default function MarketplaceProductsPage() {
   const [products, setProducts] = useState([]);
@@ -24,9 +21,7 @@ export default function MarketplaceProductsPage() {
     try {
       setLoading(true);
 
-      const response = await axios.get(
-        `${API_BASE}/marketplace-products`
-      );
+      const response = await api.get("/api/marketplace-products");
 
       setProducts(response.data.data || []);
     } catch (error) {
@@ -51,10 +46,7 @@ export default function MarketplaceProductsPage() {
     e.preventDefault();
 
     try {
-      await axios.post(
-        `${API_BASE}/marketplace-products`,
-        formData
-      );
+      await api.post("/api/marketplace-products", formData);
 
       alert("Marketplace product created");
 
