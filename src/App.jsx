@@ -61,6 +61,7 @@ function AppShell() {
   const location = useLocation();
   const [attendance, setAttendance] = useState(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [financeOpen, setFinanceOpen] = useState(true);
 
   const [isMobile, setIsMobile] = useState(() => window.innerWidth <= 900);
 
@@ -95,58 +96,60 @@ useEffect(() => {
     return (a + b).toUpperCase();
   }, [user]);
 
-  const navItems = [
-    { label: "Dashboard", path: "/", show: true },
-    { label: "POS", path: "/pos", show: can("pos") },
-    { label: "Customers", path: "/customers", show: can("customers") },
-    { label: "Manifests", path: "/manifests", show: can("manifests") },
-    { label: "Packages", path: "/packages", show: can("packages") },
-    { label: "Invoices", path: "/invoices", show: can("invoices") },
-    { label: "PreAlerts", path: "/prealerts", show: can("packages") },
-    { label: "Support", path: "/support-tickets", show: can("support") },
-    { label: "Finance", path: "/finance", show: can("finance") },
-    { label: "Chart Accounts", path: "/chart-of-accounts", show: can("finance") },
-    { label: "Journal Entries", path: "/journal-entries", show: can("finance") },
-    { label: "General Ledger", path: "/general-ledger", show: can("finance") },
-    { label: "Trial Balance", path: "/trial-balance", show: can("finance") },
-    { label: "Profit & Loss", path: "/profit-loss", show: can("finance") },
-    { label: "Balance Sheet", path: "/balance-sheet", show: can("finance") },
-    { label: "Close Period", path: "/close-period", show: can("finance") },
-    { label: "Accounts Receivable", path: "/accounts-receivable", show: can("finance") },
-    { label: "Accounts Payable", path: "/accounts-payable", show: can("finance") },
-    { label: "Banking", path: "/banking-reconciliation", show: can("finance") },
-    { label: "Cash Flow", path: "/cash-flow-statement", show: can("finance") },
-    { label: "Fixed Assets", path: "/fixed-assets", show: can("finance") },
-    { label: "Tax Center", path: "/tax-center", show: can("finance") },
-    { label: "Budgeting", path: "/budgeting", show: can("finance") },
-    { label: "Exports", path: "/financial-exports", show: can("finance") },
-    { label: "Accounting Periods", path: "/accounting-periods", show: can("finance") },
-    { label: "Fiscal Years", path: "/fiscal-years", show: can("finance") },
-    { label: "Limited Liability Setup", path: "/corporate-profile", show: can("finance") },
-    { label: "Debt Manager", path: "/debt-manager", show: can("finance") },
-    { label: "HR", path: "/hr", show: canAccessHR },
-    { label: "Notice Board", path: "/notice-board", show: can("communication") },
-    { label: "Communication", path: "/communication", show: can("communication") },
-    { label: "Team Hub", path: "/team-hub", show: can("communication") },
-    { label: "Marketing", path: "/marketing", show: can("marketing") },
-    { label: "Rewards", path: "/rewards-hub-admin", show: can("marketing") },
-    { label: "Analytics", path: "/rewards-hub-analytics", show: can("marketing") },
-    { label: "Business Analytics", path: "/business-analytics", show: can("finance") },
-    { label: "Marketplace", path: "/amazon-associate", show: can("marketing") },
-    { label: "Market Orders", path: "/marketplace-orders", show: can("marketing") },
-    { label: "Market Invoices", path: "/marketplace-invoices", show: can("marketing") },
-    { label: "Market Inventory", path: "/marketplace-products", show: can("marketing") },
-    { label: "Users", path: "/users", show: can("users") },
-    { label: "Duty", path: "/duty-monitor", show: can("users") },
-    { label: "Audit", path: "/audit-logs", show: can("users") },
-    { label: "Integrations", path: "/integration-logs", show: can("integrations") },
-{ label: "Freight Partners", path: "/freight-partners", show: can("freightPartners") },
-{ label: "Unmatched", path: "/unmatched-packages", show: can("unmatched") },
-    { label: "Settings", path: "/settings", show: can("settings") },
-    { label: "Warehouse", path: "/warehouse-management", show: can("warehouse") },
-    { label: "Points", path: "/points-history", show: can("pointsHistory") },
-    { label: "Referrals", path: "/referrals", show: can("customers") },
-  ].filter((item) => item.show);
+  const financeItems = [
+  { label: "Overview", path: "/finance", show: can("finance") },
+  { label: "Chart Accounts", path: "/chart-of-accounts", show: can("finance") },
+  { label: "Journal Entries", path: "/journal-entries", show: can("finance") },
+  { label: "General Ledger", path: "/general-ledger", show: can("finance") },
+  { label: "Trial Balance", path: "/trial-balance", show: can("finance") },
+  { label: "Profit & Loss", path: "/profit-loss", show: can("finance") },
+  { label: "Balance Sheet", path: "/balance-sheet", show: can("finance") },
+  { label: "Close Period", path: "/close-period", show: can("finance") },
+  { label: "Accounts Receivable", path: "/accounts-receivable", show: can("finance") },
+  { label: "Accounts Payable", path: "/accounts-payable", show: can("finance") },
+  { label: "Banking", path: "/banking-reconciliation", show: can("finance") },
+  { label: "Cash Flow", path: "/cash-flow-statement", show: can("finance") },
+  { label: "Fixed Assets", path: "/fixed-assets", show: can("finance") },
+  { label: "Tax Center", path: "/tax-center", show: can("finance") },
+  { label: "Budgeting", path: "/budgeting", show: can("finance") },
+  { label: "Exports", path: "/financial-exports", show: can("finance") },
+  { label: "Accounting Periods", path: "/accounting-periods", show: can("finance") },
+  { label: "Fiscal Years", path: "/fiscal-years", show: can("finance") },
+  { label: "Limited Liability Setup", path: "/corporate-profile", show: can("finance") },
+  { label: "Debt Manager", path: "/debt-manager", show: can("finance") },
+].filter((item) => item.show);
+
+const navItems = [
+  { label: "Dashboard", path: "/", show: true },
+  { label: "POS", path: "/pos", show: can("pos") },
+  { label: "Customers", path: "/customers", show: can("customers") },
+  { label: "Manifests", path: "/manifests", show: can("manifests") },
+  { label: "Packages", path: "/packages", show: can("packages") },
+  { label: "Invoices", path: "/invoices", show: can("invoices") },
+  { label: "PreAlerts", path: "/prealerts", show: can("packages") },
+  { label: "Support", path: "/support-tickets", show: can("support") },
+  { label: "HR", path: "/hr", show: canAccessHR },
+  { label: "Communication", path: "/communication", show: can("communication") },
+  { label: "Team Hub", path: "/team-hub", show: can("communication") },
+  { label: "Marketing", path: "/marketing", show: can("marketing") },
+  { label: "Rewards", path: "/rewards-hub-admin", show: can("marketing") },
+  { label: "Analytics", path: "/rewards-hub-analytics", show: can("marketing") },
+  { label: "Business Analytics", path: "/business-analytics", show: can("finance") },
+  { label: "Marketplace", path: "/amazon-associate", show: can("marketing") },
+  { label: "Market Orders", path: "/marketplace-orders", show: can("marketing") },
+  { label: "Market Invoices", path: "/marketplace-invoices", show: can("marketing") },
+  { label: "Market Inventory", path: "/marketplace-products", show: can("marketing") },
+  { label: "Users", path: "/users", show: can("users") },
+  { label: "Duty", path: "/duty-monitor", show: can("users") },
+  { label: "Audit", path: "/audit-logs", show: can("users") },
+  { label: "Integrations", path: "/integration-logs", show: can("integrations") },
+  { label: "Freight Partners", path: "/freight-partners", show: can("freightPartners") },
+  { label: "Unmatched", path: "/unmatched-packages", show: can("unmatched") },
+  { label: "Settings", path: "/settings", show: can("settings") },
+  { label: "Warehouse", path: "/warehouse-management", show: can("warehouse") },
+  { label: "Points", path: "/points-history", show: can("pointsHistory") },
+  { label: "Referrals", path: "/referrals", show: can("customers") },
+].filter((item) => item.show);
 
   const bottomItems = [
     { label: "Home", path: "/" },
@@ -157,15 +160,27 @@ useEffect(() => {
   ];
 
   const navItemStyle = (active) => ({
-    color: "white",
-    textDecoration: "none",
-    padding: "14px 20px",
-    display: "block",
-    borderBottom: "1px solid rgba(255,255,255,0.15)",
-    fontWeight: "bold",
-    opacity: active ? 1 : 0.92,
-    backgroundColor: active ? "rgba(255,255,255,0.14)" : "transparent",
-  });
+  color: "white",
+  textDecoration: "none",
+  padding: "13px 20px",
+  display: "flex",
+  alignItems: "center",
+  gap: "10px",
+  borderBottom: "1px solid rgba(255,255,255,0.08)",
+  fontWeight: "bold",
+  opacity: active ? 1 : 0.92,
+  backgroundColor: active ? "rgba(255,255,255,0.13)" : "transparent",
+});
+
+const subNavItemStyle = (active) => ({
+  color: "white",
+  textDecoration: "none",
+  padding: "10px 20px 10px 42px",
+  display: "block",
+  fontSize: "14px",
+  opacity: active ? 1 : 0.85,
+  backgroundColor: active ? "rgba(255,255,255,0.12)" : "rgba(15,23,42,0.14)",
+});
 
   const dutyBadge = (status) => {
     const color =
@@ -512,11 +527,48 @@ useEffect(() => {
           Eltham Konnect
         </div>
 
-        {navItems.map((item) => (
-          <Link key={item.path} to={item.path} style={navItemStyle(location.pathname === item.path)}>
-            {item.label}
-          </Link>
-        ))}
+        {navItems.slice(0, 8).map((item) => (
+  <Link key={item.path} to={item.path} style={navItemStyle(location.pathname === item.path)}>
+    <span>●</span>
+    {item.label}
+  </Link>
+))}
+
+{financeItems.length > 0 && (
+  <>
+    <button
+      onClick={() => setFinanceOpen((prev) => !prev)}
+      style={{
+        ...navItemStyle(location.pathname.startsWith("/finance")),
+        width: "100%",
+        background: location.pathname.startsWith("/finance")
+          ? "rgba(255,255,255,0.13)"
+          : "transparent",
+        border: "none",
+        cursor: "pointer",
+        textAlign: "left",
+      }}
+    >
+      <span>◈</span>
+      Finance
+      <span style={{ marginLeft: "auto" }}>{financeOpen ? "⌄" : "›"}</span>
+    </button>
+
+    {financeOpen &&
+      financeItems.map((item) => (
+        <Link key={item.path} to={item.path} style={subNavItemStyle(location.pathname === item.path)}>
+          {item.label}
+        </Link>
+      ))}
+  </>
+)}
+
+{navItems.slice(8).map((item) => (
+  <Link key={item.path} to={item.path} style={navItemStyle(location.pathname === item.path)}>
+    <span>●</span>
+    {item.label}
+  </Link>
+))}
       </div>
 
       <div
