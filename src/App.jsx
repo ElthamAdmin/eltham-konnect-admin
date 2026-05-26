@@ -414,16 +414,63 @@ const subNavItemStyle = (active) => ({
                 Eltham Konnect
               </div>
 
-              {navItems.map((item) => (
-                <Link
-                  key={item.path}
-                  to={item.path}
-                  onClick={() => setMobileMenuOpen(false)}
-                  style={navItemStyle(location.pathname === item.path)}
-                >
-                  {item.label}
-                </Link>
-              ))}
+              {navItems.slice(0, 8).map((item) => (
+  <Link
+    key={item.path}
+    to={item.path}
+    onClick={() => setMobileMenuOpen(false)}
+    style={navItemStyle(location.pathname === item.path)}
+  >
+    {item.label}
+  </Link>
+))}
+
+{financeItems.length > 0 && (
+  <>
+    <button
+      onClick={() => setFinanceOpen((prev) => !prev)}
+      style={{
+        ...navItemStyle(location.pathname.startsWith("/finance")),
+        width: "100%",
+        border: "none",
+        cursor: "pointer",
+        textAlign: "left",
+        background:
+          location.pathname.startsWith("/finance")
+            ? "rgba(255,255,255,0.13)"
+            : "transparent",
+      }}
+    >
+      Finance
+      <span style={{ marginLeft: "auto", float: "right" }}>
+        {financeOpen ? "⌄" : "›"}
+      </span>
+    </button>
+
+    {financeOpen &&
+      financeItems.map((item) => (
+        <Link
+          key={item.path}
+          to={item.path}
+          onClick={() => setMobileMenuOpen(false)}
+          style={subNavItemStyle(location.pathname === item.path)}
+        >
+          {item.label}
+        </Link>
+      ))}
+  </>
+)}
+
+{navItems.slice(8).map((item) => (
+  <Link
+    key={item.path}
+    to={item.path}
+    onClick={() => setMobileMenuOpen(false)}
+    style={navItemStyle(location.pathname === item.path)}
+  >
+    {item.label}
+  </Link>
+))}
 
               <button
                 onClick={logout}
