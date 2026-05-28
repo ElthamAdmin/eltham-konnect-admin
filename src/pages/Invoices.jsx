@@ -37,12 +37,14 @@ invoiceData.forEach((inv) => {
   links[inv.invoiceNumber] = inv.paymentLink || "";
 
   chargeForms[inv.invoiceNumber] = {
-    customsDuty: inv.customsDuty || 0,
-    gct: inv.gct || 0,
-    processingFee: inv.processingFee || 0,
-    otherAdjustment: inv.otherAdjustment || 0,
-    adjustmentNote: inv.adjustmentNote || "",
-  };
+  customsDuty: inv.customsDuty || 0,
+  gct: inv.gct || 0,
+  processingFee: inv.processingFee || 0,
+  deliveryFee: inv.deliveryFee || 0,
+  deliveryType: inv.deliveryType || "",
+  otherAdjustment: inv.otherAdjustment || 0,
+  adjustmentNote: inv.adjustmentNote || "",
+};
 });
 
 setPaymentLinkByInvoice(links);
@@ -109,12 +111,14 @@ const saveInvoiceCharges = async (invoiceNumber) => {
     const chargeForm = chargeFormByInvoice[invoiceNumber] || {};
 
     const payload = {
-      customsDuty: Number(chargeForm.customsDuty || 0),
-      gct: Number(chargeForm.gct || 0),
-      processingFee: Number(chargeForm.processingFee || 0),
-      otherAdjustment: Number(chargeForm.otherAdjustment || 0),
-      adjustmentNote: chargeForm.adjustmentNote || "",
-    };
+  customsDuty: Number(chargeForm.customsDuty || 0),
+  gct: Number(chargeForm.gct || 0),
+  processingFee: Number(chargeForm.processingFee || 0),
+  deliveryFee: Number(chargeForm.deliveryFee || 0),
+  deliveryType: chargeForm.deliveryType || "",
+  otherAdjustment: Number(chargeForm.otherAdjustment || 0),
+  adjustmentNote: chargeForm.adjustmentNote || "",
+};
 
     const res = await api.put(`/api/invoices/${invoiceNumber}/charges`, payload);
 
@@ -415,6 +419,7 @@ const generateSelectedInvoice = async () => {
   ["Customs Duty", formatCurrency(inv.customsDuty)],
   ["GCT", formatCurrency(inv.gct)],
   ["Processing Fee", formatCurrency(inv.processingFee)],
+  ["Delivery Fee", formatCurrency(inv.deliveryFee)],
   ["Other Adjustment", formatCurrency(inv.otherAdjustment)],
   ["EK Points Redeemed", `- ${formatCurrency(inv.pointsRedeemed)}`],
   ["Final Total", formatCurrency(inv.finalTotal)],
@@ -863,6 +868,8 @@ const generateSelectedInvoice = async () => {
                 <th>Customs Duty</th>
                 <th>GCT</th>
                 <th>Processing Fee</th>
+                <th>Delivery Fee</th>
+                <th>Delivery Type</th>
                 <th>Other Adjustment</th>
                 <th>Points Redeemed</th>
                 <th>Final Total</th>
@@ -899,6 +906,8 @@ const generateSelectedInvoice = async () => {
                     <td>{formatCurrency(inv.customsDuty)}</td>
                     <td>{formatCurrency(inv.gct)}</td>
                     <td>{formatCurrency(inv.processingFee)}</td>
+                    <td>{formatCurrency(inv.deliveryFee)}</td>
+                    <td>{inv.deliveryType || "—"}</td>
                     <td>{formatCurrency(inv.otherAdjustment)}</td>
                     <td>{formatCurrency(inv.pointsRedeemed)}</td>
                     <td style={{ fontWeight: "bold" }}>
@@ -1140,6 +1149,35 @@ const generateSelectedInvoice = async () => {
           }
           style={{ padding: "12px", borderRadius: "10px", border: `1px solid ${BORDER}` }}
         />
+
+        <label style={{ fontWeight: "bold", color: "#334155" }}>
+  Delivery Fee
+</label>
+<input
+  type="number"
+  value={chargeFormByInvoice[selectedChargeInvoice.invoiceNumber]?.deliveryFee ?? 0}
+  onChange={(e) =>
+    handleChargeChange(selectedChargeInvoice.invoiceNumber, "deliveryFee", e.target.value)
+  }
+  style={{ padding: "12px", borderRadius: "10px", border: `1px solid ${BORDER}` }}
+/>
+
+<label style={{ fontWeight: "bold", color: "#334155" }}>
+  Delivery Type
+</label>
+<select
+  value={chargeFormByInvoice[selectedChargeInvoice.invoiceNumber]?.deliveryType ?? ""}
+  onChange={(e) =>
+    handleChargeChange(selectedChargeInvoice.invoiceNumber, "deliveryType", e.target.value)
+  }
+  style={{ padding: "12px", borderRadius: "10px", border: `1px solid ${BORDER}` }}
+>
+  <option value="">Select delivery type</option>
+  <option value="Pickup">Pickup</option>
+  <option value="Local Delivery">Local Delivery</option>
+  <option value="Out of Town Delivery">Out of Town Delivery</option>
+  <option value="Driver Delivery">Driver Delivery</option>
+</select>
 
         <label style={{ fontWeight: "bold", color: "#334155" }}>
           Other Adjustment
