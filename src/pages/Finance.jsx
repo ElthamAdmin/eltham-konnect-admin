@@ -349,6 +349,12 @@ doc.save(`payslip-${safeEmployeeName}-${safePayPeriod}.pdf`);
   const MUTED = "#64748b";
 
   const EXPENSE_CATEGORIES = [
+    "KP Package Invoice",
+"OX Package Invoice",
+"KP Pickup Fee",
+"OX Pickup Fee",
+"LTW Software Subscription",
+"KP Software Subscription",
   "LTW Package Invoice",
   "LTW Pickup Fee",
   "Customs / Clearance Expense",
