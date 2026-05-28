@@ -176,295 +176,343 @@ function POS() {
       : loadedInvoice?.packages || [];
 
   return (
-    <div>
-      <h1>POS Checkout</h1>
+  <div
+    style={{
+      background: "#eef1f5",
+      minHeight: "100vh",
+      padding: "20px",
+    }}
+  >
+    <h1
+      style={{
+        fontSize: "42px",
+        fontWeight: "bold",
+        marginBottom: "20px",
+        color: "#0f172a",
+      }}
+    >
+      POS - Cash Register
+    </h1>
 
-      <div style={cardStyle}>
-        <h2>Cash Drawer / Register</h2>
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: "2fr 1fr",
+        gap: "20px",
+      }}
+    >
+      {/* LEFT SIDE */}
+      <div>
+        {/* SEARCH BAR */}
+        <div
+          style={{
+            background: "white",
+            padding: "18px",
+            borderRadius: "12px",
+            marginBottom: "18px",
+            boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+          }}
+        >
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1fr 150px 140px",
+              gap: "12px",
+            }}
+          >
+            <input
+              type="text"
+              placeholder="Scan Barcode / Enter Invoice Number"
+              value={invoiceNumber}
+              onChange={(e) => setInvoiceNumber(e.target.value)}
+              style={{
+                padding: "16px",
+                fontSize: "18px",
+                borderRadius: "10px",
+                border: "2px solid #cbd5e1",
+              }}
+            />
 
-        {drawer ? (
-          <>
-            <p><strong>Drawer:</strong> {drawer.drawerNumber}</p>
-            <p><strong>Cashier:</strong> {drawer.openedByName}</p>
-            <p><strong>Opening Float:</strong> {money(drawer.openingFloat)}</p>
-            <p><strong>Cash Sales:</strong> {money(drawer.totalCashSales)}</p>
-            <p><strong>Card Sales:</strong> {money(drawer.totalCardSales)}</p>
-            <p><strong>Transfer Sales:</strong> {money(drawer.totalTransferSales)}</p>
-            <p><strong>Other Sales:</strong> {money(drawer.totalOtherSales)}</p>
-            <p><strong>Total Sales:</strong> {money(drawer.totalSales)}</p>
-            <p><strong>Expected Cash:</strong> {money(drawer.expectedCash)}</p>
-
-            <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
-              <input
-                type="number"
-                placeholder="Closing Cash Count"
-                value={closingCashCount}
-                onChange={(e) => setClosingCashCount(e.target.value)}
-                style={inputStyle}
-              />
-              <button
-                onClick={closeDrawer}
-                style={{ ...buttonStyle, backgroundColor: "#dc2626" }}
-              >
-                Close Drawer
-              </button>
-            </div>
-          </>
-        ) : (
-          <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
             <input
               type="number"
-              placeholder="Opening Cash Float"
-              value={openingFloat}
-              onChange={(e) => setOpeningFloat(e.target.value)}
-              style={inputStyle}
+              value="1"
+              readOnly
+              style={{
+                padding: "16px",
+                fontSize: "18px",
+                borderRadius: "10px",
+                border: "2px solid #cbd5e1",
+                textAlign: "center",
+                background: "#fff7ed",
+                fontWeight: "bold",
+              }}
             />
+
             <button
-              onClick={openDrawer}
-              style={{ ...buttonStyle, backgroundColor: "#16a34a" }}
+              onClick={findInvoice}
+              style={{
+                background: "#0B3D91",
+                color: "white",
+                border: "none",
+                borderRadius: "10px",
+                fontSize: "18px",
+                fontWeight: "bold",
+                cursor: "pointer",
+              }}
             >
-              Open Drawer
+              FIND
             </button>
+          </div>
+        </div>
+
+        {/* INVOICE ITEMS */}
+        <div
+          style={{
+            background: "white",
+            borderRadius: "12px",
+            overflow: "hidden",
+            boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+          }}
+        >
+          <table
+            border="1"
+            cellPadding="14"
+            style={{
+              width: "100%",
+              borderCollapse: "collapse",
+              fontSize: "17px",
+            }}
+          >
+            <thead
+              style={{
+                background: "#f8fafc",
+              }}
+            >
+              <tr>
+                <th>#</th>
+                <th>Item Info</th>
+                <th>Qty</th>
+                <th>Price</th>
+                <th>Total</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {invoiceItems.map((item, index) => (
+                <tr key={index}>
+                  <td>{index + 1}</td>
+
+                  <td>
+                    {invoiceType === "Marketplace"
+                      ? item.title
+                      : item.trackingNumber}
+                  </td>
+
+                  <td>
+                    {invoiceType === "Marketplace"
+                      ? item.quantity
+                      : 1}
+                  </td>
+
+                  <td>
+                    {money(
+                      invoiceType === "Marketplace"
+                        ? item.sellingPrice
+                        : item.rate
+                    )}
+                  </td>
+
+                  <td>
+                    {money(
+                      invoiceType === "Marketplace"
+                        ? item.lineTotal
+                        : item.rate
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          <div
+            style={{
+              height: "300px",
+              background: "white",
+            }}
+          />
+        </div>
+
+        {/* BOTTOM BUTTONS */}
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(6, 1fr)",
+            gap: "12px",
+            marginTop: "18px",
+          }}
+        >
+          {[
+            "DELETE",
+            "DISCOUNT",
+            "-",
+            "+",
+            "QTY CHANGE",
+            "PRICE CHANGE",
+          ].map((btn) => (
+            <button
+              key={btn}
+              style={{
+                height: "95px",
+                borderRadius: "10px",
+                border: "none",
+                background:
+                  "linear-gradient(to bottom, #f8fafc, #bfdbfe)",
+                fontWeight: "bold",
+                fontSize: "18px",
+                cursor: "pointer",
+              }}
+            >
+              {btn}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* RIGHT SIDE */}
+      <div>
+        {/* TOTALS */}
+        <div
+          style={{
+            background: "black",
+            color: "#39ff14",
+            borderRadius: "12px",
+            padding: "20px",
+            marginBottom: "16px",
+          }}
+        >
+          <div
+            style={{
+              fontSize: "28px",
+              marginBottom: "12px",
+            }}
+          >
+            Sub Total: {money(loadedInvoice?.subtotal || 0)}
+          </div>
+
+          <div
+            style={{
+              fontSize: "28px",
+              marginBottom: "12px",
+            }}
+          >
+            Tax: {money(loadedInvoice?.gct || 0)}
+          </div>
+
+          <div
+            style={{
+              fontSize: "54px",
+              fontWeight: "bold",
+            }}
+          >
+            {money(loadedInvoice?.finalTotal || 0)}
+          </div>
+        </div>
+
+        {/* PAY BUTTON */}
+        <button
+          onClick={cashOutInvoice}
+          disabled={!loadedInvoice || loadedInvoice.status === "Paid"}
+          style={{
+            width: "100%",
+            height: "110px",
+            background:
+              loadedInvoice?.status === "Paid"
+                ? "#9ca3af"
+                : "linear-gradient(to right, #bbf7d0, #22c55e)",
+            border: "none",
+            borderRadius: "12px",
+            fontSize: "48px",
+            fontWeight: "bold",
+            cursor: "pointer",
+            marginBottom: "18px",
+          }}
+        >
+          PAY
+        </button>
+
+        {/* PAYMENT BUTTONS */}
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1fr 1fr",
+            gap: "12px",
+          }}
+        >
+          {["Cash", "Card", "Bank Transfer", "Other"].map((method) => (
+            <button
+              key={method}
+              onClick={() => setPaymentMethod(method)}
+              style={{
+                height: "95px",
+                border: "none",
+                borderRadius: "10px",
+                background:
+                  paymentMethod === method
+                    ? "#22c55e"
+                    : "linear-gradient(to bottom, #dcfce7, #86efac)",
+                fontWeight: "bold",
+                fontSize: "22px",
+                cursor: "pointer",
+              }}
+            >
+              {method}
+            </button>
+          ))}
+        </div>
+
+        {/* CUSTOMER INFO */}
+        {loadedInvoice && (
+          <div
+            style={{
+              background: "white",
+              padding: "18px",
+              borderRadius: "12px",
+              marginTop: "20px",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+            }}
+          >
+            <h2>Customer Info</h2>
+
+            <p>
+              <strong>Name:</strong>{" "}
+              {loadedInvoice.customerName}
+            </p>
+
+            <p>
+              <strong>Invoice:</strong>{" "}
+              {loadedInvoice.invoiceNumber}
+            </p>
+
+            <p>
+              <strong>Type:</strong> {invoiceType}
+            </p>
+
+            <p>
+              <strong>Status:</strong>{" "}
+              {loadedInvoice.status}
+            </p>
+
+            <p>
+              <strong>Cashier:</strong>{" "}
+              {drawer?.openedByName || "N/A"}
+            </p>
           </div>
         )}
       </div>
-
-      <div style={cardStyle}>
-        <h2>Cash Out Invoice</h2>
-
-        <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
-          <input
-            type="text"
-            placeholder="Enter Shipping or Marketplace Invoice Number"
-            value={invoiceNumber}
-            onChange={(e) => setInvoiceNumber(e.target.value)}
-            style={inputStyle}
-          />
-          <button onClick={findInvoice} style={buttonStyle}>
-            Find Invoice
-          </button>
-        </div>
-      </div>
-
-      {loadedInvoice && (
-        <div style={cardStyle}>
-          <h2>{invoiceType} Invoice</h2>
-
-          <p><strong>Invoice Number:</strong> {loadedInvoice.invoiceNumber}</p>
-          {invoiceType === "Marketplace" && (
-            <p><strong>Order Number:</strong> {loadedInvoice.orderNumber}</p>
-          )}
-          <p><strong>Customer:</strong> {loadedInvoice.customerName}</p>
-          <p><strong>Customer EKON ID:</strong> {loadedInvoice.customerEkonId || loadedInvoice.customerKey || ""}</p>
-          <p><strong>Status:</strong> {loadedInvoice.status}</p>
-          <p><strong>Subtotal:</strong> {money(loadedInvoice.subtotal)}</p>
-          {invoiceType === "Shipping" && (
-            <>
-              <p><strong>Customs Duty:</strong> {money(loadedInvoice.customsDuty)}</p>
-              <p><strong>GCT:</strong> {money(loadedInvoice.gct)}</p>
-              <p><strong>Processing Fee:</strong> {money(loadedInvoice.processingFee)}</p>
-              <p><strong>Delivery Fee:</strong> {money(loadedInvoice.deliveryFee)}</p>
-              <p><strong>Points Redeemed:</strong> {money(loadedInvoice.pointsRedeemed)}</p>
-            </>
-          )}
-          {invoiceType === "Marketplace" && (
-            <>
-              <p><strong>Delivery Fee:</strong> {money(loadedInvoice.deliveryFee)}</p>
-              <p><strong>Discount:</strong> {money(loadedInvoice.discount)}</p>
-            </>
-          )}
-          <h3>Final Total: {money(loadedInvoice.finalTotal)}</h3>
-
-          {invoiceItems.length > 0 && (
-            <table border="1" cellPadding="10" style={{ width: "100%", marginTop: "15px" }}>
-              <thead>
-                <tr>
-                  {invoiceType === "Marketplace" ? (
-                    <>
-                      <th>Item Number</th>
-                      <th>Title</th>
-                      <th>Qty</th>
-                      <th>Line Total</th>
-                    </>
-                  ) : (
-                    <>
-                      <th>Tracking Number</th>
-                      <th>Weight</th>
-                      <th>Rate</th>
-                    </>
-                  )}
-                </tr>
-              </thead>
-              <tbody>
-                {invoiceItems.map((item, index) => (
-                  <tr key={item._id || index}>
-                    {invoiceType === "Marketplace" ? (
-                      <>
-                        <td>{item.itemNumber}</td>
-                        <td>{item.title}</td>
-                        <td>{item.quantity}</td>
-                        <td>{money(item.lineTotal)}</td>
-                      </>
-                    ) : (
-                      <>
-                        <td>{item.trackingNumber}</td>
-                        <td>{item.chargeableWeight}</td>
-                        <td>{money(item.rate)}</td>
-                      </>
-                    )}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-
-          <div style={{ marginTop: "20px", display: "flex", gap: "12px", flexWrap: "wrap" }}>
-            <select
-              value={paymentMethod}
-              onChange={(e) => setPaymentMethod(e.target.value)}
-              style={inputStyle}
-              disabled={loadedInvoice.status === "Paid"}
-            >
-              <option value="Cash">Cash</option>
-              <option value="Card">Card</option>
-              <option value="Bank Transfer">Bank Transfer</option>
-              <option value="Other">Other</option>
-            </select>
-
-            <input
-              type="number"
-              placeholder="Amount Tendered"
-              value={amountTendered}
-              onChange={(e) => setAmountTendered(e.target.value)}
-              style={inputStyle}
-              disabled={loadedInvoice.status === "Paid"}
-            />
-
-            <input
-              type="text"
-              placeholder="Paid Into Account Name"
-              value={paidIntoAccountName}
-              onChange={(e) => setPaidIntoAccountName(e.target.value)}
-              style={inputStyle}
-              disabled={loadedInvoice.status === "Paid"}
-            />
-
-            <input
-              type="text"
-              placeholder="Paid Into Account Number"
-              value={paidIntoAccountNumber}
-              onChange={(e) => setPaidIntoAccountNumber(e.target.value)}
-              style={inputStyle}
-              disabled={loadedInvoice.status === "Paid"}
-            />
-
-            <input
-              type="text"
-              placeholder="Notes"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              style={inputStyle}
-              disabled={loadedInvoice.status === "Paid"}
-            />
-          </div>
-
-          {paymentMethod === "Cash" && loadedInvoice.status !== "Paid" && (
-            <p style={{ marginTop: "12px", fontWeight: "bold" }}>
-              Change Due:{" "}
-              {money(
-                Math.max(
-                  Number(amountTendered || 0) -
-                    Number(loadedInvoice.finalTotal || 0),
-                  0
-                )
-              )}
-            </p>
-          )}
-
-          <button
-            onClick={cashOutInvoice}
-            disabled={loadedInvoice.status === "Paid"}
-            style={{
-              ...buttonStyle,
-              marginTop: "16px",
-              backgroundColor:
-                loadedInvoice.status === "Paid" ? "#999" : "#16a34a",
-              cursor:
-                loadedInvoice.status === "Paid" ? "not-allowed" : "pointer",
-            }}
-          >
-            {loadedInvoice.status === "Paid" ? "Already Paid" : "Cash Out Invoice"}
-          </button>
-        </div>
-      )}
-
-      {transactions.length > 0 && (
-        <div style={cardStyle}>
-          <h2>Recent POS Transactions</h2>
-
-          <table border="1" cellPadding="10" style={{ width: "100%" }}>
-            <thead>
-              <tr>
-                <th>Transaction</th>
-                <th>Type</th>
-                <th>Invoice</th>
-                <th>Customer</th>
-                <th>Method</th>
-                <th>Amount</th>
-                <th>Cashier</th>
-              </tr>
-            </thead>
-            <tbody>
-              {transactions.slice(0, 10).map((item) => (
-                <tr key={item._id}>
-                  <td>{item.transactionNumber}</td>
-                  <td>{item.invoiceType}</td>
-                  <td>{item.invoiceNumber}</td>
-                  <td>{item.customerName}</td>
-                  <td>{item.paymentMethod}</td>
-                  <td>{money(item.amountPaid)}</td>
-                  <td>{item.cashierName}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {drawerHistory.length > 0 && (
-        <div style={cardStyle}>
-          <h2>Recent Drawer Sessions</h2>
-
-          <table border="1" cellPadding="10" style={{ width: "100%" }}>
-            <thead>
-              <tr>
-                <th>Drawer</th>
-                <th>Cashier</th>
-                <th>Status</th>
-                <th>Total Sales</th>
-                <th>Expected Cash</th>
-                <th>Closing Cash</th>
-                <th>Variance</th>
-              </tr>
-            </thead>
-            <tbody>
-              {drawerHistory.slice(0, 5).map((item) => (
-                <tr key={item._id}>
-                  <td>{item.drawerNumber}</td>
-                  <td>{item.openedByName}</td>
-                  <td>{item.status}</td>
-                  <td>{money(item.totalSales)}</td>
-                  <td>{money(item.expectedCash)}</td>
-                  <td>{money(item.closingCashCount)}</td>
-                  <td>{money(item.cashVariance)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
     </div>
-  );
+  </div>
+);
+
 }
 
 export default POS;
