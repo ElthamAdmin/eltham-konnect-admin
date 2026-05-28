@@ -1041,24 +1041,86 @@ const clearWeightAnalysisFilter = async () => {
                       )}
                     </td>
 
-                    <td>{pkg.customerInvoiceNumber || "-"}</td>
-                    <td style={{ color: "#475569" }}>{pkg.customerInvoiceNotes || "-"}</td>
-                    <td>{formatDateTime(pkg.customerInvoiceUploadedAt) || "-"}</td>
-
                     <td>
-                      {pkg.customerInvoiceFilePath ? (
-                        <a
-                          href={`${API}${pkg.customerInvoiceFilePath}`}
-                          target="_blank"
-                          rel="noreferrer"
-                          style={{ color: ROYAL_BLUE, fontWeight: "bold", textDecoration: "none" }}
-                        >
-                          View
-                        </a>
-                      ) : (
-                        "-"
-                      )}
-                    </td>
+  {pkg.customerInvoiceFilePath ? (
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        gap: "8px",
+        alignItems: "flex-start",
+      }}
+    >
+      {/* IMAGE PREVIEW */}
+      {/\.(jpg|jpeg|png|webp)$/i.test(
+        pkg.customerInvoiceFilePath
+      ) ? (
+        <a
+          href={`${API}${pkg.customerInvoiceFilePath}`}
+          target="_blank"
+          rel="noreferrer"
+        >
+          <img
+            src={`${API}${pkg.customerInvoiceFilePath}`}
+            alt="Customer Invoice"
+            style={{
+              width: "90px",
+              height: "90px",
+              objectFit: "cover",
+              borderRadius: "10px",
+              border: "1px solid #dbe3ef",
+              cursor: "pointer",
+            }}
+          />
+        </a>
+      ) : null}
+
+      {/* PDF BUTTON */}
+      {pkg.customerInvoiceFilePath
+        ?.toLowerCase()
+        .includes(".pdf") ? (
+        <a
+          href={`${API}${pkg.customerInvoiceFilePath}`}
+          target="_blank"
+          rel="noreferrer"
+          style={{
+            backgroundColor: "#dc2626",
+            color: "white",
+            padding: "8px 12px",
+            borderRadius: "8px",
+            textDecoration: "none",
+            fontWeight: "bold",
+            fontSize: "13px",
+            textAlign: "center",
+          }}
+        >
+          View PDF
+        </a>
+      ) : null}
+
+      {/* OPEN BUTTON */}
+      <a
+        href={`${API}${pkg.customerInvoiceFilePath}`}
+        target="_blank"
+        rel="noreferrer"
+        style={{
+          backgroundColor: ROYAL_BLUE,
+          color: WHITE,
+          padding: "8px 12px",
+          borderRadius: "8px",
+          textDecoration: "none",
+          fontWeight: "bold",
+          fontSize: "13px",
+          textAlign: "center",
+        }}
+      >
+        Open File
+      </a>
+    </div>
+  ) : (
+    <span style={{ color: "#94a3b8" }}>No File</span>
+  )}
+</td>
 
                     <td
   style={{
