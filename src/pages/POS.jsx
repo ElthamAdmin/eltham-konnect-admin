@@ -225,6 +225,11 @@ function POS() {
               placeholder="Scan Barcode / Enter Invoice Number"
               value={invoiceNumber}
               onChange={(e) => setInvoiceNumber(e.target.value)}
+              onKeyDown={(e) => {
+  if (e.key === "Enter") {
+    findInvoice();
+  }
+}}
               style={{
                 padding: "16px",
                 fontSize: "18px",
@@ -530,6 +535,10 @@ function POS() {
       <p>
         <strong>Cashier:</strong> {drawer.openedByName}
       </p>
+
+      <p>
+  <strong>Branch:</strong> {drawer.branch || "Eltham Park"}
+</p>
 
       <p>
         <strong>Opening Float:</strong>{" "}
