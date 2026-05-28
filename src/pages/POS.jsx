@@ -20,6 +20,7 @@ const [handoverToCashier, setHandoverToCashier] = useState("");
 const [handoverCashCount, setHandoverCashCount] = useState("");
 const [actionReason, setActionReason] = useState("");
 const [actionAmount, setActionAmount] = useState("");
+const [accounts, setAccounts] = useState([]);
 
   const money = (value) => `JMD ${Number(value || 0).toLocaleString()}`;
 
@@ -65,6 +66,15 @@ const [actionAmount, setActionAmount] = useState("");
     }
   };
 
+  const loadAccounts = async () => {
+  try {
+    const res = await api.get("/api/financial-accounts");
+    setAccounts(res.data.data || []);
+  } catch (error) {
+    console.error("Error loading financial accounts:", error);
+  }
+};
+
   const loadTransactions = async () => {
     try {
       const res = await api.get("/api/pos/transactions");
@@ -78,6 +88,7 @@ const [actionAmount, setActionAmount] = useState("");
     loadDrawer();
     loadDrawerHistory();
     loadTransactions();
+    loadAccounts();
   }, []);
 
   const openDrawer = async () => {
@@ -209,6 +220,11 @@ const printReceipt = () => {
         alert("This invoice is already paid.");
         return;
       }
+
+      if (!paidIntoAccountNumber) {
+  alert("Please select the account that received this payment.");
+  return;
+}
 
       const res = await api.post("/api/pos/cashout", {
         invoiceType,
@@ -511,6 +527,70 @@ const printReceipt = () => {
         >
           PAY
         </button>
+
+        {/* RECEIVE PAYMENT ACCOUNT */}
+<div
+  style={{
+    background: "white",
+    padding: "14px",
+    borderRadius: "12px",
+    marginBottom: "16px",
+    boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+  }}
+>
+  <label
+    style={{
+      display: "block",
+      fontWeight: "bold",
+      marginBottom: "8px",
+      color: "#0f172a",
+    }}
+  >
+    Receive Payment Into Account
+  </label>
+
+  <select
+    value={paidIntoAccountNumber}
+    onChange={(e) => {
+      const selected = accounts.find(
+        (account) => account.accountNumber === e.target.value
+      );
+
+      setPaidIntoAccountNumber(selected?.accountNumber || "");
+      setPaidIntoAccountName(selected?.accountName || "");
+    }}
+    disabled={!loadedInvoice || loadedInvoice.status === "Paid"}
+    style={{
+      width: "100%",
+      padding: "12px",
+      borderRadius: "10px",
+      border: "1px solid #cbd5e1",
+      fontWeight: "bold",
+      backgroundColor: "white",
+    }}
+  >
+    <option value="">Select Receiving Account</option>
+    {accounts
+      .filter((account) => account.status === "Active")
+      .map((account) => (
+        <option key={account._id} value={account.accountNumber}>
+          {account.accountName} - {account.accountType} ({account.accountNumber})
+        </option>
+      ))}
+  </select>
+
+  {paidIntoAccountName && (
+    <div
+      style={{
+        marginTop: "8px",
+        color: "#15803d",
+        fontWeight: "bold",
+      }}
+    >
+      Selected: {paidIntoAccountName}
+    </div>
+  )}
+</div>
 
         {/* PAYMENT BUTTONS */}
         <div
