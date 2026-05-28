@@ -20,58 +20,27 @@ function Dashboard() {
   const [packages, setPackages] = useState([]);
   const [invoices, setInvoices] = useState([]);
   const [chartData, setChartData] = useState([]);
-  const [financeSummary, setFinanceSummary] = useState(null);
-  const [dateFilter, setDateFilter] = useState("today");
-  const [locationFilter, setLocationFilter] = useState("All Locations");
+const [supportTickets, setSupportTickets] = useState([]);
 
-  const getFinanceFilter = () => {
-    if (dateFilter === "today") return "today";
-    if (dateFilter === "week") return "thisWeek";
-    if (dateFilter === "month") return "thisMonth";
-    if (dateFilter === "all") return "allTime";
-    return "today";
-  };
+const [dateFilter, setDateFilter] = useState("today");
+const [locationFilter, setLocationFilter] = useState("All Locations");
+  const [customersRes, packagesRes, invoicesRes, chartRes, supportTicketsRes] =
+  await Promise.all([
+    api.get("/api/customers"),
+    api.get("/api/packages"),
+    api.get("/api/invoices"),
+    api.get("/api/finance/monthly-chart"),
+    api.get("/api/support-tickets"),
+  ]);
 
-  const getFinanceBranch = () =>
-    locationFilter === "All Locations" ? "" : locationFilter;
+setCustomers(customersRes.data.data || []);
+setPackages(packagesRes.data.data || []);
+setInvoices(invoicesRes.data.data || []);
+setChartData(chartRes.data.data || []);
 
-  const fetchDashboardData = async () => {
-    try {
-      const [customersRes, packagesRes, invoicesRes, chartRes, financeSummaryRes] =
-        await Promise.all([
-          api.get("/api/customers"),
-          api.get("/api/packages"),
-          api.get("/api/invoices"),
-          api.get("/api/finance/monthly-chart"),
-          api.get(
-            `/api/finance/summary?filter=${getFinanceFilter()}&branch=${encodeURIComponent(
-              getFinanceBranch()
-            )}`
-          ),
-        ]);
-
-      setCustomers(customersRes.data.data || []);
-      setPackages(packagesRes.data.data || []);
-      setInvoices(invoicesRes.data.data || []);
-      setChartData(chartRes.data.data || []);
-      setFinanceSummary(financeSummaryRes.data.data || null);
-    } catch (error) {
-      console.error("Error loading dashboard data:", error);
-    }
-  };
-
-  useEffect(() => {
-    fetchDashboardData();
-  }, [dateFilter, locationFilter]);
-
-  const money = (value) => `JMD ${Number(value || 0).toLocaleString()}`;
-
-  const outstandingRevenue = Number(financeSummary?.outstandingRevenue || 0);
-  const totalExpenses = Number(financeSummary?.totalExpenses || 0);
-  const totalPayroll = Number(financeSummary?.totalPayroll || 0);
-  const netPosition = Number(financeSummary?.netPosition || 0);
-  const paidInvoicesTotal = Number(financeSummary?.totalRevenue || 0);
-
+const ticketsData = supportTicketsRes.data.data || [];
+setSupportTickets(ticketsData);
+ 
   const filterLabel =
     dateFilter === "today"
       ? "Today"
@@ -122,8 +91,8 @@ background: "linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)",
         <div>
           <h1 style={{ margin: 0, color: "#0f172a" }}>Dashboard</h1>
           <p style={{ margin: "6px 0 0", color: "#64748b" }}>
-            EKOS financial and operations overview.
-          </p>
+  EKOS operational overview and customer activity.
+</p>
         </div>
 
         <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
@@ -146,11 +115,58 @@ background: "linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)",
         </div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))", gap: "20px" }}>
-  <DashboardCard title={`Paid Revenue - ${filterLabel}`} value={money(paidInvoicesTotal)} color="#16a34a" link="/invoices" linkText="View Invoices" />
-  <DashboardCard title={`Outstanding Revenue - ${filterLabel}`} value={money(outstandingRevenue)} color="#dc2626" link="/invoices" linkText="View Invoices" />
-  <DashboardCard title={`Expenses + Payroll - ${filterLabel}`} value={money(totalExpenses + totalPayroll)} color="#f97316" link="/finance" linkText="View Finance" />
-  <DashboardCard title={`Net Position - ${filterLabel}`} value={money(netPosition)} color={netPosition >= 0 ? "#16a34a" : "#dc2626"} link="/finance" linkText="View Finance" />
+      <div
+  style={{
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))",
+    gap: "20px",
+  }}
+>
+  <DashboardCard
+    title="New Sign Up Customers"
+    value={customers.length}
+    color="#16a34a"
+    link="/customers"
+    linkText="View Customers"
+  />
+
+  <DashboardCard
+    title="Packages Ready For Pickup"
+    value={
+      packages.filter((pkg) => pkg.readyForPickup === true).length
+    }
+    color="#f97316"
+    link="/packages"
+    linkText="View Packages"
+  />
+
+  <DashboardCard
+    title="Packages Today"
+    value={
+      packages.filter((pkg) => {
+        if (!pkg.createdAt) return false;
+
+        const today = new Date().toISOString().split("T")[0];
+
+        return String(pkg.createdAt).includes(today);
+      }).length
+    }
+    color="#0ea5e9"
+    link="/packages"
+    linkText="View Packages"
+  />
+
+  <DashboardCard
+    title="New Customer Tickets"
+    value={
+      supportTickets.filter(
+        (ticket) => ticket.status === "Open"
+      ).length
+    }
+    color="#dc2626"
+    link="/support"
+    linkText="View Tickets"
+  />
 </div>
 
       <div style={cardStyle}>
