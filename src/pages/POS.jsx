@@ -15,6 +15,11 @@ function POS() {
   const [paidIntoAccountName, setPaidIntoAccountName] = useState("");
   const [paidIntoAccountNumber, setPaidIntoAccountNumber] = useState("");
   const [notes, setNotes] = useState("");
+  const [analytics, setAnalytics] = useState(null);
+const [handoverToCashier, setHandoverToCashier] = useState("");
+const [handoverCashCount, setHandoverCashCount] = useState("");
+const [actionReason, setActionReason] = useState("");
+const [actionAmount, setActionAmount] = useState("");
 
   const money = (value) => `JMD ${Number(value || 0).toLocaleString()}`;
 
@@ -125,6 +130,68 @@ function POS() {
       alert(error?.response?.data?.message || "Invoice not found.");
     }
   };
+
+  const loadAnalytics = async () => {
+  try {
+    const res = await api.get("/api/pos/analytics");
+    setAnalytics(res.data.data || null);
+  } catch (error) {
+    alert(error?.response?.data?.message || "Could not load POS analytics.");
+  }
+};
+
+const recordShiftHandover = async () => {
+  try {
+    if (!drawer) {
+      alert("Open drawer required for shift handover.");
+      return;
+    }
+
+    const res = await api.post("/api/pos/shift-handover", {
+      toCashierName: handoverToCashier,
+      countedCash: Number(handoverCashCount || 0),
+      notes,
+    });
+
+    setHandoverToCashier("");
+    setHandoverCashCount("");
+    setNotes("");
+
+    alert(
+      `Shift handover saved. Variance: ${money(res.data.data.variance)}`
+    );
+  } catch (error) {
+    alert(error?.response?.data?.message || "Could not record shift handover.");
+  }
+};
+
+const logPOSAction = async (actionType) => {
+  try {
+    const res = await api.post("/api/pos/action-log", {
+      actionType,
+      invoiceNumber: loadedInvoice?.invoiceNumber || "",
+      invoiceType,
+      reason: actionReason,
+      amount: Number(actionAmount || 0),
+    });
+
+    setActionReason("");
+    setActionAmount("");
+
+    alert(`${res.data.data.actionType} recorded successfully.`);
+  } catch (error) {
+    alert(error?.response?.data?.message || "Could not record POS action.");
+  }
+};
+
+const printReceipt = () => {
+  if (!loadedInvoice) {
+    alert("Load an invoice first.");
+    return;
+  }
+
+  window.print();
+};
 
   const cashOutInvoice = async () => {
     try {
@@ -513,6 +580,110 @@ function POS() {
             </p>
           </div>
         )}
+
+        {/* ADVANCED POS CONTROLS */}
+<div
+  style={{
+    background: "white",
+    padding: "18px",
+    borderRadius: "12px",
+    marginTop: "20px",
+    boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+  }}
+>
+  <h2>POS Controls</h2>
+
+  <button onClick={printReceipt} style={buttonStyle}>
+    Print Receipt
+  </button>
+
+  <button
+    onClick={loadAnalytics}
+    style={{ ...buttonStyle, marginLeft: "8px", background: "#7c3aed" }}
+  >
+    Load Analytics
+  </button>
+
+  {analytics && (
+    <div style={{ marginTop: "12px" }}>
+      <p><strong>Branch:</strong> {analytics.branch}</p>
+      <p><strong>Total Sales:</strong> {money(analytics.totalSales)}</p>
+      <p><strong>Transactions:</strong> {analytics.transactionCount}</p>
+      <p><strong>Drawers:</strong> {analytics.drawerCount}</p>
+    </div>
+  )}
+
+  <hr style={{ margin: "16px 0" }} />
+
+  <h3>Shift Handover</h3>
+
+  <input
+    type="text"
+    placeholder="Next Cashier Name"
+    value={handoverToCashier}
+    onChange={(e) => setHandoverToCashier(e.target.value)}
+    style={{ ...inputStyle, width: "100%", marginBottom: "8px" }}
+  />
+
+  <input
+    type="number"
+    placeholder="Counted Cash"
+    value={handoverCashCount}
+    onChange={(e) => setHandoverCashCount(e.target.value)}
+    style={{ ...inputStyle, width: "100%", marginBottom: "8px" }}
+  />
+
+  <button
+    onClick={recordShiftHandover}
+    style={{ ...buttonStyle, background: "#f59e0b" }}
+  >
+    Save Handover
+  </button>
+
+  <hr style={{ margin: "16px 0" }} />
+
+  <h3>Manager Actions</h3>
+
+  <input
+    type="text"
+    placeholder="Reason"
+    value={actionReason}
+    onChange={(e) => setActionReason(e.target.value)}
+    style={{ ...inputStyle, width: "100%", marginBottom: "8px" }}
+  />
+
+  <input
+    type="number"
+    placeholder="Amount"
+    value={actionAmount}
+    onChange={(e) => setActionAmount(e.target.value)}
+    style={{ ...inputStyle, width: "100%", marginBottom: "8px" }}
+  />
+
+  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
+    <button onClick={() => logPOSAction("Manager Override")} style={buttonStyle}>
+      Override
+    </button>
+
+    <button onClick={() => logPOSAction("Discount Authorization")} style={buttonStyle}>
+      Discount
+    </button>
+
+    <button
+      onClick={() => logPOSAction("Void")}
+      style={{ ...buttonStyle, background: "#dc2626" }}
+    >
+      Void
+    </button>
+
+    <button
+      onClick={() => logPOSAction("Refund")}
+      style={{ ...buttonStyle, background: "#ea580c" }}
+    >
+      Refund
+    </button>
+  </div>
+</div>
 
       {/* DRAWER INFO */}
 <div
