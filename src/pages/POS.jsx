@@ -508,11 +508,123 @@ function POS() {
             </p>
           </div>
         )}
+
+      {/* DRAWER INFO */}
+<div
+  style={{
+    background: "white",
+    padding: "18px",
+    borderRadius: "12px",
+    marginTop: "20px",
+    boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+  }}
+>
+  <h2>Drawer Session</h2>
+
+  {drawer ? (
+    <>
+      <p>
+        <strong>Drawer:</strong> {drawer.drawerNumber}
+      </p>
+
+      <p>
+        <strong>Cashier:</strong> {drawer.openedByName}
+      </p>
+
+      <p>
+        <strong>Opening Float:</strong>{" "}
+        {money(drawer.openingFloat)}
+      </p>
+
+      <p>
+        <strong>Total Sales:</strong>{" "}
+        {money(drawer.totalSales)}
+      </p>
+
+      <p>
+        <strong>Expected Cash:</strong>{" "}
+        {money(drawer.expectedCash)}
+      </p>
+
+      <div
+        style={{
+          display: "flex",
+          gap: "10px",
+          marginTop: "12px",
+        }}
+      >
+        <input
+          type="number"
+          placeholder="Closing Cash"
+          value={closingCashCount}
+          onChange={(e) =>
+            setClosingCashCount(e.target.value)
+          }
+          style={{
+            flex: 1,
+            padding: "12px",
+            borderRadius: "8px",
+            border: "1px solid #cbd5e1",
+          }}
+        />
+
+        <button
+          onClick={closeDrawer}
+          style={{
+            background: "#dc2626",
+            color: "white",
+            border: "none",
+            padding: "12px 16px",
+            borderRadius: "8px",
+            cursor: "pointer",
+            fontWeight: "bold",
+          }}
+        >
+          CLOSE
+        </button>
+      </div>
+    </>
+  ) : (
+    <>
+      <input
+        type="number"
+        placeholder="Opening Float"
+        value={openingFloat}
+        onChange={(e) =>
+          setOpeningFloat(e.target.value)
+        }
+        style={{
+          width: "100%",
+          padding: "12px",
+          borderRadius: "8px",
+          border: "1px solid #cbd5e1",
+          marginBottom: "12px",
+        }}
+      />
+
+      <button
+        onClick={openDrawer}
+        style={{
+          width: "100%",
+          background: "#16a34a",
+          color: "white",
+          border: "none",
+          padding: "14px",
+          borderRadius: "8px",
+          cursor: "pointer",
+          fontWeight: "bold",
+          fontSize: "18px",
+        }}
+      >
+        OPEN DRAWER
+      </button>
+    </>
+  )}
+        </div>
       </div>
     </div>
   </div>
 );
-
 }
 
 export default POS;
