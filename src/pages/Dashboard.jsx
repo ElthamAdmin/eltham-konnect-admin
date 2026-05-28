@@ -20,35 +20,69 @@ function Dashboard() {
   const [packages, setPackages] = useState([]);
   const [invoices, setInvoices] = useState([]);
   const [chartData, setChartData] = useState([]);
-const [supportTickets, setSupportTickets] = useState([]);
+  const [supportTickets, setSupportTickets] = useState([]);
+  const [financeSummary, setFinanceSummary] = useState(null);
+  const [dateFilter, setDateFilter] = useState("today");
+  const [locationFilter, setLocationFilter] = useState("All Locations");
 
-const [dateFilter, setDateFilter] = useState("today");
-const [locationFilter, setLocationFilter] = useState("All Locations");
-  const [customersRes, packagesRes, invoicesRes, chartRes, supportTicketsRes] =
-  await Promise.all([
-    api.get("/api/customers"),
-    api.get("/api/packages"),
-    api.get("/api/invoices"),
-    api.get("/api/finance/monthly-chart"),
-    api.get("/api/support-tickets"),
-  ]);
+  const getFinanceFilter = () => {
+    if (dateFilter === "today") return "today";
+    if (dateFilter === "week") return "thisWeek";
+    if (dateFilter === "month") return "thisMonth";
+    if (dateFilter === "all") return "allTime";
+    return "today";
+  };
 
-setCustomers(customersRes.data.data || []);
-setPackages(packagesRes.data.data || []);
-setInvoices(invoicesRes.data.data || []);
-setChartData(chartRes.data.data || []);
+  const getFinanceBranch = () =>
+    locationFilter === "All Locations" ? "" : locationFilter;
 
-const ticketsData = supportTicketsRes.data.data || [];
-setSupportTickets(ticketsData);
- 
-  const filterLabel =
-    dateFilter === "today"
-      ? "Today"
-      : dateFilter === "week"
-      ? "This Week"
-      : dateFilter === "month"
-      ? "This Month"
-      : "All Time";
+  const fetchDashboardData = async () => {
+    try {
+      const [customersRes, packagesRes, invoicesRes, chartRes, financeSummaryRes, supportTicketsRes] =
+        await Promise.all([
+          api.get("/api/customers"),
+          api.get("/api/packages"),
+          api.get("/api/invoices"),
+          api.get("/api/finance/monthly-chart"),
+          api.get(`/api/finance/summary?filter=${getFinanceFilter()}&branch=${encodeURIComponent(getFinanceBranch())}`),
+          api.get("/api/support-tickets"),
+        ]);
+
+      setCustomers(customersRes.data.data || []);
+      setPackages(packagesRes.data.data || []);
+      setInvoices(invoicesRes.data.data || []);
+      setChartData(chartRes.data.data || []);
+      setFinanceSummary(financeSummaryRes.data.data || null);
+      setSupportTickets(supportTicketsRes.data.data || []);
+    } catch (error) {
+      console.error("Error loading dashboard data:", error);
+    }
+  };
+
+  useEffect(() => {
+    fetchDashboardData();
+  }, [dateFilter, locationFilter]);
+
+  const money = (value) => `JMD ${Number(value || 0).toLocaleString()}`;
+
+  const paidInvoicesTotal = Number(financeSummary?.totalRevenue || 0);
+  const outstandingRevenue = Number(financeSummary?.outstandingRevenue || 0);
+  const totalExpenses = Number(financeSummary?.totalExpenses || 0);
+  const totalPayroll = Number(financeSummary?.totalPayroll || 0);
+
+  const today = new Date().toISOString().split("T")[0];
+
+  const newSignupsToday = customers.filter((customer) =>
+    String(customer.createdAt || customer.signUpDate || "").includes(today)
+  ).length;
+
+  const packagesReady = packages.filter((pkg) => pkg.readyForPickup === true).length;
+
+  const packagesToday = packages.filter((pkg) =>
+    String(pkg.createdAt || pkg.dateReceived || "").includes(today)
+  ).length;
+
+  const openTickets = supportTickets.filter((ticket) => ticket.status === "Open").length;
 
   const monthlyChart = chartData.map((item) => ({
     month: item.month,
@@ -72,27 +106,19 @@ setSupportTickets(ticketsData);
     padding: "24px",
     border: "1px solid #e2e8f0",
     boxShadow: "0 16px 36px rgba(15, 23, 42, 0.08)",
-background: "linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)",
+    background: "linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)",
   };
 
   const COLORS = ["#16a34a", "#0ea5e9", "#dc2626", "#f97316"];
 
   return (
     <div style={{ display: "grid", gap: "24px" }}>
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          gap: "16px",
-          flexWrap: "wrap",
-          alignItems: "center",
-        }}
-      >
+      <div style={{ display: "flex", justifyContent: "space-between", gap: "16px", flexWrap: "wrap", alignItems: "center" }}>
         <div>
           <h1 style={{ margin: 0, color: "#0f172a" }}>Dashboard</h1>
           <p style={{ margin: "6px 0 0", color: "#64748b" }}>
-  EKOS operational overview and customer activity.
-</p>
+            EKOS operational overview and customer activity.
+          </p>
         </div>
 
         <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
@@ -115,64 +141,16 @@ background: "linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)",
         </div>
       </div>
 
-      <div
-  style={{
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))",
-    gap: "20px",
-  }}
->
-  <DashboardCard
-    title="New Sign Up Customers"
-    value={customers.length}
-    color="#16a34a"
-    link="/customers"
-    linkText="View Customers"
-  />
-
-  <DashboardCard
-    title="Packages Ready For Pickup"
-    value={
-      packages.filter((pkg) => pkg.readyForPickup === true).length
-    }
-    color="#f97316"
-    link="/packages"
-    linkText="View Packages"
-  />
-
-  <DashboardCard
-    title="Packages Today"
-    value={
-      packages.filter((pkg) => {
-        if (!pkg.createdAt) return false;
-
-        const today = new Date().toISOString().split("T")[0];
-
-        return String(pkg.createdAt).includes(today);
-      }).length
-    }
-    color="#0ea5e9"
-    link="/packages"
-    linkText="View Packages"
-  />
-
-  <DashboardCard
-    title="New Customer Tickets"
-    value={
-      supportTickets.filter(
-        (ticket) => ticket.status === "Open"
-      ).length
-    }
-    color="#dc2626"
-    link="/support"
-    linkText="View Tickets"
-  />
-</div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))", gap: "20px" }}>
+        <DashboardCard title="New Sign Up Customers" value={newSignupsToday} color="#16a34a" link="/customers" linkText="View Customers" />
+        <DashboardCard title="Packages Ready For Pickup" value={packagesReady} color="#f97316" link="/packages" linkText="View Packages" />
+        <DashboardCard title="Packages Today" value={packagesToday} color="#0ea5e9" link="/packages" linkText="View Packages" />
+        <DashboardCard title="New Customer Tickets" value={openTickets} color="#dc2626" link="/support-tickets" linkText="View Tickets" />
+      </div>
 
       <div style={cardStyle}>
         <div style={{ display: "flex", justifyContent: "space-between", gap: "12px", flexWrap: "wrap", marginBottom: "18px" }}>
           <h2 style={{ margin: 0, color: "#0f172a" }}>Income vs Expenses by Month</h2>
-          <button style={secondaryButtonStyle}>Export</button>
         </div>
 
         <div style={{ width: "100%", height: 360 }}>
@@ -200,16 +178,14 @@ background: "linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)",
 
 function DashboardCard({ title, value, color, link, linkText }) {
   return (
-    <div
-      style={{
-        backgroundColor: "white",
-        borderRadius: "16px",
-        padding: "26px",
-        border: "1px solid #e2e8f0",
-        boxShadow: "0 14px 34px rgba(15, 23, 42, 0.08)",
-        background: "linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)",
-      }}
-    >
+    <div style={{
+      backgroundColor: "white",
+      borderRadius: "16px",
+      padding: "26px",
+      border: "1px solid #e2e8f0",
+      boxShadow: "0 14px 34px rgba(15, 23, 42, 0.08)",
+      background: "linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)",
+    }}>
       <h2 style={{ margin: 0, color, fontSize: "30px" }}>{value}</h2>
       <p style={{ color: "#1e293b", fontSize: "18px", fontWeight: "bold" }}>{title}</p>
       <Link to={link} style={{ color: "#2563eb", fontWeight: "bold" }}>
@@ -221,16 +197,14 @@ function DashboardCard({ title, value, color, link, linkText }) {
 
 function BreakdownCard({ title, data, colors }) {
   return (
-    <div
-      style={{
-        backgroundColor: "white",
-        borderRadius: "16px",
-        padding: "24px",
-        border: "1px solid #e2e8f0",
-        boxShadow: "0 10px 24px rgba(15, 23, 42, 0.06)",
-        minHeight: "330px",
-      }}
-    >
+    <div style={{
+      backgroundColor: "white",
+      borderRadius: "16px",
+      padding: "24px",
+      border: "1px solid #e2e8f0",
+      boxShadow: "0 10px 24px rgba(15, 23, 42, 0.06)",
+      minHeight: "330px",
+    }}>
       <h2 style={{ marginTop: 0 }}>{title}</h2>
 
       {data.length === 0 ? (
@@ -267,16 +241,6 @@ const primaryButtonStyle = {
   color: "white",
   border: "none",
   padding: "11px 18px",
-  borderRadius: "10px",
-  cursor: "pointer",
-  fontWeight: "bold",
-};
-
-const secondaryButtonStyle = {
-  backgroundColor: "white",
-  color: "#334155",
-  border: "1px solid #cbd5e1",
-  padding: "10px 16px",
   borderRadius: "10px",
   cursor: "pointer",
   fontWeight: "bold",
