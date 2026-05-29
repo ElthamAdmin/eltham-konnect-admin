@@ -33,6 +33,7 @@ import NoticeBoard from "./pages/NoticeBoard";
 import RewardsHubAdmin from "./pages/RewardsHubAdmin";
 import RewardsHubAnalytics from "./pages/RewardsHubAnalytics";
 import BusinessAnalytics from "./pages/BusinessAnalytics";
+import BusinessGrowthCenter from "./pages/BusinessGrowthCenter";
 import DebtManager from "./pages/DebtManager";
 import ChartOfAccounts from "./pages/ChartOfAccounts";
 import JournalEntries from "./pages/JournalEntries";
@@ -135,6 +136,7 @@ const navItems = [
   { label: "Rewards", path: "/rewards-hub-admin", show: can("marketing") },
   { label: "Analytics", path: "/rewards-hub-analytics", show: can("marketing") },
   { label: "Business Analytics", path: "/business-analytics", show: can("finance") },
+  { label: "Growth Center", path: "/business-growth-center", show: can("finance") },
   { label: "Marketplace", path: "/amazon-associate", show: can("marketing") },
   { label: "Market Orders", path: "/marketplace-orders", show: can("marketing") },
   { label: "Market Invoices", path: "/marketplace-invoices", show: can("marketing") },
@@ -279,6 +281,7 @@ const subNavItemStyle = (active) => ({
       <Route path="/rewards-hub-admin" element={can("marketing") ? <RewardsHubAdmin /> : <Navigate to="/" replace />} />
       <Route path="/rewards-hub-analytics" element={can("marketing") ? <RewardsHubAnalytics /> : <Navigate to="/" replace />} />
       <Route path="/business-analytics" element={can("finance") ? <BusinessAnalytics /> : <Navigate to="/" replace />} />
+      <Route path="/business-growth-center" element={can("finance") ? <BusinessGrowthCenter /> : <Navigate to="/" replace />} />
       <Route path="/amazon-associate" element={can("marketing") ? <AmazonAssociateLinks /> : <Navigate to="/" replace />} />
       <Route path="/marketplace-orders" element={can("marketing") ? <MarketplaceOrders /> : <Navigate to="/" replace />} />
       <Route path="/marketplace-invoices" element={can("marketing") ? <MarketplaceInvoices /> : <Navigate to="/" replace />} />
