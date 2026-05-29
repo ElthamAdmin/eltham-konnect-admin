@@ -5,6 +5,7 @@ function BusinessGrowthCenter() {
   const [items, setItems] = useState([]);
   const [summary, setSummary] = useState({});
   const [advisor, setAdvisor] = useState({});
+  const [intelligence, setIntelligence] = useState(null);
   const [formOpen, setFormOpen] = useState(false);
 
   const [formData, setFormData] = useState({
@@ -52,8 +53,19 @@ function BusinessGrowthCenter() {
     }
   };
 
+  const loadIntelligence = async () => {
+  try {
+    const res = await api.get("/api/business-planner/intelligence");
+    setIntelligence(res.data.data || null);
+  } catch (error) {
+    console.error("Business intelligence error:", error);
+    setIntelligence(null);
+  }
+};
+
   useEffect(() => {
     loadItems();
+    loadIntelligence();
   }, []);
 
   const money = (value) => `JMD ${Number(value || 0).toLocaleString()}`;
@@ -85,6 +97,7 @@ function BusinessGrowthCenter() {
       setFormOpen(false);
       resetForm();
       await loadItems();
+      await loadIntelligence();
     } catch (error) {
       console.error("Business planner save error:", error);
       alert(error?.response?.data?.message || "Could not save planner item.");
@@ -95,6 +108,7 @@ function BusinessGrowthCenter() {
     try {
       await api.put(`/api/business-planner/${id}`, { status });
       await loadItems();
+      await loadIntelligence();
     } catch (error) {
       console.error("Status update error:", error);
       alert(error?.response?.data?.message || "Could not update status.");
@@ -108,6 +122,7 @@ function BusinessGrowthCenter() {
     try {
       await api.delete(`/api/business-planner/${id}`);
       await loadItems();
+      await loadIntelligence();
     } catch (error) {
       console.error("Delete planner item error:", error);
       alert(error?.response?.data?.message || "Could not delete item.");
@@ -186,6 +201,149 @@ function BusinessGrowthCenter() {
           <p style={{ fontWeight: "bold" }}>Active Giveaways</p>
         </Card>
       </div>
+
+      {intelligence && (
+  <div style={panel(BORDER)}>
+    <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>
+      Business Intelligence Dashboard
+    </h2>
+
+    <div style={summaryGrid}>
+      <Card>
+        <h2
+          style={{
+            color:
+              Number(intelligence.healthScore || 0) >= 75
+                ? "#16a34a"
+                : Number(intelligence.healthScore || 0) >= 50
+                ? "#f59e0b"
+                : "#dc2626",
+            margin: 0,
+          }}
+        >
+          {intelligence.healthScore || 0}/100
+        </h2>
+        <p style={{ fontWeight: "bold" }}>Business Health Score</p>
+      </Card>
+
+      <Card>
+        <h2
+          style={{
+            color:
+              Number(intelligence.profitMargin || 0) >= 15
+                ? "#16a34a"
+                : Number(intelligence.profitMargin || 0) >= 8
+                ? "#f59e0b"
+                : "#dc2626",
+            margin: 0,
+          }}
+        >
+          {intelligence.profitMargin || 0}%
+        </h2>
+        <p style={{ fontWeight: "bold" }}>Profit Margin</p>
+      </Card>
+
+      <Card>
+        <h2 style={{ color: "#16a34a", margin: 0 }}>
+          {money(intelligence.estimatedProfit)}
+        </h2>
+        <p style={{ fontWeight: "bold" }}>Estimated Profit</p>
+      </Card>
+
+      <Card>
+        <h2 style={{ color: "#0891b2", margin: 0 }}>
+          {money(intelligence.giveawayBudget)}
+        </h2>
+        <p style={{ fontWeight: "bold" }}>Safe Giveaway Budget</p>
+      </Card>
+
+      <Card>
+        <h2 style={{ color: "#7c3aed", margin: 0 }}>
+          {intelligence.complianceReadiness || 0}%
+        </h2>
+        <p style={{ fontWeight: "bold" }}>Compliance Readiness</p>
+      </Card>
+
+      <Card>
+        <h2 style={{ color: "#dc2626", margin: 0 }}>
+          {intelligence.unpaidInvoices || 0}
+        </h2>
+        <p style={{ fontWeight: "bold" }}>Unpaid Invoices</p>
+      </Card>
+    </div>
+
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+        gap: "14px",
+        marginTop: "14px",
+      }}
+    >
+      <div style={miniDecisionCard(BORDER)}>
+        <h3 style={{ marginTop: 0, color: ROYAL_BLUE }}>Giveaway Readiness</h3>
+        <p style={{ fontWeight: "bold", color: "#334155" }}>
+          {intelligence.giveawayStatus}
+        </p>
+        <p style={{ color: MUTED }}>
+          Suggested limit: {money(intelligence.giveawayBudget)}
+        </p>
+      </div>
+
+      <div style={miniDecisionCard(BORDER)}>
+        <h3 style={{ marginTop: 0, color: ROYAL_BLUE }}>Hiring Readiness</h3>
+        <p style={{ fontWeight: "bold", color: "#334155" }}>
+          {intelligence.hiringStatus}
+        </p>
+        <p style={{ color: MUTED }}>
+          Review payroll, compliance, and cash flow before adding staff.
+        </p>
+      </div>
+
+      <div style={miniDecisionCard(BORDER)}>
+        <h3 style={{ marginTop: 0, color: ROYAL_BLUE }}>Expansion Readiness</h3>
+        <p style={{ fontWeight: "bold", color: "#334155" }}>
+          {intelligence.expansionStatus}
+        </p>
+        <p style={{ color: MUTED }}>
+          Expansion should only happen after profit, compliance, and operations are stable.
+        </p>
+      </div>
+
+      <div style={miniDecisionCard(BORDER)}>
+        <h3 style={{ marginTop: 0, color: ROYAL_BLUE }}>Budget Variance</h3>
+        <p
+          style={{
+            fontWeight: "bold",
+            color: Number(intelligence.budgetVariance || 0) >= 0 ? "#16a34a" : "#dc2626",
+          }}
+        >
+          {money(intelligence.budgetVariance)}
+        </p>
+        <p style={{ color: MUTED }}>
+          Positive is favorable. Negative means actuals are worse than planned.
+        </p>
+      </div>
+    </div>
+
+    <div
+      style={{
+        ...panel("#fde68a"),
+        backgroundColor: "#fffbeb",
+        marginTop: "16px",
+        marginBottom: 0,
+      }}
+    >
+      <h3 style={{ marginTop: 0, color: "#92400e" }}>CEO Alerts</h3>
+
+      {(intelligence.alerts || []).map((alert, index) => (
+        <p key={index} style={{ margin: "8px 0", color: "#334155" }}>
+          ⚠️ {alert}
+        </p>
+      ))}
+    </div>
+  </div>
+)}
 
       <div style={panel(BORDER)}>
         <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>
@@ -440,6 +598,15 @@ function button(color) {
     borderRadius: "8px",
     cursor: "pointer",
     fontWeight: "bold",
+  };
+}
+
+function miniDecisionCard(border) {
+  return {
+    backgroundColor: "#f8fafc",
+    border: `1px solid ${border}`,
+    borderRadius: "12px",
+    padding: "16px",
   };
 }
 
