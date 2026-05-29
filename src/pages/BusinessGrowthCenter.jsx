@@ -537,6 +537,111 @@ notes: "",
   </div>
 )}
 
+{intelligence?.executiveReports && (
+  <div style={panel(BORDER)}>
+    <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>
+      Executive Reports Center
+    </h2>
+
+    <p style={{ color: MUTED, marginTop: "-6px" }}>
+      Automatically generated CEO, board, expansion, hiring, and giveaway reports
+      based on live EKOS data.
+    </p>
+
+    <button
+      onClick={() => window.print()}
+      style={{
+        backgroundColor: ROYAL_BLUE,
+        color: "white",
+        border: "none",
+        padding: "10px 16px",
+        borderRadius: "8px",
+        cursor: "pointer",
+        fontWeight: "bold",
+        marginBottom: "16px",
+      }}
+    >
+      Print / Save Report
+    </button>
+
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
+        gap: "14px",
+      }}
+    >
+      <ReportCard
+        title={intelligence.executiveReports.ceoReport?.title}
+        border={BORDER}
+      >
+        <p><strong>Period:</strong> {intelligence.executiveReports.ceoReport?.period}</p>
+        <p>{intelligence.executiveReports.ceoReport?.summary}</p>
+        <p><strong>Revenue:</strong> {money(intelligence.executiveReports.ceoReport?.revenue)}</p>
+        <p><strong>Expenses:</strong> {money(intelligence.executiveReports.ceoReport?.expenses)}</p>
+        <p><strong>Profit:</strong> {money(intelligence.executiveReports.ceoReport?.profit)}</p>
+        <p><strong>Profit Margin:</strong> {intelligence.executiveReports.ceoReport?.profitMargin}%</p>
+        <p><strong>Health Score:</strong> {intelligence.executiveReports.ceoReport?.healthScore}/100</p>
+        <p><strong>Customers:</strong> {intelligence.executiveReports.ceoReport?.customers}</p>
+        <p><strong>Packages:</strong> {intelligence.executiveReports.ceoReport?.packages}</p>
+        <p><strong>Unpaid Invoices:</strong> {intelligence.executiveReports.ceoReport?.unpaidInvoices}</p>
+        <p><strong>Budget Variance:</strong> {money(intelligence.executiveReports.ceoReport?.budgetVariance)}</p>
+        <p><strong>Biggest Risk:</strong> {intelligence.executiveReports.ceoReport?.biggestRisk}</p>
+        <p><strong>Recommended Focus:</strong> {intelligence.executiveReports.ceoReport?.recommendedFocus}</p>
+      </ReportCard>
+
+      <ReportCard
+        title={intelligence.executiveReports.boardReport?.title}
+        border={BORDER}
+      >
+        <p><strong>Financial Position:</strong> {intelligence.executiveReports.boardReport?.financialPosition}</p>
+        <p><strong>Compliance Position:</strong> {intelligence.executiveReports.boardReport?.compliancePosition}</p>
+        <p><strong>Growth Position:</strong> {intelligence.executiveReports.boardReport?.growthPosition}</p>
+        <p><strong>Operational Position:</strong> {intelligence.executiveReports.boardReport?.operationalPosition}</p>
+        <p><strong>Recommended Decision:</strong> {intelligence.executiveReports.boardReport?.recommendedDecision}</p>
+      </ReportCard>
+
+      <ReportCard
+        title={intelligence.executiveReports.expansionReport?.title}
+        border={BORDER}
+      >
+        <p><strong>Recommendation:</strong> {intelligence.executiveReports.expansionReport?.recommendation}</p>
+        <p><strong>Ready:</strong> {intelligence.executiveReports.expansionReport?.ready ? "Yes" : "No"}</p>
+
+        {(intelligence.executiveReports.expansionReport?.reasons || []).map((reason, index) => (
+          <p key={index}>• {reason}</p>
+        ))}
+      </ReportCard>
+
+      <ReportCard
+        title={intelligence.executiveReports.hiringReport?.title}
+        border={BORDER}
+      >
+        <p><strong>Recommendation:</strong> {intelligence.executiveReports.hiringReport?.recommendation}</p>
+        <p><strong>Suggested Role:</strong> {intelligence.executiveReports.hiringReport?.suggestedRole}</p>
+        <p><strong>Estimated Monthly Cost:</strong> {money(intelligence.executiveReports.hiringReport?.estimatedMonthlyCost)}</p>
+
+        {(intelligence.executiveReports.hiringReport?.reasons || []).map((reason, index) => (
+          <p key={index}>• {reason}</p>
+        ))}
+      </ReportCard>
+
+      <ReportCard
+        title={intelligence.executiveReports.giveawayReport?.title}
+        border={BORDER}
+      >
+        <p><strong>Recommendation:</strong> {intelligence.executiveReports.giveawayReport?.recommendation}</p>
+        <p><strong>Suggested Type:</strong> {intelligence.executiveReports.giveawayReport?.suggestedType}</p>
+        <p><strong>Safe Budget:</strong> {money(intelligence.executiveReports.giveawayReport?.safeBudget)}</p>
+
+        {(intelligence.executiveReports.giveawayReport?.reasons || []).map((reason, index) => (
+          <p key={index}>• {reason}</p>
+        ))}
+      </ReportCard>
+    </div>
+  </div>
+)}
+
 {intelligence?.fiveYearRoadmap && (
   <div style={panel(BORDER)}>
     <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>
@@ -1005,6 +1110,28 @@ function badge(color) {
     fontSize: "12px",
     display: "inline-block",
   };
+}
+
+function ReportCard({ title, border, children }) {
+  return (
+    <div
+      style={{
+        backgroundColor: "#ffffff",
+        border: `1px solid ${border}`,
+        borderRadius: "14px",
+        padding: "18px",
+        lineHeight: 1.5,
+      }}
+    >
+      <h3 style={{ marginTop: 0, color: "#0B3D91" }}>
+        {title}
+      </h3>
+
+      <div style={{ color: "#334155" }}>
+        {children}
+      </div>
+    </div>
+  );
 }
 
 function Card({ children }) {
