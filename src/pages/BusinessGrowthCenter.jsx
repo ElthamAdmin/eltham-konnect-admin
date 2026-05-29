@@ -359,6 +359,184 @@ notes: "",
   </div>
 )}
 
+{intelligence?.executiveEngine && (
+  <div style={panel(BORDER)}>
+    <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>
+      Executive Action Engine
+    </h2>
+
+    <p style={{ color: MUTED, marginTop: "-6px" }}>
+      EKOS-generated weekly priorities based on cash flow, unpaid invoices,
+      planner risks, budget variance, compliance, and growth targets.
+    </p>
+
+    <div style={summaryGrid}>
+      <Card>
+        <h2 style={{ color: "#16a34a", margin: 0 }}>
+          {intelligence.executiveEngine.executiveScores?.financialStability || 0}%
+        </h2>
+        <p style={{ fontWeight: "bold" }}>Financial Stability</p>
+      </Card>
+
+      <Card>
+        <h2 style={{ color: "#2563eb", margin: 0 }}>
+          {intelligence.executiveEngine.executiveScores?.growthReadiness || 0}%
+        </h2>
+        <p style={{ fontWeight: "bold" }}>Growth Readiness</p>
+      </Card>
+
+      <Card>
+        <h2 style={{ color: "#7c3aed", margin: 0 }}>
+          {intelligence.executiveEngine.executiveScores?.complianceStrength || 0}%
+        </h2>
+        <p style={{ fontWeight: "bold" }}>Compliance Strength</p>
+      </Card>
+
+      <Card>
+        <h2 style={{ color: "#0891b2", margin: 0 }}>
+          {intelligence.executiveEngine.executiveScores?.customerGrowth || 0}%
+        </h2>
+        <p style={{ fontWeight: "bold" }}>Customer Growth</p>
+      </Card>
+
+      <Card>
+        <h2 style={{ color: "#f59e0b", margin: 0 }}>
+          {intelligence.executiveEngine.executiveScores?.operationalHealth || 0}%
+        </h2>
+        <p style={{ fontWeight: "bold" }}>Operational Health</p>
+      </Card>
+    </div>
+
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+        gap: "14px",
+        marginTop: "16px",
+      }}
+    >
+      <div style={miniDecisionCard(BORDER)}>
+        <h3 style={{ marginTop: 0, color: ROYAL_BLUE }}>
+          Giveaway Recommendation
+        </h3>
+
+        <p style={{ fontWeight: "bold", color: "#334155" }}>
+          {intelligence.executiveEngine.giveawayRecommendation?.recommendation}
+        </p>
+
+        <p style={{ margin: "6px 0" }}>
+          <strong>Type:</strong>{" "}
+          {intelligence.executiveEngine.giveawayRecommendation?.type}
+        </p>
+
+        <p style={{ margin: "6px 0" }}>
+          <strong>Budget:</strong>{" "}
+          {money(intelligence.executiveEngine.giveawayRecommendation?.budget)}
+        </p>
+
+        <p style={{ color: MUTED }}>
+          {intelligence.executiveEngine.giveawayRecommendation?.reason}
+        </p>
+      </div>
+
+      <div style={miniDecisionCard(BORDER)}>
+        <h3 style={{ marginTop: 0, color: ROYAL_BLUE }}>
+          Hiring Recommendation
+        </h3>
+
+        <p style={{ fontWeight: "bold", color: "#334155" }}>
+          {intelligence.executiveEngine.hiringRecommendation?.recommendation}
+        </p>
+
+        <p style={{ margin: "6px 0" }}>
+          <strong>Position:</strong>{" "}
+          {intelligence.executiveEngine.hiringRecommendation?.position}
+        </p>
+
+        <p style={{ margin: "6px 0" }}>
+          <strong>Estimated Monthly Cost:</strong>{" "}
+          {money(intelligence.executiveEngine.hiringRecommendation?.estimatedMonthlyCost)}
+        </p>
+
+        <p style={{ margin: "6px 0" }}>
+          <strong>Timeline:</strong>{" "}
+          {intelligence.executiveEngine.hiringRecommendation?.timeline}
+        </p>
+
+        <p style={{ color: MUTED }}>
+          {intelligence.executiveEngine.hiringRecommendation?.reason}
+        </p>
+      </div>
+    </div>
+
+    <div
+      style={{
+        ...panel("#bfdbfe"),
+        backgroundColor: "#eff6ff",
+        marginTop: "16px",
+        marginBottom: 0,
+      }}
+    >
+      <h3 style={{ marginTop: 0, color: ROYAL_BLUE }}>
+        Top 5 Executive Priorities
+      </h3>
+
+      {(intelligence.executiveEngine.priorityQueue || []).length > 0 ? (
+        (intelligence.executiveEngine.priorityQueue || []).map((action, index) => (
+          <div
+            key={`${action.title}-${index}`}
+            style={{
+              backgroundColor: "white",
+              border: "1px solid #dbe3ef",
+              borderRadius: "12px",
+              padding: "14px",
+              marginBottom: "10px",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                gap: "12px",
+                flexWrap: "wrap",
+              }}
+            >
+              <h4 style={{ margin: 0, color: "#0f172a" }}>
+                #{index + 1} {action.title}
+              </h4>
+
+              <span
+                style={badge(
+                  action.impact === "Critical"
+                    ? "#b91c1c"
+                    : action.impact === "High"
+                    ? "#dc2626"
+                    : "#f59e0b"
+                )}
+              >
+                {action.impact}
+              </span>
+            </div>
+
+            <p style={{ margin: "8px 0 0", color: "#334155" }}>
+              <strong>Category:</strong> {action.category} |{" "}
+              <strong>Status:</strong> {action.status}
+            </p>
+
+            <p style={{ marginBottom: 0, color: MUTED }}>
+              {action.reason}
+            </p>
+          </div>
+        ))
+      ) : (
+        <p style={{ color: MUTED }}>
+          No urgent executive actions right now.
+        </p>
+      )}
+    </div>
+  </div>
+)}
+
 {intelligence?.fiveYearRoadmap && (
   <div style={panel(BORDER)}>
     <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>
