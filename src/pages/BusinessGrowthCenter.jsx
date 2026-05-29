@@ -17,8 +17,11 @@ function BusinessGrowthCenter() {
     dueDate: "",
     branch: "All Branches",
     estimatedCost: 0,
-    expectedBenefit: "",
-    notes: "",
+targetValue: 0,
+currentValue: 0,
+unit: "Text",
+expectedBenefit: "",
+notes: "",
   });
 
   const ROYAL_BLUE = "#0B3D91";
@@ -27,16 +30,24 @@ function BusinessGrowthCenter() {
   const MUTED = "#64748b";
 
   const categories = [
-    "5-Year Goal",
-    "To-Do Task",
-    "Hiring Plan",
-    "Compliance",
-    "LLC Transition",
-    "Giveaway / Promotion",
-    "Business Decision",
-    "Financial Strategy",
-    "Operations",
-  ];
+  "5-Year Goal",
+  "Revenue Goal",
+  "Profit Goal",
+  "Customer Goal",
+  "Package Goal",
+  "Hiring Goal",
+  "Compliance Goal",
+  "Expansion Goal",
+  "Marketing Goal",
+  "To-Do Task",
+  "Hiring Plan",
+  "Compliance",
+  "LLC Transition",
+  "Giveaway / Promotion",
+  "Business Decision",
+  "Financial Strategy",
+  "Operations",
+];
 
   const priorities = ["Low", "Medium", "High", "Critical"];
   const statuses = ["Planned", "In Progress", "Completed", "On Hold", "Cancelled"];
@@ -80,8 +91,11 @@ function BusinessGrowthCenter() {
       dueDate: "",
       branch: "All Branches",
       estimatedCost: 0,
-      expectedBenefit: "",
-      notes: "",
+targetValue: 0,
+currentValue: 0,
+unit: "Text",
+expectedBenefit: "",
+notes: "",
     });
   };
 
@@ -345,6 +359,94 @@ function BusinessGrowthCenter() {
   </div>
 )}
 
+{intelligence?.fiveYearRoadmap && (
+  <div style={panel(BORDER)}>
+    <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>
+      5-Year Strategic Roadmap
+    </h2>
+
+    <p style={{ color: MUTED, marginTop: "-6px" }}>
+      Tracks Eltham Konnect’s yearly goals from 2026 to 2030 using live revenue,
+      profit, customer, and package data where available.
+    </p>
+
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+        gap: "14px",
+      }}
+    >
+      {intelligence.fiveYearRoadmap.map((yearPlan) => (
+        <div key={yearPlan.year} style={roadmapCard(BORDER)}>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              gap: "10px",
+            }}
+          >
+            <h2 style={{ margin: 0, color: ROYAL_BLUE }}>{yearPlan.year}</h2>
+
+            <span
+              style={{
+                ...badge(
+                  yearPlan.roadmapProgress >= 75
+                    ? "#16a34a"
+                    : yearPlan.roadmapProgress >= 40
+                    ? "#f59e0b"
+                    : "#64748b"
+                ),
+              }}
+            >
+              {yearPlan.roadmapProgress}% Complete
+            </span>
+          </div>
+
+          <p style={{ color: MUTED, fontWeight: "bold" }}>
+            {yearPlan.completedGoals} of {yearPlan.totalGoals} roadmap goals completed
+          </p>
+
+          <ProgressBar value={yearPlan.roadmapProgress} />
+
+          <div style={{ marginTop: "14px" }}>
+            <RoadmapMetric
+              label="Revenue Goal"
+              current={yearPlan.revenue.current}
+              target={yearPlan.revenue.target}
+              progress={yearPlan.revenue.progress}
+              money={money}
+            />
+
+            <RoadmapMetric
+              label="Profit Goal"
+              current={yearPlan.profit.current}
+              target={yearPlan.profit.target}
+              progress={yearPlan.profit.progress}
+              money={money}
+            />
+
+            <RoadmapMetric
+              label="Customer Goal"
+              current={yearPlan.customers.current}
+              target={yearPlan.customers.target}
+              progress={yearPlan.customers.progress}
+            />
+
+            <RoadmapMetric
+              label="Package Goal"
+              current={yearPlan.packages.current}
+              target={yearPlan.packages.target}
+              progress={yearPlan.packages.progress}
+            />
+          </div>
+        </div>
+      ))}
+    </div>
+  </div>
+)}
+
       <div style={panel(BORDER)}>
         <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>
           {advisor.title || "EKOS Business Advisor"}
@@ -440,6 +542,37 @@ function BusinessGrowthCenter() {
               style={input(BORDER)}
             />
 
+            <input
+  type="number"
+  placeholder="Target Value"
+  value={formData.targetValue}
+  onChange={(e) =>
+    setFormData({ ...formData, targetValue: Number(e.target.value || 0) })
+  }
+  style={input(BORDER)}
+/>
+
+<input
+  type="number"
+  placeholder="Current Value"
+  value={formData.currentValue}
+  onChange={(e) =>
+    setFormData({ ...formData, currentValue: Number(e.target.value || 0) })
+  }
+  style={input(BORDER)}
+/>
+
+<select
+  value={formData.unit}
+  onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
+  style={input(BORDER)}
+>
+  <option>Text</option>
+  <option>JMD</option>
+  <option>Count</option>
+  <option>Percent</option>
+</select>
+
             <textarea
               placeholder="Expected Benefit"
               value={formData.expectedBenefit}
@@ -495,7 +628,10 @@ function BusinessGrowthCenter() {
                 <th>Due Date</th>
                 <th>Branch</th>
                 <th>Estimated Cost</th>
-                <th>Expected Benefit</th>
+<th>Target</th>
+<th>Current</th>
+<th>Unit</th>
+<th>Expected Benefit</th>
                 <th>Advisor Note</th>
                 <th>Notes</th>
                 <th>Actions</th>
@@ -532,7 +668,10 @@ function BusinessGrowthCenter() {
                     <td>{item.dueDate ? String(item.dueDate).slice(0, 10) : "—"}</td>
                     <td>{item.branch}</td>
                     <td>{money(item.estimatedCost)}</td>
-                    <td>{item.expectedBenefit || "—"}</td>
+<td>{Number(item.targetValue || 0).toLocaleString()}</td>
+<td>{Number(item.currentValue || 0).toLocaleString()}</td>
+<td>{item.unit || "—"}</td>
+<td>{item.expectedBenefit || "—"}</td>
                     <td>{item.advisorNote || "—"}</td>
                     <td>{item.notes || "—"}</td>
                     <td>
@@ -544,7 +683,7 @@ function BusinessGrowthCenter() {
                 ))
               ) : (
                 <tr>
-                  <td colSpan="12" style={{ textAlign: "center", color: MUTED }}>
+                  <td colSpan="15" style={{ textAlign: "center", color: MUTED }}>
                     No planner items found. Add your first five-year goal, to-do task,
                     hiring plan, compliance item, or giveaway decision.
                   </td>
@@ -599,6 +738,74 @@ function button(color) {
     cursor: "pointer",
     fontWeight: "bold",
   };
+}
+
+function roadmapCard(border) {
+  return {
+    backgroundColor: "#ffffff",
+    border: `1px solid ${border}`,
+    borderRadius: "14px",
+    padding: "18px",
+    boxShadow: "0 8px 18px rgba(15,23,42,0.05)",
+  };
+}
+
+function ProgressBar({ value }) {
+  const safeValue = Math.max(0, Math.min(100, Number(value || 0)));
+
+  return (
+    <div
+      style={{
+        width: "100%",
+        height: "10px",
+        backgroundColor: "#e5e7eb",
+        borderRadius: "999px",
+        overflow: "hidden",
+      }}
+    >
+      <div
+        style={{
+          width: `${safeValue}%`,
+          height: "100%",
+          backgroundColor:
+            safeValue >= 75 ? "#16a34a" : safeValue >= 40 ? "#f59e0b" : "#64748b",
+        }}
+      />
+    </div>
+  );
+}
+
+function RoadmapMetric({ label, current, target, progress, money }) {
+  const isMoney = label.includes("Revenue") || label.includes("Profit");
+
+  return (
+    <div
+      style={{
+        borderTop: "1px solid #e5e7eb",
+        paddingTop: "10px",
+        marginTop: "10px",
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          gap: "10px",
+          fontWeight: "bold",
+        }}
+      >
+        <span>{label}</span>
+        <span>{progress || 0}%</span>
+      </div>
+
+      <ProgressBar value={progress} />
+
+      <p style={{ margin: "6px 0 0", color: "#64748b", fontSize: "13px" }}>
+        Current: {isMoney && money ? money(current) : Number(current || 0).toLocaleString()} / Target:{" "}
+        {isMoney && money ? money(target) : Number(target || 0).toLocaleString()}
+      </p>
+    </div>
+  );
 }
 
 function miniDecisionCard(border) {
