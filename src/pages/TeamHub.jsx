@@ -20,6 +20,8 @@ function TeamHub() {
   const [activeTab, setActiveTab] = useState("posts");
 const [channelDocuments, setChannelDocuments] = useState([]);
 const [channelMembers, setChannelMembers] = useState([]);
+const [allUsers, setAllUsers] = useState([]);
+const [selectedMember, setSelectedMember] = useState("");
 const [documentTitle, setDocumentTitle] = useState("");
 const [documentFolder, setDocumentFolder] = useState("General");
 const [documentFile, setDocumentFile] = useState(null);
@@ -146,9 +148,19 @@ const fetchChannelMembers = useCallback(async (channelId) => {
   }
 }, []);
 
+const fetchSystemUsers = useCallback(async () => {
+  try {
+    const res = await api.get("/api/system-users");
+    setAllUsers(res.data.data || []);
+  } catch (error) {
+    console.error("Error loading system users:", error);
+  }
+}, []);
+
   useEffect(() => {
-    fetchChannels();
-  }, [fetchChannels]);
+  fetchChannels();
+  fetchSystemUsers();
+}, [fetchChannels, fetchSystemUsers]);
 
   useEffect(() => {
     if (!activeChannel?._id) return;
@@ -262,6 +274,48 @@ setExpandedThreads((prev) => ({ ...prev, [parentMessageId]: true }));
       alert(error?.response?.data?.message || "Unable to send reply.");
     }
   };
+
+  const addMemberToChannel = async () => {
+  if (!activeChannel?._id || !selectedMember) return;
+
+  try {
+    await api.post(
+      `/api/team-hub/channels/${activeChannel._id}/members`,
+      {
+        userId: selectedMember,
+      }
+    );
+
+    await fetchChannelMembers(activeChannel._id);
+    setSelectedMember("");
+  } catch (error) {
+    console.error(error);
+    alert(
+      error?.response?.data?.message ||
+      "Unable to add member."
+    );
+  }
+};
+
+const removeMemberFromChannel = async (userId) => {
+  if (!window.confirm("Remove member from this channel?")) {
+    return;
+  }
+
+  try {
+    await api.delete(
+      `/api/team-hub/channels/${activeChannel._id}/members/${userId}`
+    );
+
+    await fetchChannelMembers(activeChannel._id);
+  } catch (error) {
+    console.error(error);
+    alert(
+      error?.response?.data?.message ||
+      "Unable to remove member."
+    );
+  }
+};
 
   const uploadChannelDocument = async (e) => {
   e.preventDefault();
@@ -720,6 +774,51 @@ setExpandedThreads((prev) => ({ ...prev, [parentMessageId]: true }));
   >
     <h3 style={{ marginTop: 0, color: "#1e293b" }}>Channel Members</h3>
 
+    <div
+  style={{
+    display: "flex",
+    gap: "10px",
+    marginBottom: "16px",
+    flexWrap: "wrap",
+  }}
+>
+  <select
+    value={selectedMember}
+    onChange={(e) => setSelectedMember(e.target.value)}
+    style={{
+      padding: "10px",
+      borderRadius: "10px",
+      border: `1px solid ${BORDER}`,
+      minWidth: "250px",
+    }}
+  >
+    <option value="">Select Staff Member</option>
+
+    {allUsers.map((u) => (
+      <option key={u.userId} value={u.userId}>
+        {u.fullName} ({u.role})
+      </option>
+    ))}
+  </select>
+
+  <button
+    type="button"
+    onClick={addMemberToChannel}
+    disabled={!selectedMember}
+    style={{
+      backgroundColor: ROYAL_BLUE,
+      color: WHITE,
+      border: "none",
+      padding: "10px 16px",
+      borderRadius: "10px",
+      fontWeight: "bold",
+      cursor: selectedMember ? "pointer" : "not-allowed",
+    }}
+  >
+    Add Member
+  </button>
+</div>
+
     {channelMembers.length === 0 ? (
       <p style={{ color: MUTED }}>No members assigned to this channel yet.</p>
     ) : (
@@ -743,9 +842,41 @@ setExpandedThreads((prev) => ({ ...prev, [parentMessageId]: true }));
                 {member.role} • {member.branch}
               </div>
             </div>
-            <span style={{ fontSize: "12px", color: MUTED }}>
-              {member.dutyStatus}
-            </span>
+            <div
+  style={{
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "flex-end",
+    gap: "6px",
+  }}
+>
+  <span
+    style={{
+      fontSize: "12px",
+      color: MUTED,
+    }}
+  >
+    {member.dutyStatus}
+  </span>
+
+  {member.userId !== user?.userId && (
+    <button
+      type="button"
+      onClick={() => removeMemberFromChannel(member.userId)}
+      style={{
+        backgroundColor: "#dc2626",
+        color: WHITE,
+        border: "none",
+        borderRadius: "8px",
+        padding: "4px 8px",
+        cursor: "pointer",
+        fontSize: "11px",
+      }}
+    >
+      Remove
+    </button>
+  )}
+</div>
           </div>
         ))}
       </div>
