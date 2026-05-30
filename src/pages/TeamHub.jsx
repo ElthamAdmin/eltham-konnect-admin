@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import api from "../api";
 import { useAuth } from "../context/AuthContext";
 
@@ -13,6 +13,8 @@ function TeamHub() {
   const [message, setMessage] = useState("");
   const [attachments, setAttachments] = useState([]);
   const [loadingMessages, setLoadingMessages] = useState(false);
+  const [replyDrafts, setReplyDrafts] = useState({});
+  const [replyFiles, setReplyFiles] = useState({});
 
   const ROYAL_BLUE = "#0B3D91";
   const GOLD = "#D4AF37";
@@ -27,51 +29,74 @@ function TeamHub() {
     return ((parts[0]?.[0] || "E") + (parts[1]?.[0] || "K")).toUpperCase();
   }, [user]);
 
-  const fetchChannels = async () => {
+  const getSenderLabel = useCallback(
+    (senderId) => {
+      if (senderId === user?.userId) return `${user?.fullName || "You"} (You)`;
+      return senderId;
+    },
+    [user]
+  );
+
+  const formatDateTime = (dateValue) => {
+    if (!dateValue) return "";
+    return new Date(dateValue).toLocaleString("en-JM", {
+      dateStyle: "medium",
+      timeStyle: "short",
+    });
+  };
+
+  const fetchChannels = useCallback(async () => {
     try {
       const res = await api.get("/api/team-hub/channels");
       const data = res.data.data || [];
+
       setChannels(data);
 
-      if (!activeChannel && data.length > 0) {
-        setActiveChannel(data[0]);
-      }
+      setActiveChannel((prev) => {
+        if (prev?._id) {
+          return data.find((channel) => channel._id === prev._id) || prev;
+        }
+
+        return data[0] || null;
+      });
     } catch (error) {
       console.error("Error loading channels:", error);
       alert("Unable to load Team Hub channels.");
     }
-  };
+  }, []);
 
-  const fetchMessages = async (channelId) => {
+  const fetchMessages = useCallback(async (channelId, options = {}) => {
     if (!channelId) return;
 
+    const showLoader = options.showLoader !== false;
+
     try {
-      setLoadingMessages(true);
+      if (showLoader) setLoadingMessages(true);
+
       const res = await api.get(`/api/team-hub/messages/${channelId}`);
       setMessages(res.data.data || []);
     } catch (error) {
       console.error("Error loading messages:", error);
-      alert("Unable to load messages.");
     } finally {
-      setLoadingMessages(false);
+      if (showLoader) setLoadingMessages(false);
     }
-  };
-
-  useEffect(() => {
-    fetchChannels();
   }, []);
 
   useEffect(() => {
-  if (!activeChannel?._id) return;
+    fetchChannels();
+  }, [fetchChannels]);
 
-  fetchMessages(activeChannel._id);
+  useEffect(() => {
+    if (!activeChannel?._id) return;
 
-  const interval = setInterval(() => {
-    fetchMessages(activeChannel._id);
-  }, 5000);
+    fetchMessages(activeChannel._id, { showLoader: true });
 
-  return () => clearInterval(interval);
-}, [activeChannel]);
+    const interval = setInterval(() => {
+      fetchMessages(activeChannel._id, { showLoader: false });
+    }, 15000);
+
+    return () => clearInterval(interval);
+  }, [activeChannel?._id, fetchMessages]);
 
   const createChannel = async (e) => {
     e.preventDefault();
@@ -105,22 +130,22 @@ function TeamHub() {
       return;
     }
 
-    if (!message.trim()) {
+    if (!message.trim() && attachments.length === 0) {
       return;
     }
 
     try {
       const formData = new FormData();
-formData.append("channelId", activeChannel._id);
-formData.append("message", message);
+      formData.append("channelId", activeChannel._id);
+      formData.append("message", message);
 
-attachments.forEach((file) => {
-  formData.append("attachments", file);
-});
+      attachments.forEach((file) => {
+        formData.append("attachments", file);
+      });
 
-const res = await api.post("/api/team-hub/messages", formData, {
-  headers: { "Content-Type": "multipart/form-data" },
-});
+      const res = await api.post("/api/team-hub/messages", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
 
       setMessages((prev) => [...prev, res.data.data]);
       setMessage("");
@@ -131,21 +156,72 @@ const res = await api.post("/api/team-hub/messages", formData, {
     }
   };
 
-  const formatDateTime = (dateValue) => {
-    if (!dateValue) return "";
-    return new Date(dateValue).toLocaleString("en-JM", {
-      dateStyle: "medium",
-      timeStyle: "short",
-    });
+  const sendReply = async (parentMessageId) => {
+    if (!activeChannel?._id) return;
+
+    const replyText = replyDrafts[parentMessageId] || "";
+    const files = replyFiles[parentMessageId] || [];
+
+    if (!replyText.trim() && files.length === 0) return;
+
+    try {
+      const formData = new FormData();
+      formData.append("channelId", activeChannel._id);
+      formData.append("parentMessageId", parentMessageId);
+      formData.append("message", replyText);
+
+      files.forEach((file) => {
+        formData.append("attachments", file);
+      });
+
+      const res = await api.post("/api/team-hub/messages/reply", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+
+      setMessages((prev) =>
+        prev.map((item) =>
+          item._id === parentMessageId
+            ? { ...item, replies: [...(item.replies || []), res.data.data] }
+            : item
+        )
+      );
+
+      setReplyDrafts((prev) => ({ ...prev, [parentMessageId]: "" }));
+      setReplyFiles((prev) => ({ ...prev, [parentMessageId]: [] }));
+    } catch (error) {
+      console.error("Error sending reply:", error);
+      alert(error?.response?.data?.message || "Unable to send reply.");
+    }
   };
 
-  const getSenderLabel = (senderId) => {
-    if (senderId === user?.userId) return `${user?.fullName || "You"} (You)`;
-    return senderId;
+  const renderAttachments = (item, mine) => {
+    if (!item.attachments?.length) return null;
+
+    return (
+      <div style={{ marginTop: "10px", display: "grid", gap: "8px" }}>
+        {item.attachments.map((file, index) => (
+          <a
+            key={`${file.fileUrl}-${index}`}
+            href={`${api.defaults.baseURL}${file.fileUrl}`}
+            target="_blank"
+            rel="noreferrer"
+            style={{
+              color: mine ? "#fff7cc" : ROYAL_BLUE,
+              fontWeight: "bold",
+              textDecoration: "underline",
+              wordBreak: "break-word",
+            }}
+          >
+            📎 {file.originalName || file.fileName}
+          </a>
+        ))}
+      </div>
+    );
   };
 
   return (
     <div
+      className="team-hub-shell"
       style={{
         backgroundColor: LIGHT_BG,
         minHeight: "calc(100vh - 130px)",
@@ -153,17 +229,50 @@ const res = await api.post("/api/team-hub/messages", formData, {
         overflow: "hidden",
         border: `1px solid ${BORDER}`,
         display: "grid",
-        gridTemplateColumns: window.innerWidth <= 768 ? "1fr" : "310px 1fr",
+        gridTemplateColumns: "310px 1fr",
       }}
     >
+      <style>
+        {`
+          @media (max-width: 768px) {
+            .team-hub-shell {
+              grid-template-columns: 1fr !important;
+            }
+
+            .team-hub-sidebar {
+              max-height: 420px;
+              border-right: none !important;
+              border-bottom: 1px solid ${BORDER};
+            }
+
+            .team-hub-header {
+              align-items: flex-start !important;
+              flex-direction: column;
+            }
+
+            .team-hub-message-card {
+              max-width: 100% !important;
+            }
+
+            .team-hub-compose {
+              flex-direction: column;
+            }
+
+            .team-hub-file-input {
+              max-width: 100% !important;
+            }
+          }
+        `}
+      </style>
+
       <aside
+        className="team-hub-sidebar"
         style={{
           backgroundColor: WHITE,
           borderRight: `1px solid ${BORDER}`,
           display: "flex",
           flexDirection: "column",
-          maxHeight: window.innerWidth <= 768 ? "420px" : "none",
-overflowY: "auto",
+          overflowY: "auto",
         }}
       >
         <div
@@ -176,7 +285,7 @@ overflowY: "auto",
         >
           <h2 style={{ margin: 0, fontSize: "24px" }}>Team Hub</h2>
           <p style={{ margin: "8px 0 0", opacity: 0.9, fontSize: "14px" }}>
-            Staff collaboration and internal chat
+            Channels, files, replies, and staff collaboration
           </p>
         </div>
 
@@ -292,6 +401,7 @@ overflowY: "auto",
 
       <main style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
         <header
+          className="team-hub-header"
           style={{
             backgroundColor: WHITE,
             borderBottom: `1px solid ${BORDER}`,
@@ -300,7 +410,6 @@ overflowY: "auto",
             justifyContent: "space-between",
             alignItems: "center",
             gap: "16px",
-            minHeight: window.innerWidth <= 768 ? "600px" : "auto",
           }}
         >
           <div>
@@ -385,70 +494,195 @@ overflowY: "auto",
               const mine = item.senderId === user?.userId;
 
               return (
-                <div
-                  key={item._id}
-                  style={{
-                    display: "flex",
-                    justifyContent: mine ? "flex-end" : "flex-start",
-                    marginBottom: "14px",
-                  }}
-                >
+                <div key={item._id} style={{ marginBottom: "18px" }}>
                   <div
                     style={{
-                      maxWidth: "70%",
-                      backgroundColor: mine ? ROYAL_BLUE : WHITE,
-                      color: mine ? WHITE : "#334155",
-                      border: `1px solid ${mine ? ROYAL_BLUE : BORDER}`,
-                      borderRadius: "16px",
-                      padding: "13px 15px",
-                      boxShadow: "0 8px 18px rgba(15,23,42,0.06)",
+                      display: "flex",
+                      justifyContent: mine ? "flex-end" : "flex-start",
                     }}
                   >
                     <div
+                      className="team-hub-message-card"
                       style={{
-                        fontSize: "12px",
-                        fontWeight: "bold",
-                        opacity: 0.85,
-                        marginBottom: "6px",
+                        maxWidth: "75%",
+                        backgroundColor: mine ? ROYAL_BLUE : WHITE,
+                        color: mine ? WHITE : "#334155",
+                        border: `1px solid ${mine ? ROYAL_BLUE : BORDER}`,
+                        borderRadius: "16px",
+                        padding: "13px 15px",
+                        boxShadow: "0 8px 18px rgba(15,23,42,0.06)",
                       }}
                     >
-                      {getSenderLabel(item.senderId)}
-                    </div>
+                      <div
+                        style={{
+                          fontSize: "12px",
+                          fontWeight: "bold",
+                          opacity: 0.85,
+                          marginBottom: "6px",
+                        }}
+                      >
+                        {getSenderLabel(item.senderId)}
+                      </div>
 
-                    <div style={{ whiteSpace: "pre-wrap", lineHeight: 1.5 }}>
-                      {item.message}
-                    </div>
+                      <div style={{ whiteSpace: "pre-wrap", lineHeight: 1.5 }}>
+                        {item.message}
+                      </div>
 
-                    {item.attachments?.length > 0 && (
-  <div style={{ marginTop: "10px", display: "grid", gap: "8px" }}>
-    {item.attachments.map((file, index) => (
-      <a
-        key={index}
-        href={`${api.defaults.baseURL}${file.fileUrl}`}
-        target="_blank"
-        rel="noreferrer"
-        style={{
-          color: mine ? "#fff7cc" : ROYAL_BLUE,
-          fontWeight: "bold",
-          textDecoration: "underline",
-          wordBreak: "break-word",
-        }}
-      >
-        📎 {file.originalName || file.fileName}
-      </a>
-    ))}
-  </div>
-)}
+                      {renderAttachments(item, mine)}
+
+                      <div
+                        style={{
+                          fontSize: "11px",
+                          opacity: 0.75,
+                          marginTop: "8px",
+                          textAlign: "right",
+                        }}
+                      >
+                        {formatDateTime(item.createdAt)}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div
+                    style={{
+                      marginLeft: mine ? "0" : "32px",
+                      marginRight: mine ? "32px" : "0",
+                      marginTop: "10px",
+                      display: "grid",
+                      gap: "8px",
+                    }}
+                  >
+                    {(item.replies || []).map((reply) => {
+                      const replyMine = reply.senderId === user?.userId;
+
+                      return (
+                        <div
+                          key={reply._id}
+                          style={{
+                            backgroundColor: WHITE,
+                            border: `1px solid ${BORDER}`,
+                            borderRadius: "12px",
+                            padding: "10px 12px",
+                            maxWidth: "85%",
+                            justifySelf: replyMine ? "end" : "start",
+                          }}
+                        >
+                          <div
+                            style={{
+                              fontSize: "12px",
+                              fontWeight: "bold",
+                              color: ROYAL_BLUE,
+                              marginBottom: "4px",
+                            }}
+                          >
+                            ↳ {getSenderLabel(reply.senderId)}
+                          </div>
+
+                          <div
+                            style={{
+                              whiteSpace: "pre-wrap",
+                              lineHeight: 1.5,
+                              color: "#334155",
+                            }}
+                          >
+                            {reply.message}
+                          </div>
+
+                          {renderAttachments(reply, false)}
+
+                          <div
+                            style={{
+                              fontSize: "11px",
+                              color: MUTED,
+                              marginTop: "6px",
+                              textAlign: "right",
+                            }}
+                          >
+                            {formatDateTime(reply.createdAt)}
+                          </div>
+                        </div>
+                      );
+                    })}
 
                     <div
                       style={{
-                        fontSize: "11px",
-                        opacity: 0.75,
-                        marginTop: "8px",
-                        textAlign: "right",
+                        backgroundColor: WHITE,
+                        border: `1px solid ${BORDER}`,
+                        borderRadius: "12px",
+                        padding: "10px",
+                        display: "grid",
+                        gap: "8px",
                       }}
                     >
-                      {formatDateTime(item.createdAt)}
+                      <textarea
+                        value={replyDrafts[item._id] || ""}
+                        onChange={(e) =>
+                          setReplyDrafts((prev) => ({
+                            ...prev,
+                            [item._id]: e.target.value,
+                          }))
+                        }
+                        placeholder="Reply to this conversation..."
+                        rows={2}
+                        style={{
+                          resize: "none",
+                          padding: "10px",
+                          borderRadius: "10px",
+                          border: `1px solid ${BORDER}`,
+                          fontFamily: "Arial, sans-serif",
+                          fontSize: "13px",
+                        }}
+                      />
+
+                      <div
+                        style={{
+                          display: "flex",
+                          gap: "10px",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          flexWrap: "wrap",
+                        }}
+                      >
+                        <input
+                          type="file"
+                          multiple
+                          onChange={(e) =>
+                            setReplyFiles((prev) => ({
+                              ...prev,
+                              [item._id]: Array.from(e.target.files || []),
+                            }))
+                          }
+                          style={{ fontSize: "12px" }}
+                        />
+
+                        <button
+                          type="button"
+                          onClick={() => sendReply(item._id)}
+                          disabled={
+                            !(replyDrafts[item._id] || "").trim() &&
+                            !(replyFiles[item._id] || []).length
+                          }
+                          style={{
+                            backgroundColor:
+                              (replyDrafts[item._id] || "").trim() ||
+                              (replyFiles[item._id] || []).length
+                                ? GOLD
+                                : "#cbd5e1",
+                            color: "#111827",
+                            border: "none",
+                            padding: "9px 14px",
+                            borderRadius: "10px",
+                            fontWeight: "bold",
+                            cursor:
+                              (replyDrafts[item._id] || "").trim() ||
+                              (replyFiles[item._id] || []).length
+                                ? "pointer"
+                                : "not-allowed",
+                          }}
+                        >
+                          Reply
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -458,6 +692,7 @@ overflowY: "auto",
         </section>
 
         <form
+          className="team-hub-compose"
           onSubmit={sendMessage}
           style={{
             backgroundColor: WHITE,
@@ -489,29 +724,34 @@ overflowY: "auto",
           />
 
           <input
-  type="file"
-  multiple
-  onChange={(e) => setAttachments(Array.from(e.target.files || []))}
-  disabled={!activeChannel}
-  style={{
-    maxWidth: "220px",
-    fontSize: "13px",
-  }}
-/>
+            className="team-hub-file-input"
+            type="file"
+            multiple
+            onChange={(e) => setAttachments(Array.from(e.target.files || []))}
+            disabled={!activeChannel}
+            style={{
+              maxWidth: "220px",
+              fontSize: "13px",
+            }}
+          />
 
           <button
             type="submit"
-            disabled={!activeChannel || !message.trim()}
+            disabled={!activeChannel || (!message.trim() && attachments.length === 0)}
             style={{
               backgroundColor:
-                activeChannel && message.trim() ? ROYAL_BLUE : "#cbd5e1",
+                activeChannel && (message.trim() || attachments.length > 0)
+                  ? ROYAL_BLUE
+                  : "#cbd5e1",
               color: WHITE,
               border: "none",
               padding: "0 24px",
               borderRadius: "12px",
               fontWeight: "bold",
               cursor:
-                activeChannel && message.trim() ? "pointer" : "not-allowed",
+                activeChannel && (message.trim() || attachments.length > 0)
+                  ? "pointer"
+                  : "not-allowed",
             }}
           >
             Send
