@@ -17,6 +17,12 @@ function TeamHub() {
   const [replyFiles, setReplyFiles] = useState({});
   const [openReplyBox, setOpenReplyBox] = useState(null);
   const [expandedThreads, setExpandedThreads] = useState({});
+  const [activeTab, setActiveTab] = useState("posts");
+const [channelDocuments, setChannelDocuments] = useState([]);
+const [channelMembers, setChannelMembers] = useState([]);
+const [documentTitle, setDocumentTitle] = useState("");
+const [documentFolder, setDocumentFolder] = useState("General");
+const [documentFile, setDocumentFile] = useState(null);
 
   const ROYAL_BLUE = "#0B3D91";
   const GOLD = "#D4AF37";
@@ -65,13 +71,12 @@ const getProfileInitials = (profile) => {
 };
 
 const getRoleLine = (profile) => {
-  return (
-    profile?.jobTitle ||
-    profile?.department ||
-    profile?.role ||
-    profile?.branch ||
-    "Team Member"
-  );
+  const parts = [];
+
+  if (profile?.role) parts.push(profile.role);
+  if (profile?.branch) parts.push(profile.branch);
+
+  return parts.length ? parts.join(" • ") : "Team Member";
 };
 
   const formatDateTime = (dateValue) => {
@@ -119,6 +124,28 @@ const getRoleLine = (profile) => {
     }
   }, []);
 
+  const fetchChannelDocuments = useCallback(async (channelId) => {
+  if (!channelId) return;
+
+  try {
+    const res = await api.get(`/api/team-hub/documents/${channelId}`);
+    setChannelDocuments(res.data.data || []);
+  } catch (error) {
+    console.error("Error loading channel documents:", error);
+  }
+}, []);
+
+const fetchChannelMembers = useCallback(async (channelId) => {
+  if (!channelId) return;
+
+  try {
+    const res = await api.get(`/api/team-hub/channels/${channelId}/members`);
+    setChannelMembers(res.data.data || []);
+  } catch (error) {
+    console.error("Error loading channel members:", error);
+  }
+}, []);
+
   useEffect(() => {
     fetchChannels();
   }, [fetchChannels]);
@@ -128,12 +155,15 @@ const getRoleLine = (profile) => {
 
     fetchMessages(activeChannel._id, { showLoader: true });
 
+    fetchChannelDocuments(activeChannel._id);
+fetchChannelMembers(activeChannel._id);
+
     const interval = setInterval(() => {
       fetchMessages(activeChannel._id, { showLoader: false });
     }, 15000);
 
     return () => clearInterval(interval);
-  }, [activeChannel?._id, fetchMessages]);
+  }, [activeChannel?._id, fetchMessages, fetchChannelDocuments, fetchChannelMembers]);
 
   const createChannel = async (e) => {
     e.preventDefault();
@@ -232,6 +262,40 @@ setExpandedThreads((prev) => ({ ...prev, [parentMessageId]: true }));
       alert(error?.response?.data?.message || "Unable to send reply.");
     }
   };
+
+  const uploadChannelDocument = async (e) => {
+  e.preventDefault();
+
+  if (!activeChannel?._id) {
+    alert("Please select a channel first.");
+    return;
+  }
+
+  if (!documentFile) {
+    alert("Please choose a file to upload.");
+    return;
+  }
+
+  try {
+    const formData = new FormData();
+    formData.append("channelId", activeChannel._id);
+    formData.append("title", documentTitle || documentFile.name);
+    formData.append("folder", documentFolder || "General");
+    formData.append("file", documentFile);
+
+    const res = await api.post("/api/team-hub/documents", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+
+    setChannelDocuments((prev) => [res.data.data, ...prev]);
+    setDocumentTitle("");
+    setDocumentFolder("General");
+    setDocumentFile(null);
+  } catch (error) {
+    console.error("Error uploading channel document:", error);
+    alert(error?.response?.data?.message || "Unable to upload document.");
+  }
+};
 
   const renderAttachments = (item, mine) => {
     if (!item.attachments?.length) return null;
@@ -492,6 +556,39 @@ setExpandedThreads((prev) => ({ ...prev, [parentMessageId]: true }));
           </div>
         </header>
 
+        {activeChannel && (
+  <div
+    style={{
+      backgroundColor: WHITE,
+      borderBottom: `1px solid ${BORDER}`,
+      padding: "0 24px",
+      display: "flex",
+      gap: "8px",
+    }}
+  >
+    {["posts", "files", "members"].map((tab) => (
+      <button
+        key={tab}
+        type="button"
+        onClick={() => setActiveTab(tab)}
+        style={{
+          border: "none",
+          borderBottom:
+            activeTab === tab ? `3px solid ${ROYAL_BLUE}` : "3px solid transparent",
+          backgroundColor: "transparent",
+          padding: "14px 12px",
+          fontWeight: "bold",
+          color: activeTab === tab ? ROYAL_BLUE : MUTED,
+          cursor: "pointer",
+          textTransform: "capitalize",
+        }}
+      >
+        {tab}
+      </button>
+    ))}
+  </div>
+)}
+
         <section
           style={{
             flex: 1,
@@ -513,7 +610,148 @@ setExpandedThreads((prev) => ({ ...prev, [parentMessageId]: true }));
             >
               Select or create a channel to begin.
             </div>
-          ) : loadingMessages ? (
+          ) : activeTab === "files" ? (
+  <div
+    style={{
+      backgroundColor: WHITE,
+      border: `1px solid ${BORDER}`,
+      borderRadius: "16px",
+      padding: "18px",
+    }}
+  >
+    <h3 style={{ marginTop: 0, color: "#1e293b" }}>Channel Files</h3>
+
+    <form
+      onSubmit={uploadChannelDocument}
+      style={{
+        display: "grid",
+        gridTemplateColumns: "1fr 180px 1fr auto",
+        gap: "10px",
+        marginBottom: "18px",
+      }}
+    >
+      <input
+        value={documentTitle}
+        onChange={(e) => setDocumentTitle(e.target.value)}
+        placeholder="Document title"
+        style={{
+          padding: "11px",
+          borderRadius: "10px",
+          border: `1px solid ${BORDER}`,
+        }}
+      />
+
+      <input
+        value={documentFolder}
+        onChange={(e) => setDocumentFolder(e.target.value)}
+        placeholder="Folder"
+        style={{
+          padding: "11px",
+          borderRadius: "10px",
+          border: `1px solid ${BORDER}`,
+        }}
+      />
+
+      <input
+        type="file"
+        onChange={(e) => setDocumentFile(e.target.files?.[0] || null)}
+      />
+
+      <button
+        type="submit"
+        style={{
+          backgroundColor: ROYAL_BLUE,
+          color: WHITE,
+          border: "none",
+          padding: "0 16px",
+          borderRadius: "10px",
+          fontWeight: "bold",
+          cursor: "pointer",
+        }}
+      >
+        Upload
+      </button>
+    </form>
+
+    {channelDocuments.length === 0 ? (
+      <p style={{ color: MUTED }}>No files uploaded to this channel yet.</p>
+    ) : (
+      <div style={{ display: "grid", gap: "10px" }}>
+        {channelDocuments.map((doc) => (
+          <a
+            key={doc._id}
+            href={`${api.defaults.baseURL}${doc.fileUrl}`}
+            target="_blank"
+            rel="noreferrer"
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              gap: "12px",
+              padding: "12px",
+              border: `1px solid ${BORDER}`,
+              borderRadius: "12px",
+              color: "#1e293b",
+              textDecoration: "none",
+              backgroundColor: "#f8fafc",
+            }}
+          >
+            <span>
+              📄 <strong>{doc.title}</strong>
+              <div style={{ fontSize: "12px", color: MUTED }}>
+                Folder: {doc.folder || "General"}
+              </div>
+            </span>
+            <span style={{ fontSize: "12px", color: MUTED }}>
+              {formatDateTime(doc.createdAt)}
+            </span>
+          </a>
+        ))}
+      </div>
+    )}
+  </div>
+) : activeTab === "members" ? (
+  <div
+    style={{
+      backgroundColor: WHITE,
+      border: `1px solid ${BORDER}`,
+      borderRadius: "16px",
+      padding: "18px",
+    }}
+  >
+    <h3 style={{ marginTop: 0, color: "#1e293b" }}>Channel Members</h3>
+
+    {channelMembers.length === 0 ? (
+      <p style={{ color: MUTED }}>No members assigned to this channel yet.</p>
+    ) : (
+      <div style={{ display: "grid", gap: "10px" }}>
+        {channelMembers.map((member) => (
+          <div
+            key={member.userId}
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              gap: "12px",
+              padding: "12px",
+              border: `1px solid ${BORDER}`,
+              borderRadius: "12px",
+              backgroundColor: "#f8fafc",
+            }}
+          >
+            <div>
+              <strong>{member.fullName}</strong>
+              <div style={{ fontSize: "12px", color: MUTED }}>
+                {member.role} • {member.branch}
+              </div>
+            </div>
+            <span style={{ fontSize: "12px", color: MUTED }}>
+              {member.dutyStatus}
+            </span>
+          </div>
+        ))}
+      </div>
+    )}
+  </div>
+) : loadingMessages ? (
             <p style={{ color: MUTED }}>Loading messages...</p>
           ) : messages.length === 0 ? (
             <div
