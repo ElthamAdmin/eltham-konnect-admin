@@ -15,6 +15,8 @@ function TeamHub() {
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [replyDrafts, setReplyDrafts] = useState({});
   const [replyFiles, setReplyFiles] = useState({});
+  const [openReplyBox, setOpenReplyBox] = useState(null);
+  const [expandedThreads, setExpandedThreads] = useState({});
 
   const ROYAL_BLUE = "#0B3D91";
   const GOLD = "#D4AF37";
@@ -29,13 +31,48 @@ function TeamHub() {
     return ((parts[0]?.[0] || "E") + (parts[1]?.[0] || "K")).toUpperCase();
   }, [user]);
 
-  const getSenderLabel = useCallback(
-    (senderId) => {
-      if (senderId === user?.userId) return `${user?.fullName || "You"} (You)`;
-      return senderId;
-    },
-    [user]
+  const getSenderProfile = useCallback(
+  (item) => {
+    if (item?.senderProfile) return item.senderProfile;
+
+    if (item?.senderId === user?.userId) {
+      return {
+        fullName: user?.fullName || "You",
+        role: user?.role || "",
+        branch: user?.branch || "",
+        dutyStatus: user?.dutyStatus || "",
+        jobTitle: user?.employeeSnapshot?.jobTitle || "",
+        department: user?.employeeSnapshot?.department || "",
+      };
+    }
+
+    return {
+      fullName: item?.senderId || "Unknown User",
+      role: "",
+      branch: "",
+      dutyStatus: "",
+      jobTitle: "",
+      department: "",
+    };
+  },
+  [user]
+);
+
+const getProfileInitials = (profile) => {
+  const name = profile?.fullName || "EK";
+  const parts = name.split(" ").filter(Boolean);
+  return ((parts[0]?.[0] || "E") + (parts[1]?.[0] || "K")).toUpperCase();
+};
+
+const getRoleLine = (profile) => {
+  return (
+    profile?.jobTitle ||
+    profile?.department ||
+    profile?.role ||
+    profile?.branch ||
+    "Team Member"
   );
+};
 
   const formatDateTime = (dateValue) => {
     if (!dateValue) return "";
@@ -188,6 +225,8 @@ function TeamHub() {
 
       setReplyDrafts((prev) => ({ ...prev, [parentMessageId]: "" }));
       setReplyFiles((prev) => ({ ...prev, [parentMessageId]: [] }));
+      setOpenReplyBox(null);
+setExpandedThreads((prev) => ({ ...prev, [parentMessageId]: true }));
     } catch (error) {
       console.error("Error sending reply:", error);
       alert(error?.response?.data?.message || "Unable to send reply.");
@@ -491,202 +530,287 @@ function TeamHub() {
             </div>
           ) : (
             messages.map((item) => {
-              const mine = item.senderId === user?.userId;
+  const profile = getSenderProfile(item);
+  const mine = item.senderId === user?.userId;
+  const replies = item.replies || [];
+  const expanded = expandedThreads[item._id] ?? true;
 
-              return (
-                <div key={item._id} style={{ marginBottom: "18px" }}>
+  return (
+    <div
+      key={item._id}
+      style={{
+        marginBottom: "18px",
+        backgroundColor: WHITE,
+        border: `1px solid ${BORDER}`,
+        borderRadius: "16px",
+        padding: "16px",
+        boxShadow: "0 8px 18px rgba(15,23,42,0.05)",
+      }}
+    >
+      <div style={{ display: "flex", gap: "12px", alignItems: "flex-start" }}>
+        <div
+          style={{
+            width: "40px",
+            height: "40px",
+            borderRadius: "50%",
+            backgroundColor: mine ? ROYAL_BLUE : "#e2e8f0",
+            color: mine ? WHITE : "#334155",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontWeight: "bold",
+            flexShrink: 0,
+          }}
+        >
+          {getProfileInitials(profile)}
+        </div>
+
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              gap: "12px",
+              flexWrap: "wrap",
+            }}
+          >
+            <div>
+              <div style={{ fontWeight: "bold", color: "#1e293b" }}>
+                {profile.fullName}
+                {mine ? " (You)" : ""}
+              </div>
+              <div style={{ fontSize: "12px", color: MUTED }}>
+                {getRoleLine(profile)}
+                {profile.dutyStatus ? ` • ${profile.dutyStatus}` : ""}
+              </div>
+            </div>
+
+            <div style={{ fontSize: "12px", color: MUTED }}>
+              {formatDateTime(item.createdAt)}
+            </div>
+          </div>
+
+          <div
+            style={{
+              marginTop: "12px",
+              whiteSpace: "pre-wrap",
+              lineHeight: 1.55,
+              color: "#334155",
+            }}
+          >
+            {item.message}
+          </div>
+
+          {renderAttachments(item, false)}
+
+          <div
+            style={{
+              marginTop: "12px",
+              display: "flex",
+              gap: "10px",
+              alignItems: "center",
+              flexWrap: "wrap",
+            }}
+          >
+            <button
+              type="button"
+              onClick={() =>
+                setOpenReplyBox(openReplyBox === item._id ? null : item._id)
+              }
+              style={{
+                border: "none",
+                backgroundColor: "#eef4ff",
+                color: ROYAL_BLUE,
+                padding: "7px 12px",
+                borderRadius: "999px",
+                fontWeight: "bold",
+                cursor: "pointer",
+              }}
+            >
+              Reply
+            </button>
+
+            {replies.length > 0 && (
+              <button
+                type="button"
+                onClick={() =>
+                  setExpandedThreads((prev) => ({
+                    ...prev,
+                    [item._id]: !expanded,
+                  }))
+                }
+                style={{
+                  border: "none",
+                  backgroundColor: "transparent",
+                  color: ROYAL_BLUE,
+                  fontWeight: "bold",
+                  cursor: "pointer",
+                }}
+              >
+                {expanded ? "Hide" : "Show"} {replies.length}{" "}
+                {replies.length === 1 ? "reply" : "replies"}
+              </button>
+            )}
+          </div>
+
+          {expanded && replies.length > 0 && (
+            <div
+              style={{
+                marginTop: "14px",
+                borderLeft: `3px solid ${BORDER}`,
+                paddingLeft: "14px",
+                display: "grid",
+                gap: "10px",
+              }}
+            >
+              {replies.map((reply) => {
+                const replyProfile = getSenderProfile(reply);
+                const replyMine = reply.senderId === user?.userId;
+
+                return (
                   <div
+                    key={reply._id}
                     style={{
                       display: "flex",
-                      justifyContent: mine ? "flex-end" : "flex-start",
+                      gap: "10px",
+                      alignItems: "flex-start",
                     }}
                   >
                     <div
-                      className="team-hub-message-card"
                       style={{
-                        maxWidth: "75%",
-                        backgroundColor: mine ? ROYAL_BLUE : WHITE,
-                        color: mine ? WHITE : "#334155",
-                        border: `1px solid ${mine ? ROYAL_BLUE : BORDER}`,
-                        borderRadius: "16px",
-                        padding: "13px 15px",
-                        boxShadow: "0 8px 18px rgba(15,23,42,0.06)",
+                        width: "32px",
+                        height: "32px",
+                        borderRadius: "50%",
+                        backgroundColor: replyMine ? ROYAL_BLUE : "#e2e8f0",
+                        color: replyMine ? WHITE : "#334155",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontWeight: "bold",
+                        fontSize: "12px",
+                        flexShrink: 0,
                       }}
                     >
-                      <div
-                        style={{
-                          fontSize: "12px",
-                          fontWeight: "bold",
-                          opacity: 0.85,
-                          marginBottom: "6px",
-                        }}
-                      >
-                        {getSenderLabel(item.senderId)}
+                      {getProfileInitials(replyProfile)}
+                    </div>
+
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: "bold", color: "#1e293b" }}>
+                        {replyProfile.fullName}
+                        {replyMine ? " (You)" : ""}
                       </div>
 
-                      <div style={{ whiteSpace: "pre-wrap", lineHeight: 1.5 }}>
-                        {item.message}
+                      <div style={{ fontSize: "12px", color: MUTED }}>
+                        {getRoleLine(replyProfile)} •{" "}
+                        {formatDateTime(reply.createdAt)}
                       </div>
-
-                      {renderAttachments(item, mine)}
 
                       <div
                         style={{
-                          fontSize: "11px",
-                          opacity: 0.75,
-                          marginTop: "8px",
-                          textAlign: "right",
+                          marginTop: "6px",
+                          whiteSpace: "pre-wrap",
+                          lineHeight: 1.5,
+                          color: "#334155",
                         }}
                       >
-                        {formatDateTime(item.createdAt)}
+                        {reply.message}
                       </div>
+
+                      {renderAttachments(reply, false)}
                     </div>
                   </div>
+                );
+              })}
+            </div>
+          )}
 
-                  <div
-                    style={{
-                      marginLeft: mine ? "0" : "32px",
-                      marginRight: mine ? "32px" : "0",
-                      marginTop: "10px",
-                      display: "grid",
-                      gap: "8px",
-                    }}
-                  >
-                    {(item.replies || []).map((reply) => {
-                      const replyMine = reply.senderId === user?.userId;
+          {openReplyBox === item._id && (
+            <div
+              style={{
+                marginTop: "14px",
+                backgroundColor: "#f8fafc",
+                border: `1px solid ${BORDER}`,
+                borderRadius: "12px",
+                padding: "10px",
+                display: "grid",
+                gap: "8px",
+              }}
+            >
+              <textarea
+                value={replyDrafts[item._id] || ""}
+                onChange={(e) =>
+                  setReplyDrafts((prev) => ({
+                    ...prev,
+                    [item._id]: e.target.value,
+                  }))
+                }
+                placeholder="Reply to this conversation..."
+                rows={2}
+                style={{
+                  resize: "none",
+                  padding: "10px",
+                  borderRadius: "10px",
+                  border: `1px solid ${BORDER}`,
+                  fontFamily: "Arial, sans-serif",
+                  fontSize: "13px",
+                }}
+              />
 
-                      return (
-                        <div
-                          key={reply._id}
-                          style={{
-                            backgroundColor: WHITE,
-                            border: `1px solid ${BORDER}`,
-                            borderRadius: "12px",
-                            padding: "10px 12px",
-                            maxWidth: "85%",
-                            justifySelf: replyMine ? "end" : "start",
-                          }}
-                        >
-                          <div
-                            style={{
-                              fontSize: "12px",
-                              fontWeight: "bold",
-                              color: ROYAL_BLUE,
-                              marginBottom: "4px",
-                            }}
-                          >
-                            ↳ {getSenderLabel(reply.senderId)}
-                          </div>
+              <div
+                style={{
+                  display: "flex",
+                  gap: "10px",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  flexWrap: "wrap",
+                }}
+              >
+                <input
+                  type="file"
+                  multiple
+                  onChange={(e) =>
+                    setReplyFiles((prev) => ({
+                      ...prev,
+                      [item._id]: Array.from(e.target.files || []),
+                    }))
+                  }
+                  style={{ fontSize: "12px" }}
+                />
 
-                          <div
-                            style={{
-                              whiteSpace: "pre-wrap",
-                              lineHeight: 1.5,
-                              color: "#334155",
-                            }}
-                          >
-                            {reply.message}
-                          </div>
-
-                          {renderAttachments(reply, false)}
-
-                          <div
-                            style={{
-                              fontSize: "11px",
-                              color: MUTED,
-                              marginTop: "6px",
-                              textAlign: "right",
-                            }}
-                          >
-                            {formatDateTime(reply.createdAt)}
-                          </div>
-                        </div>
-                      );
-                    })}
-
-                    <div
-                      style={{
-                        backgroundColor: WHITE,
-                        border: `1px solid ${BORDER}`,
-                        borderRadius: "12px",
-                        padding: "10px",
-                        display: "grid",
-                        gap: "8px",
-                      }}
-                    >
-                      <textarea
-                        value={replyDrafts[item._id] || ""}
-                        onChange={(e) =>
-                          setReplyDrafts((prev) => ({
-                            ...prev,
-                            [item._id]: e.target.value,
-                          }))
-                        }
-                        placeholder="Reply to this conversation..."
-                        rows={2}
-                        style={{
-                          resize: "none",
-                          padding: "10px",
-                          borderRadius: "10px",
-                          border: `1px solid ${BORDER}`,
-                          fontFamily: "Arial, sans-serif",
-                          fontSize: "13px",
-                        }}
-                      />
-
-                      <div
-                        style={{
-                          display: "flex",
-                          gap: "10px",
-                          alignItems: "center",
-                          justifyContent: "space-between",
-                          flexWrap: "wrap",
-                        }}
-                      >
-                        <input
-                          type="file"
-                          multiple
-                          onChange={(e) =>
-                            setReplyFiles((prev) => ({
-                              ...prev,
-                              [item._id]: Array.from(e.target.files || []),
-                            }))
-                          }
-                          style={{ fontSize: "12px" }}
-                        />
-
-                        <button
-                          type="button"
-                          onClick={() => sendReply(item._id)}
-                          disabled={
-                            !(replyDrafts[item._id] || "").trim() &&
-                            !(replyFiles[item._id] || []).length
-                          }
-                          style={{
-                            backgroundColor:
-                              (replyDrafts[item._id] || "").trim() ||
-                              (replyFiles[item._id] || []).length
-                                ? GOLD
-                                : "#cbd5e1",
-                            color: "#111827",
-                            border: "none",
-                            padding: "9px 14px",
-                            borderRadius: "10px",
-                            fontWeight: "bold",
-                            cursor:
-                              (replyDrafts[item._id] || "").trim() ||
-                              (replyFiles[item._id] || []).length
-                                ? "pointer"
-                                : "not-allowed",
-                          }}
-                        >
-                          Reply
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              );
+                <button
+                  type="button"
+                  onClick={() => sendReply(item._id)}
+                  disabled={
+                    !(replyDrafts[item._id] || "").trim() &&
+                    !(replyFiles[item._id] || []).length
+                  }
+                  style={{
+                    backgroundColor:
+                      (replyDrafts[item._id] || "").trim() ||
+                      (replyFiles[item._id] || []).length
+                        ? GOLD
+                        : "#cbd5e1",
+                    color: "#111827",
+                    border: "none",
+                    padding: "9px 14px",
+                    borderRadius: "10px",
+                    fontWeight: "bold",
+                    cursor:
+                      (replyDrafts[item._id] || "").trim() ||
+                      (replyFiles[item._id] || []).length
+                        ? "pointer"
+                        : "not-allowed",
+                  }}
+                >
+                  Send Reply
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+                 );
             })
           )}
         </section>
