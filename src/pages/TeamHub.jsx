@@ -32,6 +32,12 @@ const [showAnnouncementForm, setShowAnnouncementForm] = useState(false);
 const [notifications, setNotifications] = useState([]);
 const [unreadNotifications, setUnreadNotifications] = useState(0);
 const [showNotifications, setShowNotifications] = useState(false);
+const [directConversations, setDirectConversations] = useState([]);
+const [activeDirectConversation, setActiveDirectConversation] = useState(null);
+const [directMessages, setDirectMessages] = useState([]);
+const [directMessageText, setDirectMessageText] = useState("");
+const [directMessageFiles, setDirectMessageFiles] = useState([]);
+const [selectedDirectUser, setSelectedDirectUser] = useState("");
 
   const ROYAL_BLUE = "#0B3D91";
   const GOLD = "#D4AF37";
@@ -174,11 +180,37 @@ const fetchNotifications = useCallback(async () => {
   }
 }, []);
 
+const fetchDirectConversations = useCallback(async () => {
+  try {
+    const res = await api.get("/api/team-hub/direct/conversations");
+    setDirectConversations(res.data.data || []);
+  } catch (error) {
+    console.error("Error loading direct conversations:", error);
+  }
+}, []);
+
+const fetchDirectMessages = useCallback(async (conversationId) => {
+  if (!conversationId) return;
+
+  try {
+    const res = await api.get(
+      `/api/team-hub/direct/conversations/${conversationId}/messages`
+    );
+
+    setDirectMessages(res.data.data || []);
+    await fetchDirectConversations();
+    await fetchNotifications();
+  } catch (error) {
+    console.error("Error loading direct messages:", error);
+  }
+}, [fetchDirectConversations, fetchNotifications]);
+
   useEffect(() => {
   fetchChannels();
   fetchSystemUsers();
   fetchNotifications();
-}, [fetchChannels, fetchSystemUsers, fetchNotifications]);
+  fetchDirectConversations();
+}, [fetchChannels, fetchSystemUsers, fetchNotifications, fetchDirectConversations]);
 
   useEffect(() => {
     if (!activeChannel?._id) return;
@@ -424,6 +456,77 @@ const markAllNotificationsRead = async () => {
     await fetchNotifications();
   } catch (error) {
     console.error("Error marking all notifications read:", error);
+  }
+};
+
+const startDirectConversation = async () => {
+  if (!selectedDirectUser) return;
+
+  try {
+    const res = await api.post("/api/team-hub/direct/conversation", {
+      targetUserId: selectedDirectUser,
+    });
+
+    setActiveDirectConversation(res.data.data);
+    setSelectedDirectUser("");
+    await fetchDirectConversations();
+    await fetchDirectMessages(res.data.data._id);
+    setActiveTab("direct");
+  } catch (error) {
+    console.error("Error starting direct conversation:", error);
+    alert(error?.response?.data?.message || "Unable to start direct chat.");
+  }
+};
+
+const openDirectConversation = async (conversation) => {
+  setActiveDirectConversation(conversation);
+  setActiveTab("direct");
+  await fetchDirectMessages(conversation._id);
+};
+
+const sendDirectMessage = async (e) => {
+  e.preventDefault();
+
+  if (!activeDirectConversation?._id) {
+    alert("Please select a direct conversation first.");
+    return;
+  }
+
+  const receiverId =
+    activeDirectConversation.otherUserId ||
+    (activeDirectConversation.participants || []).find(
+      (participantId) => participantId !== user?.userId
+    );
+
+  if (!receiverId) {
+    alert("Unable to identify message receiver.");
+    return;
+  }
+
+  if (!directMessageText.trim() && directMessageFiles.length === 0) return;
+
+  try {
+    const formData = new FormData();
+    formData.append("conversationId", activeDirectConversation._id);
+    formData.append("receiverId", receiverId);
+    formData.append("message", directMessageText);
+
+    directMessageFiles.forEach((file) => {
+      formData.append("attachments", file);
+    });
+
+    const res = await api.post("/api/team-hub/direct/messages", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+
+    setDirectMessages((prev) => [...prev, res.data.data]);
+    setDirectMessageText("");
+    setDirectMessageFiles([]);
+    await fetchDirectConversations();
+    await fetchNotifications();
+  } catch (error) {
+    console.error("Error sending direct message:", error);
+    alert(error?.response?.data?.message || "Unable to send direct message.");
   }
 };
 
@@ -817,7 +920,7 @@ const togglePinMessage = async (item) => {
       gap: "8px",
     }}
   >
-    {["posts", "files", "members"].map((tab) => (
+    {["posts", "files", "members", "direct"].map((tab) => (
       <button
         key={tab}
         type="button"
@@ -1078,9 +1181,307 @@ const togglePinMessage = async (item) => {
         ))}
       </div>
     )}
-  </div>
+    </div>
+) : activeTab === "direct" ? (
+  <div
+    style={{
+      display: "grid",
+      gridTemplateColumns: "300px 1fr",
+      gap: "16px",
+      minHeight: "560px",
+    }}
+  >
+    <div
+      style={{
+        backgroundColor: WHITE,
+        border: `1px solid ${BORDER}`,
+        borderRadius: "16px",
+        padding: "16px",
+        display: "flex",
+        flexDirection: "column",
+        gap: "14px",
+      }}
+    >
+      <h3 style={{ margin: 0, color: "#1e293b" }}>Direct Messages</h3>
 
-  ) : activeTab === "posts" ? (
+      <div style={{ display: "grid", gap: "8px" }}>
+        <select
+          value={selectedDirectUser}
+          onChange={(e) => setSelectedDirectUser(e.target.value)}
+          style={{
+            padding: "10px",
+            borderRadius: "10px",
+            border: `1px solid ${BORDER}`,
+          }}
+        >
+          <option value="">Start chat with staff...</option>
+          {allUsers
+            .filter((staff) => staff.userId !== user?.userId)
+            .map((staff) => (
+              <option key={staff.userId} value={staff.userId}>
+                {staff.fullName} ({staff.role})
+              </option>
+            ))}
+        </select>
+
+        <button
+          type="button"
+          onClick={startDirectConversation}
+          disabled={!selectedDirectUser}
+          style={{
+            backgroundColor: selectedDirectUser ? ROYAL_BLUE : "#cbd5e1",
+            color: WHITE,
+            border: "none",
+            padding: "10px",
+            borderRadius: "10px",
+            fontWeight: "bold",
+            cursor: selectedDirectUser ? "pointer" : "not-allowed",
+          }}
+        >
+          Start Chat
+        </button>
+      </div>
+
+      <div style={{ borderTop: `1px solid ${BORDER}`, paddingTop: "12px" }}>
+        <strong style={{ fontSize: "13px", color: MUTED }}>
+          RECENT CHATS
+        </strong>
+
+        <div style={{ display: "grid", gap: "8px", marginTop: "10px" }}>
+          {directConversations.length === 0 ? (
+            <p style={{ color: MUTED, fontSize: "13px" }}>
+              No direct conversations yet.
+            </p>
+          ) : (
+            directConversations.map((conversation) => {
+              const active =
+                activeDirectConversation?._id === conversation._id;
+              const profile = conversation.otherUserProfile || {};
+
+              return (
+                <button
+                  key={conversation._id}
+                  type="button"
+                  onClick={() => openDirectConversation(conversation)}
+                  style={{
+                    textAlign: "left",
+                    border: `1px solid ${active ? ROYAL_BLUE : BORDER}`,
+                    backgroundColor: active ? "#eef4ff" : "#f8fafc",
+                    borderRadius: "12px",
+                    padding: "10px",
+                    cursor: "pointer",
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      gap: "8px",
+                    }}
+                  >
+                    <strong style={{ color: "#1e293b" }}>
+                      {profile.fullName || conversation.otherUserId}
+                    </strong>
+
+                    {conversation.unreadCount > 0 && (
+                      <span
+                        style={{
+                          backgroundColor: GOLD,
+                          color: "#111827",
+                          borderRadius: "999px",
+                          padding: "2px 8px",
+                          fontSize: "12px",
+                          fontWeight: "bold",
+                        }}
+                      >
+                        {conversation.unreadCount}
+                      </span>
+                    )}
+                  </div>
+
+                  <div style={{ fontSize: "12px", color: MUTED }}>
+                    {profile.role || "Team Member"} •{" "}
+                    {profile.dutyStatus || "Status unavailable"}
+                  </div>
+
+                  {conversation.lastMessage?.message && (
+                    <div
+                      style={{
+                        fontSize: "12px",
+                        color: MUTED,
+                        marginTop: "4px",
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                      }}
+                    >
+                      {conversation.lastMessage.message}
+                    </div>
+                  )}
+                </button>
+              );
+            })
+          )}
+        </div>
+      </div>
+    </div>
+
+    <div
+      style={{
+        backgroundColor: WHITE,
+        border: `1px solid ${BORDER}`,
+        borderRadius: "16px",
+        display: "flex",
+        flexDirection: "column",
+        overflow: "hidden",
+      }}
+    >
+      {!activeDirectConversation ? (
+        <div
+          style={{
+            padding: "30px",
+            color: MUTED,
+            textAlign: "center",
+          }}
+        >
+          Select or start a direct conversation.
+        </div>
+      ) : (
+        <>
+          <div
+            style={{
+              padding: "16px",
+              borderBottom: `1px solid ${BORDER}`,
+              backgroundColor: "#f8fafc",
+            }}
+          >
+            <h3 style={{ margin: 0, color: "#1e293b" }}>
+              {activeDirectConversation.otherUserProfile?.fullName ||
+                "Direct Chat"}
+            </h3>
+            <div style={{ fontSize: "13px", color: MUTED, marginTop: "4px" }}>
+              {activeDirectConversation.otherUserProfile?.role || "Team Member"} •{" "}
+              {activeDirectConversation.otherUserProfile?.dutyStatus ||
+                "Status unavailable"}
+            </div>
+          </div>
+
+          <div
+            style={{
+              flex: 1,
+              padding: "16px",
+              overflowY: "auto",
+              backgroundColor: "#f8fafc",
+              display: "grid",
+              gap: "10px",
+              alignContent: "start",
+            }}
+          >
+            {directMessages.length === 0 ? (
+              <p style={{ color: MUTED }}>No messages yet.</p>
+            ) : (
+              directMessages.map((dm) => {
+                const mine = dm.senderId === user?.userId;
+
+                return (
+                  <div
+                    key={dm._id}
+                    style={{
+                      justifySelf: mine ? "end" : "start",
+                      maxWidth: "75%",
+                      backgroundColor: mine ? ROYAL_BLUE : WHITE,
+                      color: mine ? WHITE : "#334155",
+                      border: `1px solid ${mine ? ROYAL_BLUE : BORDER}`,
+                      borderRadius: "16px",
+                      padding: "10px 12px",
+                      boxShadow: "0 8px 18px rgba(15,23,42,0.05)",
+                    }}
+                  >
+                    <div style={{ whiteSpace: "pre-wrap", lineHeight: 1.5 }}>
+                      {dm.message}
+                    </div>
+
+                    {renderAttachments(dm, mine)}
+
+                    <div
+                      style={{
+                        fontSize: "11px",
+                        opacity: 0.75,
+                        marginTop: "6px",
+                        textAlign: "right",
+                      }}
+                    >
+                      {formatDateTime(dm.createdAt)}
+                      {mine && dm.isRead ? " • Read" : ""}
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+
+          <form
+            onSubmit={sendDirectMessage}
+            style={{
+              borderTop: `1px solid ${BORDER}`,
+              padding: "12px",
+              display: "flex",
+              gap: "10px",
+            }}
+          >
+            <textarea
+              value={directMessageText}
+              onChange={(e) => setDirectMessageText(e.target.value)}
+              rows={2}
+              placeholder="Type a direct message..."
+              style={{
+                flex: 1,
+                resize: "none",
+                padding: "11px",
+                borderRadius: "12px",
+                border: `1px solid ${BORDER}`,
+                fontFamily: "Arial, sans-serif",
+              }}
+            />
+
+            <input
+              type="file"
+              multiple
+              onChange={(e) =>
+                setDirectMessageFiles(Array.from(e.target.files || []))
+              }
+              style={{ maxWidth: "190px", fontSize: "13px" }}
+            />
+
+            <button
+              type="submit"
+              disabled={
+                !directMessageText.trim() && directMessageFiles.length === 0
+              }
+              style={{
+                backgroundColor:
+                  directMessageText.trim() || directMessageFiles.length > 0
+                    ? ROYAL_BLUE
+                    : "#cbd5e1",
+                color: WHITE,
+                border: "none",
+                padding: "0 18px",
+                borderRadius: "12px",
+                fontWeight: "bold",
+                cursor:
+                  directMessageText.trim() || directMessageFiles.length > 0
+                    ? "pointer"
+                    : "not-allowed",
+              }}
+            >
+              Send
+            </button>
+          </form>
+        </>
+      )}
+    </div>
+  </div>
+) : activeTab === "posts" ? (
   <>
     <form
       onSubmit={sendAnnouncement}
@@ -1494,6 +1895,8 @@ border: `1px solid ${item.isAnnouncement ? GOLD : BORDER}`,
         ) : null}
         </section>
 
+        {activeTab === "posts" && (
+
         <form
           className="team-hub-compose"
           onSubmit={sendMessage}
@@ -1560,6 +1963,7 @@ border: `1px solid ${item.isAnnouncement ? GOLD : BORDER}`,
             Send
           </button>
         </form>
+        )}
       </main>
     </div>
   );
