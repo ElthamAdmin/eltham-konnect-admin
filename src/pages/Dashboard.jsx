@@ -70,19 +70,74 @@ function Dashboard() {
   const totalExpenses = Number(financeSummary?.totalExpenses || 0);
   const totalPayroll = Number(financeSummary?.totalPayroll || 0);
 
-  const today = new Date().toISOString().split("T")[0];
+  const today = new Date().toLocaleDateString("en-CA", {
+  timeZone: "America/Jamaica",
+});
 
-  const newSignupsToday = customers.filter((customer) =>
-    String(customer.createdAt || customer.signUpDate || "").includes(today)
-  ).length;
+const getDateOnly = (value) => {
+  if (!value) return "";
+  const parsed = new Date(value);
 
-  const packagesReady = packages.filter((pkg) => pkg.readyForPickup === true).length;
+  if (!Number.isNaN(parsed.getTime())) {
+    return parsed.toLocaleDateString("en-CA", {
+      timeZone: "America/Jamaica",
+    });
+  }
 
-  const packagesToday = packages.filter((pkg) =>
-    String(pkg.createdAt || pkg.dateReceived || "").includes(today)
-  ).length;
+  return String(value).slice(0, 10);
+};
 
-  const openTickets = supportTickets.filter((ticket) => ticket.status === "Open").length;
+const isPaidInvoice = (invoice) =>
+  String(invoice.status || "").toLowerCase() === "paid" ||
+  Boolean(invoice.paidAt);
+
+const isReadyInvoice = (invoice) =>
+  !isPaidInvoice(invoice) &&
+  String(invoice.status || "").toLowerCase() === "unpaid";
+
+const paidTrackingNumbers = new Set(
+  invoices
+    .filter(isPaidInvoice)
+    .flatMap((invoice) =>
+      (invoice.packages || [])
+        .map((pkg) => pkg.trackingNumber)
+        .filter(Boolean)
+    )
+);
+
+const newSignupsToday = customers.filter(
+  (customer) =>
+    getDateOnly(customer.signUpDate) === today ||
+    getDateOnly(customer.createdAt) === today
+).length;
+
+const packagesReadyToday = packages.filter((pkg) => {
+  const trackingNumber = pkg.trackingNumber;
+
+  return (
+    pkg.readyForPickup === true &&
+    String(pkg.status || "").toLowerCase() === "ready for pickup" &&
+    String(pkg.invoiceStatus || "").toLowerCase() !== "paid" &&
+    !paidTrackingNumbers.has(trackingNumber) &&
+    getDateOnly(pkg.readyForPickupDate) === today
+  );
+}).length;
+
+const packagesToday = packages.filter(
+  (pkg) =>
+    String(pkg.status || "").toLowerCase() !== "deleted" &&
+    getDateOnly(pkg.dateReceived || pkg.createdAt) === today
+).length;
+
+const newTicketsToday = supportTickets.filter(
+  (ticket) => getDateOnly(ticket.createdAt) === today
+).length;
+
+const readyInvoicesToday = invoices.filter(
+  (invoice) =>
+    isReadyInvoice(invoice) &&
+    getDateOnly(invoice.createdAt) === today
+).length;
 
   const monthlyChart = chartData.map((item) => ({
     month: item.month,
@@ -142,11 +197,12 @@ function Dashboard() {
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))", gap: "20px" }}>
-        <DashboardCard title="New Sign Up Customers" value={newSignupsToday} color="#16a34a" link="/customers" linkText="View Customers" />
-        <DashboardCard title="Packages Ready For Pickup" value={packagesReady} color="#f97316" link="/packages" linkText="View Packages" />
-        <DashboardCard title="Packages Today" value={packagesToday} color="#0ea5e9" link="/packages" linkText="View Packages" />
-        <DashboardCard title="New Customer Tickets" value={openTickets} color="#dc2626" link="/support-tickets" linkText="View Tickets" />
-      </div>
+  <DashboardCard title="New Sign Ups Today" value={newSignupsToday} color="#16a34a" link="/customers" linkText="View Customers" />
+  <DashboardCard title="Ready Packages Today" value={packagesReadyToday} color="#f97316" link="/packages" linkText="View Packages" />
+  <DashboardCard title="Packages Today" value={packagesToday} color="#0ea5e9" link="/packages" linkText="View Packages" />
+  <DashboardCard title="New Tickets Today" value={newTicketsToday} color="#dc2626" link="/support-tickets" linkText="View Tickets" />
+  <DashboardCard title="Ready Invoices Today" value={readyInvoicesToday} color="#7c3aed" link="/invoices" linkText="View Invoices" />
+</div>
 
       <div style={cardStyle}>
         <div style={{ display: "flex", justifyContent: "space-between", gap: "12px", flexWrap: "wrap", marginBottom: "18px" }}>
