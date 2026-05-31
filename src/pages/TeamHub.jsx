@@ -25,6 +25,9 @@ const [selectedMember, setSelectedMember] = useState("");
 const [documentTitle, setDocumentTitle] = useState("");
 const [documentFolder, setDocumentFolder] = useState("General");
 const [documentFile, setDocumentFile] = useState(null);
+const [announcementTitle, setAnnouncementTitle] = useState("");
+const [announcementMessage, setAnnouncementMessage] = useState("");
+const [announcementPriority, setAnnouncementPriority] = useState("Important");
 
   const ROYAL_BLUE = "#0B3D91";
   const GOLD = "#D4AF37";
@@ -348,6 +351,58 @@ const removeMemberFromChannel = async (userId) => {
   } catch (error) {
     console.error("Error uploading channel document:", error);
     alert(error?.response?.data?.message || "Unable to upload document.");
+  }
+};
+
+const sendAnnouncement = async (e) => {
+  e.preventDefault();
+
+  if (!activeChannel?._id) return;
+
+  if (!announcementTitle.trim() || !announcementMessage.trim()) {
+    alert("Announcement title and message are required.");
+    return;
+  }
+
+  try {
+    const formData = new FormData();
+    formData.append("channelId", activeChannel._id);
+    formData.append("announcementTitle", announcementTitle);
+    formData.append("message", announcementMessage);
+    formData.append("priority", announcementPriority);
+
+    const res = await api.post("/api/team-hub/announcements", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+
+    setMessages((prev) => [res.data.data, ...prev]);
+    setAnnouncementTitle("");
+    setAnnouncementMessage("");
+    setAnnouncementPriority("Important");
+  } catch (error) {
+    console.error("Error sending announcement:", error);
+    alert(error?.response?.data?.message || "Unable to send announcement.");
+  }
+};
+
+const togglePinMessage = async (item) => {
+  try {
+    const endpoint = item.isPinned
+      ? `/api/team-hub/messages/${item._id}/unpin`
+      : `/api/team-hub/messages/${item._id}/pin`;
+
+    const res = await api.put(endpoint);
+
+    setMessages((prev) =>
+      prev.map((msg) =>
+        msg._id === item._id
+          ? { ...msg, isPinned: res.data.data?.isPinned }
+          : msg
+      )
+    );
+  } catch (error) {
+    console.error("Error updating pinned message:", error);
+    alert(error?.response?.data?.message || "Unable to update pinned post.");
   }
 };
 
@@ -882,7 +937,81 @@ const removeMemberFromChannel = async (userId) => {
       </div>
     )}
   </div>
-) : loadingMessages ? (
+
+  ) : activeTab === "posts" ? (
+  <>
+    <form
+      onSubmit={sendAnnouncement}
+      style={{
+        backgroundColor: "#fff7ed",
+        border: `1px solid ${GOLD}`,
+        borderRadius: "16px",
+        padding: "16px",
+        marginBottom: "18px",
+        display: "grid",
+        gap: "10px",
+      }}
+    >
+      <strong style={{ color: "#92400e" }}>📢 Channel Announcement</strong>
+
+      <input
+        value={announcementTitle}
+        onChange={(e) => setAnnouncementTitle(e.target.value)}
+        placeholder="Announcement title"
+        style={{
+          padding: "11px",
+          borderRadius: "10px",
+          border: `1px solid ${BORDER}`,
+        }}
+      />
+
+      <textarea
+        value={announcementMessage}
+        onChange={(e) => setAnnouncementMessage(e.target.value)}
+        placeholder="Write announcement..."
+        rows={3}
+        style={{
+          resize: "none",
+          padding: "11px",
+          borderRadius: "10px",
+          border: `1px solid ${BORDER}`,
+          fontFamily: "Arial, sans-serif",
+        }}
+      />
+
+      <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+        <select
+          value={announcementPriority}
+          onChange={(e) => setAnnouncementPriority(e.target.value)}
+          style={{
+            padding: "10px",
+            borderRadius: "10px",
+            border: `1px solid ${BORDER}`,
+          }}
+        >
+          <option value="Normal">Normal</option>
+          <option value="Important">Important</option>
+          <option value="Urgent">Urgent</option>
+        </select>
+
+        <button
+          type="submit"
+          style={{
+            backgroundColor: GOLD,
+            color: "#111827",
+            border: "none",
+            padding: "10px 16px",
+            borderRadius: "10px",
+            fontWeight: "bold",
+            cursor: "pointer",
+          }}
+        >
+          Post Announcement
+        </button>
+      </div>
+    </form>
+
+{loadingMessages ? (
             <p style={{ color: MUTED }}>Loading messages...</p>
           ) : messages.length === 0 ? (
             <div
@@ -909,8 +1038,8 @@ const removeMemberFromChannel = async (userId) => {
       key={item._id}
       style={{
         marginBottom: "18px",
-        backgroundColor: WHITE,
-        border: `1px solid ${BORDER}`,
+        backgroundColor: item.isAnnouncement ? "#fff7ed" : WHITE,
+border: `1px solid ${item.isAnnouncement ? GOLD : BORDER}`,
         borderRadius: "16px",
         padding: "16px",
         boxShadow: "0 8px 18px rgba(15,23,42,0.05)",
@@ -959,6 +1088,27 @@ const removeMemberFromChannel = async (userId) => {
             </div>
           </div>
 
+          {item.isPinned && (
+  <div style={{ color: ROYAL_BLUE, fontWeight: "bold", marginTop: "10px" }}>
+    📌 Pinned Post
+  </div>
+)}
+
+{item.isAnnouncement && (
+  <div
+    style={{
+      marginTop: "10px",
+      backgroundColor: "#ffedd5",
+      borderRadius: "10px",
+      padding: "10px",
+      color: "#92400e",
+      fontWeight: "bold",
+    }}
+  >
+    📢 {item.announcementTitle || "Announcement"} • {item.priority}
+  </div>
+)}
+
           <div
             style={{
               marginTop: "12px",
@@ -998,6 +1148,22 @@ const removeMemberFromChannel = async (userId) => {
             >
               Reply
             </button>
+
+            <button
+  type="button"
+  onClick={() => togglePinMessage(item)}
+  style={{
+    border: "none",
+    backgroundColor: item.isPinned ? "#dbeafe" : "#f1f5f9",
+    color: ROYAL_BLUE,
+    padding: "7px 12px",
+    borderRadius: "999px",
+    fontWeight: "bold",
+    cursor: "pointer",
+  }}
+>
+  {item.isPinned ? "Unpin" : "Pin"}
+</button>
 
             {replies.length > 0 && (
               <button
@@ -1179,9 +1345,11 @@ const removeMemberFromChannel = async (userId) => {
         </div>
       </div>
     </div>
-                 );
-            })
-          )}
+                                );
+              })
+            )}
+          </>
+        ) : null}
         </section>
 
         <form
