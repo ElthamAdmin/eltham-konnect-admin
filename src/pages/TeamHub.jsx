@@ -28,6 +28,10 @@ const [documentFile, setDocumentFile] = useState(null);
 const [announcementTitle, setAnnouncementTitle] = useState("");
 const [announcementMessage, setAnnouncementMessage] = useState("");
 const [announcementPriority, setAnnouncementPriority] = useState("Important");
+const [showAnnouncementForm, setShowAnnouncementForm] = useState(false);
+const [notifications, setNotifications] = useState([]);
+const [unreadNotifications, setUnreadNotifications] = useState(0);
+const [showNotifications, setShowNotifications] = useState(false);
 
   const ROYAL_BLUE = "#0B3D91";
   const GOLD = "#D4AF37";
@@ -160,10 +164,21 @@ const fetchSystemUsers = useCallback(async () => {
   }
 }, []);
 
+const fetchNotifications = useCallback(async () => {
+  try {
+    const res = await api.get("/api/team-hub/notifications/me");
+    setNotifications(res.data.data || []);
+    setUnreadNotifications(res.data.unreadCount || 0);
+  } catch (error) {
+    console.error("Error loading Team Hub notifications:", error);
+  }
+}, []);
+
   useEffect(() => {
   fetchChannels();
   fetchSystemUsers();
-}, [fetchChannels, fetchSystemUsers]);
+  fetchNotifications();
+}, [fetchChannels, fetchSystemUsers, fetchNotifications]);
 
   useEffect(() => {
     if (!activeChannel?._id) return;
@@ -382,6 +397,7 @@ setMessages((prev) => [newAnnouncement, ...prev]);
 setAnnouncementTitle("");
 setAnnouncementMessage("");
 setAnnouncementPriority("Important");
+setShowAnnouncementForm(false);
 
 setTimeout(() => {
   fetchMessages(activeChannel._id, { showLoader: false });
@@ -390,6 +406,24 @@ setTimeout(() => {
   } catch (error) {
     console.error("Error sending announcement:", error);
     alert(error?.response?.data?.message || "Unable to send announcement.");
+  }
+};
+
+const markNotificationRead = async (notificationId) => {
+  try {
+    await api.put(`/api/team-hub/notifications/${notificationId}/read`);
+    await fetchNotifications();
+  } catch (error) {
+    console.error("Error marking notification read:", error);
+  }
+};
+
+const markAllNotificationsRead = async () => {
+  try {
+    await api.put("/api/team-hub/notifications/read-all");
+    await fetchNotifications();
+  } catch (error) {
+    console.error("Error marking all notifications read:", error);
   }
 };
 
@@ -670,6 +704,106 @@ const togglePinMessage = async (item) => {
             <span style={{ fontWeight: "bold", color: "#334155" }}>
               {user?.fullName}
             </span>
+            <div style={{ position: "relative" }}>
+  <button
+    type="button"
+    onClick={() => setShowNotifications((prev) => !prev)}
+    style={{
+      border: `1px solid ${BORDER}`,
+      backgroundColor: WHITE,
+      color: ROYAL_BLUE,
+      borderRadius: "999px",
+      padding: "8px 11px",
+      fontWeight: "bold",
+      cursor: "pointer",
+    }}
+  >
+    🔔 {unreadNotifications > 0 ? unreadNotifications : ""}
+  </button>
+
+  {showNotifications && (
+    <div
+      style={{
+        position: "absolute",
+        right: 0,
+        top: "44px",
+        width: "340px",
+        maxHeight: "420px",
+        overflowY: "auto",
+        backgroundColor: WHITE,
+        border: `1px solid ${BORDER}`,
+        borderRadius: "14px",
+        boxShadow: "0 12px 30px rgba(15,23,42,0.18)",
+        zIndex: 20,
+        padding: "12px",
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          gap: "10px",
+          alignItems: "center",
+          marginBottom: "10px",
+        }}
+      >
+        <strong>Notifications</strong>
+
+        <button
+          type="button"
+          onClick={markAllNotificationsRead}
+          style={{
+            border: "none",
+            backgroundColor: "#eef4ff",
+            color: ROYAL_BLUE,
+            borderRadius: "8px",
+            padding: "6px 8px",
+            cursor: "pointer",
+            fontSize: "12px",
+            fontWeight: "bold",
+          }}
+        >
+          Mark all read
+        </button>
+      </div>
+
+      {notifications.length === 0 ? (
+        <p style={{ color: MUTED, fontSize: "13px" }}>
+          No notifications yet.
+        </p>
+      ) : (
+        notifications.map((note) => (
+          <button
+            key={note._id}
+            type="button"
+            onClick={() => markNotificationRead(note._id)}
+            style={{
+              width: "100%",
+              textAlign: "left",
+              border: `1px solid ${note.isRead ? BORDER : GOLD}`,
+              backgroundColor: note.isRead ? "#f8fafc" : "#fff7ed",
+              borderRadius: "10px",
+              padding: "10px",
+              marginBottom: "8px",
+              cursor: "pointer",
+            }}
+          >
+            <div style={{ fontWeight: "bold", color: "#1e293b" }}>
+              {note.type === "Mention" ? "💬 " : note.type === "Announcement" ? "📢 " : "👥 "}
+              {note.title}
+            </div>
+            <div style={{ fontSize: "12px", color: MUTED, marginTop: "4px" }}>
+              {note.body}
+            </div>
+            <div style={{ fontSize: "11px", color: MUTED, marginTop: "6px" }}>
+              {formatDateTime(note.createdAt)}
+            </div>
+          </button>
+        ))
+      )}
+    </div>
+  )}
+</div>
           </div>
         </header>
 
