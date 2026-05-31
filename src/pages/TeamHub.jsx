@@ -94,6 +94,28 @@ const getRoleLine = (profile) => {
   return parts.length ? parts.join(" • ") : "Team Member";
 };
 
+const getPresenceColor = (status = "") => {
+  switch (status) {
+    case "Clocked In":
+      return "#16a34a";
+
+    case "At Lunch":
+      return "#f59e0b";
+
+    case "Vacation Leave":
+    case "Sick Leave":
+    case "Out of Office":
+      return "#8b5cf6";
+
+    case "Absent":
+      return "#dc2626";
+
+    case "Off Duty":
+    default:
+      return "#94a3b8";
+  }
+};
+
   const formatDateTime = (dateValue) => {
     if (!dateValue) return "";
     return new Date(dateValue).toLocaleString("en-JM", {
@@ -1325,10 +1347,29 @@ const toggleReaction = async (messageId, emoji) => {
                     )}
                   </div>
 
-                  <div style={{ fontSize: "12px", color: MUTED }}>
-                    {profile.role || "Team Member"} •{" "}
-                    {profile.dutyStatus || "Status unavailable"}
-                  </div>
+                  <div
+  style={{
+    display: "flex",
+    alignItems: "center",
+    gap: "6px",
+    fontSize: "12px",
+    color: MUTED,
+  }}
+>
+  <span
+    style={{
+      width: "10px",
+      height: "10px",
+      borderRadius: "50%",
+      backgroundColor: getPresenceColor(
+        profile.dutyStatus
+      ),
+    }}
+  />
+
+  {profile.role || "Team Member"} •{" "}
+  {profile.dutyStatus || "Status unavailable"}
+</div>
 
                   {conversation.lastMessage?.message && (
                     <div
@@ -1385,11 +1426,31 @@ const toggleReaction = async (messageId, emoji) => {
               {activeDirectConversation.otherUserProfile?.fullName ||
                 "Direct Chat"}
             </h3>
-            <div style={{ fontSize: "13px", color: MUTED, marginTop: "4px" }}>
-              {activeDirectConversation.otherUserProfile?.role || "Team Member"} •{" "}
-              {activeDirectConversation.otherUserProfile?.dutyStatus ||
-                "Status unavailable"}
-            </div>
+            <div
+  style={{
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+    fontSize: "13px",
+    color: MUTED,
+    marginTop: "4px",
+  }}
+>
+  <span
+    style={{
+      width: "10px",
+      height: "10px",
+      borderRadius: "50%",
+      backgroundColor: getPresenceColor(
+        activeDirectConversation.otherUserProfile?.dutyStatus
+      ),
+    }}
+  />
+
+  {activeDirectConversation.otherUserProfile?.role || "Team Member"} •{" "}
+  {activeDirectConversation.otherUserProfile?.dutyStatus ||
+    "Status unavailable"}
+</div>
           </div>
 
           <div
@@ -1629,7 +1690,26 @@ border: `1px solid ${item.isAnnouncement ? GOLD : BORDER}`,
             flexShrink: 0,
           }}
         >
-          {getProfileInitials(profile)}
+          <div
+  style={{
+    position: "relative",
+  }}
+>
+  {getProfileInitials(profile)}
+
+  <span
+    style={{
+      position: "absolute",
+      bottom: "-2px",
+      right: "-2px",
+      width: "12px",
+      height: "12px",
+      borderRadius: "50%",
+      backgroundColor: getPresenceColor(profile.dutyStatus),
+      border: "2px solid white",
+    }}
+  />
+</div>
         </div>
 
         <div style={{ flex: 1, minWidth: 0 }}>
@@ -1876,7 +1956,28 @@ border: `1px solid ${item.isAnnouncement ? GOLD : BORDER}`,
                         flexShrink: 0,
                       }}
                     >
-                      {getProfileInitials(replyProfile)}
+                      <div
+  style={{
+    position: "relative",
+  }}
+>
+  {getProfileInitials(replyProfile)}
+
+  <span
+    style={{
+      position: "absolute",
+      bottom: "-2px",
+      right: "-2px",
+      width: "10px",
+      height: "10px",
+      borderRadius: "50%",
+      backgroundColor: getPresenceColor(
+        replyProfile.dutyStatus
+      ),
+      border: "2px solid white",
+    }}
+  />
+</div>
                     </div>
 
                     <div style={{ flex: 1 }}>
