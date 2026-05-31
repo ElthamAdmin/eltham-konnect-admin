@@ -36,12 +36,20 @@ export function AuthProvider({ children }) {
     return u;
   };
 
-  const logout = () => {
+  const logout = async () => {
+  try {
+    if (token) {
+      await api.post("/api/auth/logout");
+    }
+  } catch (error) {
+    console.error("Logout presence update failed:", error);
+  } finally {
     localStorage.removeItem("ek_token");
     localStorage.removeItem("ek_user");
     setToken("");
     setUser(null);
-  };
+  }
+};
 
   const refreshMyDuty = async () => {
     const res = await api.get("/api/auth/me/attendance-today");
@@ -56,6 +64,42 @@ export function AuthProvider({ children }) {
     return res.data?.data;
   };
 
+  const updatePresence = async (onlineStatus) => {
+  const res = await api.post("/api/auth/presence", { onlineStatus });
+  const updatedUser = res.data?.data || user;
+
+  if (updatedUser) {
+    localStorage.setItem("ek_user", JSON.stringify(updatedUser));
+    setUser(updatedUser);
+  }
+
+  return updatedUser;
+};
+
+useEffect(() => {
+  if (!token || !user) return;
+
+  const pingPresence = async () => {
+    try {
+      const res = await api.post("/api/auth/presence-ping");
+      const updatedUser = res.data?.data || user;
+
+      if (updatedUser) {
+        localStorage.setItem("ek_user", JSON.stringify(updatedUser));
+        setUser(updatedUser);
+      }
+    } catch (error) {
+      console.error("Presence ping failed:", error);
+    }
+  };
+
+  pingPresence();
+
+  const interval = setInterval(pingPresence, 120000);
+
+  return () => clearInterval(interval);
+}, [token, user?.userId]);
+
   const value = useMemo(
     () => ({
       user,
@@ -65,6 +109,7 @@ export function AuthProvider({ children }) {
       login,
       logout,
       refreshMyDuty,
+      updatePresence,
     }),
     [user, token, loading]
   );
