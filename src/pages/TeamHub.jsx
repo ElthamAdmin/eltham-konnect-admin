@@ -44,6 +44,16 @@ const [taskDescription, setTaskDescription] = useState("");
 const [taskAssignedTo, setTaskAssignedTo] = useState("");
 const [taskPriority, setTaskPriority] = useState("Medium");
 const [taskDueDate, setTaskDueDate] = useState("");
+const [calendarEvents, setCalendarEvents] = useState([]);
+const [calendarTitle, setCalendarTitle] = useState("");
+const [calendarDescription, setCalendarDescription] = useState("");
+const [calendarEventType, setCalendarEventType] = useState("Event");
+const [calendarStartDate, setCalendarStartDate] = useState("");
+const [calendarStartTime, setCalendarStartTime] = useState("");
+const [calendarEndDate, setCalendarEndDate] = useState("");
+const [calendarEndTime, setCalendarEndTime] = useState("");
+const [calendarLocation, setCalendarLocation] = useState("");
+const [calendarAttendees, setCalendarAttendees] = useState([]);
 
   const ROYAL_BLUE = "#0B3D91";
   const GOLD = "#D4AF37";
@@ -200,6 +210,17 @@ const fetchChannelTasks = useCallback(async (channelId) => {
   }
 }, []);
 
+const fetchChannelCalendarEvents = useCallback(async (channelId) => {
+  if (!channelId) return;
+
+  try {
+    const res = await api.get(`/api/team-hub/calendar/${channelId}`);
+    setCalendarEvents(res.data.data || []);
+  } catch (error) {
+    console.error("Error loading channel calendar:", error);
+  }
+}, []);
+
 const fetchSystemUsers = useCallback(async () => {
   try {
     const res = await api.get("/api/system-users");
@@ -259,13 +280,14 @@ const fetchDirectMessages = useCallback(async (conversationId) => {
     fetchChannelDocuments(activeChannel._id);
 fetchChannelMembers(activeChannel._id);
 fetchChannelTasks(activeChannel._id);
+fetchChannelCalendarEvents(activeChannel._id);
 
     const interval = setInterval(() => {
       fetchMessages(activeChannel._id, { showLoader: false });
     }, 15000);
 
     return () => clearInterval(interval);
-  }, [activeChannel?._id, fetchMessages, fetchChannelDocuments, fetchChannelMembers, fetchChannelTasks]);
+  }, [activeChannel?._id, fetchMessages, fetchChannelDocuments, fetchChannelMembers, fetchChannelTasks, fetchChannelCalendarEvents]);
 
   const createChannel = async (e) => {
     e.preventDefault();
@@ -533,6 +555,69 @@ const deleteChannelTask = async (taskId) => {
   } catch (error) {
     console.error("Error deleting task:", error);
     alert(error?.response?.data?.message || "Unable to delete task.");
+  }
+};
+
+const createCalendarEvent = async (e) => {
+  e.preventDefault();
+
+  if (!activeChannel?._id) return;
+
+  if (!calendarTitle.trim() || !calendarStartDate) {
+    alert("Event title and start date are required.");
+    return;
+  }
+
+  try {
+    await api.post("/api/team-hub/calendar", {
+      channelId: activeChannel._id,
+      title: calendarTitle,
+      description: calendarDescription,
+      eventType: calendarEventType,
+      startDate: calendarStartDate,
+      startTime: calendarStartTime,
+      endDate: calendarEndDate || calendarStartDate,
+      endTime: calendarEndTime,
+      location: calendarLocation,
+      attendees: calendarAttendees,
+    });
+
+    setCalendarTitle("");
+    setCalendarDescription("");
+    setCalendarEventType("Event");
+    setCalendarStartDate("");
+    setCalendarStartTime("");
+    setCalendarEndDate("");
+    setCalendarEndTime("");
+    setCalendarLocation("");
+    setCalendarAttendees([]);
+
+    await fetchChannelCalendarEvents(activeChannel._id);
+  } catch (error) {
+    console.error("Error creating calendar event:", error);
+    alert(error?.response?.data?.message || "Unable to create calendar event.");
+  }
+};
+
+const updateCalendarEvent = async (eventId, updates) => {
+  try {
+    await api.put(`/api/team-hub/calendar/${eventId}`, updates);
+    await fetchChannelCalendarEvents(activeChannel._id);
+  } catch (error) {
+    console.error("Error updating calendar event:", error);
+    alert(error?.response?.data?.message || "Unable to update calendar event.");
+  }
+};
+
+const deleteCalendarEvent = async (eventId) => {
+  if (!window.confirm("Delete this calendar event?")) return;
+
+  try {
+    await api.delete(`/api/team-hub/calendar/${eventId}`);
+    await fetchChannelCalendarEvents(activeChannel._id);
+  } catch (error) {
+    console.error("Error deleting calendar event:", error);
+    alert(error?.response?.data?.message || "Unable to delete calendar event.");
   }
 };
 
@@ -1041,7 +1126,7 @@ const toggleReaction = async (messageId, emoji) => {
       gap: "8px",
     }}
   >
-    {["posts", "files", "members", "direct", "tasks"].map((tab) => (
+    {["posts", "files", "members", "direct", "tasks", "calendar"].map((tab) => (
       <button
         key={tab}
         type="button"
@@ -1303,6 +1388,213 @@ const toggleReaction = async (messageId, emoji) => {
       </div>
     )}
     </div>
+
+    ) : activeTab === "calendar" ? (
+  <div
+    style={{
+      backgroundColor: WHITE,
+      border: `1px solid ${BORDER}`,
+      borderRadius: "16px",
+      padding: "18px",
+    }}
+  >
+    <h3 style={{ marginTop: 0, color: "#1e293b" }}>Channel Calendar</h3>
+
+    <form
+      onSubmit={createCalendarEvent}
+      style={{
+        display: "grid",
+        gap: "10px",
+        backgroundColor: "#f8fafc",
+        border: `1px solid ${BORDER}`,
+        borderRadius: "14px",
+        padding: "14px",
+        marginBottom: "18px",
+      }}
+    >
+      <input
+        value={calendarTitle}
+        onChange={(e) => setCalendarTitle(e.target.value)}
+        placeholder="Event title"
+        style={{ padding: "11px", borderRadius: "10px", border: `1px solid ${BORDER}` }}
+      />
+
+      <textarea
+        value={calendarDescription}
+        onChange={(e) => setCalendarDescription(e.target.value)}
+        placeholder="Event description"
+        rows={2}
+        style={{
+          resize: "none",
+          padding: "11px",
+          borderRadius: "10px",
+          border: `1px solid ${BORDER}`,
+          fontFamily: "Arial, sans-serif",
+        }}
+      />
+
+      <div style={{ display: "grid", gridTemplateColumns: "160px 1fr 1fr 1fr 1fr", gap: "10px" }}>
+        <select
+          value={calendarEventType}
+          onChange={(e) => setCalendarEventType(e.target.value)}
+          style={{ padding: "10px", borderRadius: "10px", border: `1px solid ${BORDER}` }}
+        >
+          <option value="Meeting">Meeting</option>
+          <option value="Deadline">Deadline</option>
+          <option value="Event">Event</option>
+          <option value="Staff Schedule">Staff Schedule</option>
+        </select>
+
+        <input
+          type="date"
+          value={calendarStartDate}
+          onChange={(e) => setCalendarStartDate(e.target.value)}
+          style={{ padding: "10px", borderRadius: "10px", border: `1px solid ${BORDER}` }}
+        />
+
+        <input
+          type="time"
+          value={calendarStartTime}
+          onChange={(e) => setCalendarStartTime(e.target.value)}
+          style={{ padding: "10px", borderRadius: "10px", border: `1px solid ${BORDER}` }}
+        />
+
+        <input
+          type="date"
+          value={calendarEndDate}
+          onChange={(e) => setCalendarEndDate(e.target.value)}
+          style={{ padding: "10px", borderRadius: "10px", border: `1px solid ${BORDER}` }}
+        />
+
+        <input
+          type="time"
+          value={calendarEndTime}
+          onChange={(e) => setCalendarEndTime(e.target.value)}
+          style={{ padding: "10px", borderRadius: "10px", border: `1px solid ${BORDER}` }}
+        />
+      </div>
+
+      <input
+        value={calendarLocation}
+        onChange={(e) => setCalendarLocation(e.target.value)}
+        placeholder="Location or meeting link"
+        style={{ padding: "11px", borderRadius: "10px", border: `1px solid ${BORDER}` }}
+      />
+
+      <select
+        multiple
+        value={calendarAttendees}
+        onChange={(e) =>
+          setCalendarAttendees(
+            Array.from(e.target.selectedOptions).map((option) => option.value)
+          )
+        }
+        style={{
+          padding: "10px",
+          borderRadius: "10px",
+          border: `1px solid ${BORDER}`,
+          minHeight: "90px",
+        }}
+      >
+        {allUsers.map((staff) => (
+          <option key={staff.userId} value={staff.userId}>
+            {staff.fullName} ({staff.role})
+          </option>
+        ))}
+      </select>
+
+      <button
+        type="submit"
+        style={{
+          backgroundColor: ROYAL_BLUE,
+          color: WHITE,
+          border: "none",
+          borderRadius: "10px",
+          padding: "11px 16px",
+          fontWeight: "bold",
+          cursor: "pointer",
+        }}
+      >
+        Add Calendar Event
+      </button>
+    </form>
+
+    {calendarEvents.length === 0 ? (
+      <p style={{ color: MUTED }}>No calendar events for this channel yet.</p>
+    ) : (
+      <div style={{ display: "grid", gap: "12px" }}>
+        {calendarEvents.map((event) => (
+          <div
+            key={event._id}
+            style={{
+              border: `1px solid ${BORDER}`,
+              borderRadius: "14px",
+              padding: "14px",
+              backgroundColor: event.status === "Cancelled" ? "#fee2e2" : WHITE,
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", gap: "12px" }}>
+              <div>
+                <strong style={{ color: "#1e293b" }}>
+                  {event.eventType === "Meeting" ? "📅 " : event.eventType === "Deadline" ? "⏰ " : event.eventType === "Staff Schedule" ? "👥 " : "📌 "}
+                  {event.title}
+                </strong>
+
+                <div style={{ fontSize: "13px", color: MUTED, marginTop: "4px" }}>
+                  {event.eventType} • {event.startDate}
+                  {event.startTime ? ` at ${event.startTime}` : ""}
+                  {event.location ? ` • ${event.location}` : ""}
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => deleteCalendarEvent(event._id)}
+                style={{
+                  backgroundColor: "#dc2626",
+                  color: WHITE,
+                  border: "none",
+                  borderRadius: "8px",
+                  padding: "6px 10px",
+                  cursor: "pointer",
+                  fontWeight: "bold",
+                }}
+              >
+                Delete
+              </button>
+            </div>
+
+            {event.description && (
+              <p style={{ color: "#334155", marginBottom: "10px" }}>
+                {event.description}
+              </p>
+            )}
+
+            {event.attendees?.length > 0 && (
+              <div style={{ fontSize: "13px", color: MUTED }}>
+                Attendees: {event.attendees.map((staff) => staff.fullName).join(", ")}
+              </div>
+            )}
+
+            <div style={{ marginTop: "12px", display: "flex", gap: "10px", flexWrap: "wrap" }}>
+              <select
+                value={event.status}
+                onChange={(e) =>
+                  updateCalendarEvent(event._id, { status: e.target.value })
+                }
+                style={{ padding: "9px", borderRadius: "10px", border: `1px solid ${BORDER}` }}
+              >
+                <option value="Scheduled">Scheduled</option>
+                <option value="Completed">Completed</option>
+                <option value="Cancelled">Cancelled</option>
+              </select>
+            </div>
+          </div>
+        ))}
+      </div>
+    )}
+  </div>
+  
     ) : activeTab === "tasks" ? (
   <div
     style={{
