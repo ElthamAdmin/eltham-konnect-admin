@@ -551,6 +551,32 @@ const togglePinMessage = async (item) => {
   }
 };
 
+const toggleReaction = async (messageId, emoji) => {
+  try {
+    const res = await api.put(
+      `/api/team-hub/messages/${messageId}/reactions`,
+      { emoji }
+    );
+
+    setMessages((prev) =>
+      prev.map((msg) =>
+        msg._id === messageId
+          ? {
+              ...msg,
+              reactions: res.data.data?.reactions || [],
+            }
+          : msg
+      )
+    );
+  } catch (error) {
+    console.error("Error updating reaction:", error);
+    alert(
+      error?.response?.data?.message ||
+      "Unable to update reaction."
+    );
+  }
+};
+
   const renderAttachments = (item, mine) => {
     if (!item.attachments?.length) return null;
 
@@ -1665,6 +1691,39 @@ border: `1px solid ${item.isAnnouncement ? GOLD : BORDER}`,
 
           {renderAttachments(item, false)}
 
+          {item.reactions?.length > 0 && (
+  <div
+    style={{
+      marginTop: "10px",
+      display: "flex",
+      gap: "8px",
+      flexWrap: "wrap",
+    }}
+  >
+    {[...new Set(item.reactions.map((r) => r.emoji))].map((emoji) => {
+      const count = item.reactions.filter(
+        (r) => r.emoji === emoji
+      ).length;
+
+      return (
+        <span
+          key={emoji}
+          style={{
+            backgroundColor: "#eef4ff",
+            color: ROYAL_BLUE,
+            borderRadius: "999px",
+            padding: "4px 10px",
+            fontWeight: "bold",
+            fontSize: "13px",
+          }}
+        >
+          {emoji} {count}
+        </span>
+      );
+    })}
+  </div>
+)}
+
           <div
             style={{
               marginTop: "12px",
@@ -1706,6 +1765,54 @@ border: `1px solid ${item.isAnnouncement ? GOLD : BORDER}`,
   }}
 >
   {item.isPinned ? "Unpin" : "Pin"}
+</button>
+
+<button
+  type="button"
+  onClick={() => toggleReaction(item._id, "👍")}
+  style={{
+    border: "none",
+    backgroundColor: "#f1f5f9",
+    color: "#334155",
+    padding: "7px 12px",
+    borderRadius: "999px",
+    fontWeight: "bold",
+    cursor: "pointer",
+  }}
+>
+  👍
+</button>
+
+<button
+  type="button"
+  onClick={() => toggleReaction(item._id, "❤️")}
+  style={{
+    border: "none",
+    backgroundColor: "#f1f5f9",
+    color: "#334155",
+    padding: "7px 12px",
+    borderRadius: "999px",
+    fontWeight: "bold",
+    cursor: "pointer",
+  }}
+>
+  ❤️
+</button>
+
+<button
+  type="button"
+  onClick={() => toggleReaction(item._id, "🎉")}
+  style={{
+    border: "none",
+    backgroundColor: "#f1f5f9",
+    color: "#334155",
+    padding: "7px 12px",
+    borderRadius: "999px",
+    fontWeight: "bold",
+    cursor: "pointer",
+  }}
+>
+  🎉
 </button>
 
             {replies.length > 0 && (
