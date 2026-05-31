@@ -375,10 +375,11 @@ const sendAnnouncement = async (e) => {
       headers: { "Content-Type": "multipart/form-data" },
     });
 
-    setMessages((prev) => [res.data.data, ...prev]);
-    setAnnouncementTitle("");
-    setAnnouncementMessage("");
-    setAnnouncementPriority("Important");
+    await fetchMessages(activeChannel._id, { showLoader: false });
+
+setAnnouncementTitle("");
+setAnnouncementMessage("");
+setAnnouncementPriority("Important");
   } catch (error) {
     console.error("Error sending announcement:", error);
     alert(error?.response?.data?.message || "Unable to send announcement.");
