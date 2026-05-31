@@ -26,6 +26,9 @@ const [documentTitle, setDocumentTitle] = useState("");
 const [documentFolder, setDocumentFolder] = useState("General");
 const [documentFile, setDocumentFile] = useState(null);
 const [selectedFolderPath, setSelectedFolderPath] = useState("All");
+const [channelFolders, setChannelFolders] = useState([]);
+const [newFolderName, setNewFolderName] = useState("");
+const [newFolderParent, setNewFolderParent] = useState("");
 const [versionFiles, setVersionFiles] = useState({});
 const [versionNotes, setVersionNotes] = useState({});
 const [announcementTitle, setAnnouncementTitle] = useState("");
@@ -191,6 +194,20 @@ const getPresenceColor = (status = "") => {
   }
 }, []);
 
+const fetchChannelFolders = useCallback(async (channelId) => {
+  if (!channelId) return;
+
+  try {
+    const res = await api.get(
+      `/api/team-hub/folders/${channelId}`
+    );
+
+    setChannelFolders(res.data.data || []);
+  } catch (error) {
+    console.error("Error loading folders:", error);
+  }
+}, []);
+
 const fetchChannelMembers = useCallback(async (channelId) => {
   if (!channelId) return;
 
@@ -284,13 +301,22 @@ const fetchDirectMessages = useCallback(async (conversationId) => {
 fetchChannelMembers(activeChannel._id);
 fetchChannelTasks(activeChannel._id);
 fetchChannelCalendarEvents(activeChannel._id);
+fetchChannelFolders(activeChannel._id);
 
     const interval = setInterval(() => {
       fetchMessages(activeChannel._id, { showLoader: false });
     }, 15000);
 
     return () => clearInterval(interval);
-  }, [activeChannel?._id, fetchMessages, fetchChannelDocuments, fetchChannelMembers, fetchChannelTasks, fetchChannelCalendarEvents]);
+  }, [
+  activeChannel?._id,
+  fetchMessages,
+  fetchChannelDocuments,
+  fetchChannelFolders,
+  fetchChannelMembers,
+  fetchChannelTasks,
+  fetchChannelCalendarEvents
+]);
 
   const createChannel = async (e) => {
     e.preventDefault();
@@ -504,6 +530,39 @@ const toggleDocumentLock = async (doc) => {
   } catch (error) {
     console.error("Error updating document lock:", error);
     alert(error?.response?.data?.message || "Unable to update document lock.");
+  }
+};
+
+const createFolder = async () => {
+  if (!activeChannel?._id) return;
+
+  if (!newFolderName.trim()) {
+    alert("Folder name required");
+    return;
+  }
+
+  try {
+    const folderPath = newFolderParent
+      ? `${newFolderParent}/${newFolderName}`
+      : newFolderName;
+
+    await api.post("/api/team-hub/folders", {
+      channelId: activeChannel._id,
+      name: newFolderName,
+      folderPath,
+      parentFolderPath: newFolderParent,
+    });
+
+    setNewFolderName("");
+    setNewFolderParent("");
+
+    await fetchChannelFolders(activeChannel._id);
+  } catch (error) {
+    console.error(error);
+    alert(
+      error?.response?.data?.message ||
+      "Unable to create folder"
+    );
   }
 };
 
@@ -1308,13 +1367,11 @@ const toggleReaction = async (messageId, emoji) => {
 
     {(() => {
       const folderPaths = [
-        "All",
-        ...new Set(
-          channelDocuments.map(
-            (doc) => doc.folderPath || doc.folder || "General"
-          )
-        ),
-      ];
+  "All",
+  ...channelFolders.map(
+    (folder) => folder.folderPath
+  ),
+];
 
       const visibleDocuments =
         selectedFolderPath === "All"
@@ -1343,6 +1400,69 @@ const toggleReaction = async (messageId, emoji) => {
             }}
           >
             <strong style={{ color: "#1e293b" }}>Folder Tree</strong>
+
+            <div
+  style={{
+    display: "grid",
+    gap: "8px",
+    marginTop: "12px",
+    marginBottom: "12px",
+  }}
+>
+  <input
+    value={newFolderName}
+    onChange={(e) =>
+      setNewFolderName(e.target.value)
+    }
+    placeholder="Folder name"
+    style={{
+      padding: "8px",
+      borderRadius: "8px",
+      border: `1px solid ${BORDER}`,
+    }}
+  />
+
+  <select
+    value={newFolderParent}
+    onChange={(e) =>
+      setNewFolderParent(e.target.value)
+    }
+    style={{
+      padding: "8px",
+      borderRadius: "8px",
+      border: `1px solid ${BORDER}`,
+    }}
+  >
+    <option value="">
+      Root Folder
+    </option>
+
+    {channelFolders.map((folder) => (
+      <option
+        key={folder._id}
+        value={folder.folderPath}
+      >
+        {folder.folderPath}
+      </option>
+    ))}
+  </select>
+
+  <button
+    type="button"
+    onClick={createFolder}
+    style={{
+      backgroundColor: ROYAL_BLUE,
+      color: WHITE,
+      border: "none",
+      borderRadius: "8px",
+      padding: "8px",
+      fontWeight: "bold",
+      cursor: "pointer",
+    }}
+  >
+    Create Folder
+  </button>
+</div>
 
             <div style={{ display: "grid", gap: "8px", marginTop: "12px" }}>
               {folderPaths.map((folderPath) => (
@@ -1637,7 +1757,7 @@ const toggleReaction = async (messageId, emoji) => {
     })()}
   </div>
 ) : activeTab === "members" ? (
-  
+
   <div
     style={{
       backgroundColor: WHITE,
