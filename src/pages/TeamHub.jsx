@@ -38,6 +38,12 @@ const [directMessages, setDirectMessages] = useState([]);
 const [directMessageText, setDirectMessageText] = useState("");
 const [directMessageFiles, setDirectMessageFiles] = useState([]);
 const [selectedDirectUser, setSelectedDirectUser] = useState("");
+const [channelTasks, setChannelTasks] = useState([]);
+const [taskTitle, setTaskTitle] = useState("");
+const [taskDescription, setTaskDescription] = useState("");
+const [taskAssignedTo, setTaskAssignedTo] = useState("");
+const [taskPriority, setTaskPriority] = useState("Medium");
+const [taskDueDate, setTaskDueDate] = useState("");
 
   const ROYAL_BLUE = "#0B3D91";
   const GOLD = "#D4AF37";
@@ -183,6 +189,17 @@ const fetchChannelMembers = useCallback(async (channelId) => {
   }
 }, []);
 
+const fetchChannelTasks = useCallback(async (channelId) => {
+  if (!channelId) return;
+
+  try {
+    const res = await api.get(`/api/team-hub/tasks/${channelId}`);
+    setChannelTasks(res.data.data || []);
+  } catch (error) {
+    console.error("Error loading channel tasks:", error);
+  }
+}, []);
+
 const fetchSystemUsers = useCallback(async () => {
   try {
     const res = await api.get("/api/system-users");
@@ -241,13 +258,14 @@ const fetchDirectMessages = useCallback(async (conversationId) => {
 
     fetchChannelDocuments(activeChannel._id);
 fetchChannelMembers(activeChannel._id);
+fetchChannelTasks(activeChannel._id);
 
     const interval = setInterval(() => {
       fetchMessages(activeChannel._id, { showLoader: false });
     }, 15000);
 
     return () => clearInterval(interval);
-  }, [activeChannel?._id, fetchMessages, fetchChannelDocuments, fetchChannelMembers]);
+  }, [activeChannel?._id, fetchMessages, fetchChannelDocuments, fetchChannelMembers, fetchChannelTasks]);
 
   const createChannel = async (e) => {
     e.preventDefault();
@@ -460,6 +478,61 @@ setTimeout(() => {
   } catch (error) {
     console.error("Error sending announcement:", error);
     alert(error?.response?.data?.message || "Unable to send announcement.");
+  }
+};
+
+const createChannelTask = async (e) => {
+  e.preventDefault();
+
+  if (!activeChannel?._id) return;
+
+  if (!taskTitle.trim()) {
+    alert("Task title is required.");
+    return;
+  }
+
+  try {
+    await api.post("/api/team-hub/tasks", {
+      channelId: activeChannel._id,
+      title: taskTitle,
+      description: taskDescription,
+      assignedToUserId: taskAssignedTo,
+      priority: taskPriority,
+      dueDate: taskDueDate,
+    });
+
+    setTaskTitle("");
+    setTaskDescription("");
+    setTaskAssignedTo("");
+    setTaskPriority("Medium");
+    setTaskDueDate("");
+
+    await fetchChannelTasks(activeChannel._id);
+  } catch (error) {
+    console.error("Error creating task:", error);
+    alert(error?.response?.data?.message || "Unable to create task.");
+  }
+};
+
+const updateChannelTask = async (taskId, updates) => {
+  try {
+    await api.put(`/api/team-hub/tasks/${taskId}`, updates);
+    await fetchChannelTasks(activeChannel._id);
+  } catch (error) {
+    console.error("Error updating task:", error);
+    alert(error?.response?.data?.message || "Unable to update task.");
+  }
+};
+
+const deleteChannelTask = async (taskId) => {
+  if (!window.confirm("Delete this task?")) return;
+
+  try {
+    await api.delete(`/api/team-hub/tasks/${taskId}`);
+    await fetchChannelTasks(activeChannel._id);
+  } catch (error) {
+    console.error("Error deleting task:", error);
+    alert(error?.response?.data?.message || "Unable to delete task.");
   }
 };
 
@@ -968,7 +1041,7 @@ const toggleReaction = async (messageId, emoji) => {
       gap: "8px",
     }}
   >
-    {["posts", "files", "members", "direct"].map((tab) => (
+    {["posts", "files", "members", "direct", "tasks"].map((tab) => (
       <button
         key={tab}
         type="button"
@@ -1230,6 +1303,202 @@ const toggleReaction = async (messageId, emoji) => {
       </div>
     )}
     </div>
+    ) : activeTab === "tasks" ? (
+  <div
+    style={{
+      backgroundColor: WHITE,
+      border: `1px solid ${BORDER}`,
+      borderRadius: "16px",
+      padding: "18px",
+    }}
+  >
+    <h3 style={{ marginTop: 0, color: "#1e293b" }}>Channel Tasks</h3>
+
+    <form
+      onSubmit={createChannelTask}
+      style={{
+        display: "grid",
+        gap: "10px",
+        backgroundColor: "#f8fafc",
+        border: `1px solid ${BORDER}`,
+        borderRadius: "14px",
+        padding: "14px",
+        marginBottom: "18px",
+      }}
+    >
+      <input
+        value={taskTitle}
+        onChange={(e) => setTaskTitle(e.target.value)}
+        placeholder="Task title"
+        style={{
+          padding: "11px",
+          borderRadius: "10px",
+          border: `1px solid ${BORDER}`,
+        }}
+      />
+
+      <textarea
+        value={taskDescription}
+        onChange={(e) => setTaskDescription(e.target.value)}
+        placeholder="Task description"
+        rows={2}
+        style={{
+          resize: "none",
+          padding: "11px",
+          borderRadius: "10px",
+          border: `1px solid ${BORDER}`,
+          fontFamily: "Arial, sans-serif",
+        }}
+      />
+
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "1fr 160px 160px 140px",
+          gap: "10px",
+        }}
+      >
+        <select
+          value={taskAssignedTo}
+          onChange={(e) => setTaskAssignedTo(e.target.value)}
+          style={{ padding: "10px", borderRadius: "10px", border: `1px solid ${BORDER}` }}
+        >
+          <option value="">Assign to...</option>
+          {allUsers.map((staff) => (
+            <option key={staff.userId} value={staff.userId}>
+              {staff.fullName}
+            </option>
+          ))}
+        </select>
+
+        <select
+          value={taskPriority}
+          onChange={(e) => setTaskPriority(e.target.value)}
+          style={{ padding: "10px", borderRadius: "10px", border: `1px solid ${BORDER}` }}
+        >
+          <option value="Low">Low</option>
+          <option value="Medium">Medium</option>
+          <option value="High">High</option>
+          <option value="Critical">Critical</option>
+        </select>
+
+        <input
+          type="date"
+          value={taskDueDate}
+          onChange={(e) => setTaskDueDate(e.target.value)}
+          style={{ padding: "10px", borderRadius: "10px", border: `1px solid ${BORDER}` }}
+        />
+
+        <button
+          type="submit"
+          style={{
+            backgroundColor: ROYAL_BLUE,
+            color: WHITE,
+            border: "none",
+            borderRadius: "10px",
+            fontWeight: "bold",
+            cursor: "pointer",
+          }}
+        >
+          Create Task
+        </button>
+      </div>
+    </form>
+
+    {channelTasks.length === 0 ? (
+      <p style={{ color: MUTED }}>No tasks created for this channel yet.</p>
+    ) : (
+      <div style={{ display: "grid", gap: "12px" }}>
+        {channelTasks.map((task) => (
+          <div
+            key={task._id}
+            style={{
+              border: `1px solid ${BORDER}`,
+              borderRadius: "14px",
+              padding: "14px",
+              backgroundColor: task.status === "Completed" ? "#f0fdf4" : WHITE,
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", gap: "12px" }}>
+              <div>
+                <strong style={{ color: "#1e293b" }}>{task.title}</strong>
+                <div style={{ fontSize: "13px", color: MUTED, marginTop: "4px" }}>
+                  Assigned to: {task.assignedToName || "Unassigned"} • Priority: {task.priority}
+                  {task.dueDate ? ` • Due: ${task.dueDate}` : ""}
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => deleteChannelTask(task._id)}
+                style={{
+                  backgroundColor: "#dc2626",
+                  color: WHITE,
+                  border: "none",
+                  borderRadius: "8px",
+                  padding: "6px 10px",
+                  cursor: "pointer",
+                  fontWeight: "bold",
+                }}
+              >
+                Delete
+              </button>
+            </div>
+
+            {task.description && (
+              <p style={{ color: "#334155", marginBottom: "12px" }}>
+                {task.description}
+              </p>
+            )}
+
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "160px 1fr 160px",
+                gap: "10px",
+                alignItems: "center",
+              }}
+            >
+              <select
+                value={task.status}
+                onChange={(e) =>
+                  updateChannelTask(task._id, { status: e.target.value })
+                }
+                style={{ padding: "9px", borderRadius: "10px", border: `1px solid ${BORDER}` }}
+              >
+                <option value="Not Started">Not Started</option>
+                <option value="In Progress">In Progress</option>
+                <option value="Completed">Completed</option>
+                <option value="Cancelled">Cancelled</option>
+              </select>
+
+              <input
+                type="range"
+                min="0"
+                max="100"
+                value={task.progress || 0}
+                onChange={(e) =>
+                  updateChannelTask(task._id, { progress: e.target.value })
+                }
+              />
+
+              <strong style={{ color: ROYAL_BLUE }}>
+                {task.progress || 0}% Complete
+              </strong>
+            </div>
+
+            {task.completedAt && (
+              <div style={{ fontSize: "12px", color: MUTED, marginTop: "10px" }}>
+                Completed by {task.completedByName || "Staff"} on{" "}
+                {formatDateTime(task.completedAt)}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    )}
+  </div>
+  
 ) : activeTab === "direct" ? (
   <div
     style={{
