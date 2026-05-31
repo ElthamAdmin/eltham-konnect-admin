@@ -60,6 +60,8 @@ const [calendarEndDate, setCalendarEndDate] = useState("");
 const [calendarEndTime, setCalendarEndTime] = useState("");
 const [calendarLocation, setCalendarLocation] = useState("");
 const [calendarAttendees, setCalendarAttendees] = useState([]);
+const [channelMeetings, setChannelMeetings] = useState([]);
+const [meetingTitle, setMeetingTitle] = useState("");
 
   const ROYAL_BLUE = "#0B3D91";
   const GOLD = "#D4AF37";
@@ -241,6 +243,17 @@ const fetchChannelCalendarEvents = useCallback(async (channelId) => {
   }
 }, []);
 
+const fetchChannelMeetings = useCallback(async (channelId) => {
+  if (!channelId) return;
+
+  try {
+    const res = await api.get(`/api/team-hub/meetings/${channelId}`);
+    setChannelMeetings(res.data.data || []);
+  } catch (error) {
+    console.error("Error loading channel meetings:", error);
+  }
+}, []);
+
 const fetchSystemUsers = useCallback(async () => {
   try {
     const res = await api.get("/api/system-users");
@@ -301,6 +314,7 @@ const fetchDirectMessages = useCallback(async (conversationId) => {
 fetchChannelMembers(activeChannel._id);
 fetchChannelTasks(activeChannel._id);
 fetchChannelCalendarEvents(activeChannel._id);
+fetchChannelMeetings(activeChannel._id);
 fetchChannelFolders(activeChannel._id);
 
     const interval = setInterval(() => {
@@ -315,7 +329,8 @@ fetchChannelFolders(activeChannel._id);
   fetchChannelFolders,
   fetchChannelMembers,
   fetchChannelTasks,
-  fetchChannelCalendarEvents
+  fetchChannelCalendarEvents,
+  fetchChannelMeetings,
 ]);
 
   const createChannel = async (e) => {
@@ -685,6 +700,42 @@ const deleteChannelTask = async (taskId) => {
   } catch (error) {
     console.error("Error deleting task:", error);
     alert(error?.response?.data?.message || "Unable to delete task.");
+  }
+};
+
+const startChannelMeeting = async (e) => {
+  e.preventDefault();
+
+  if (!activeChannel?._id) return;
+
+  if (!meetingTitle.trim()) {
+    alert("Meeting title is required.");
+    return;
+  }
+
+  try {
+    const res = await api.post("/api/team-hub/meetings", {
+      channelId: activeChannel._id,
+      title: meetingTitle,
+    });
+
+    setMeetingTitle("");
+    await fetchChannelMeetings(activeChannel._id);
+
+    window.open(res.data.data.meetingUrl, "_blank", "noopener,noreferrer");
+  } catch (error) {
+    console.error("Error starting meeting:", error);
+    alert(error?.response?.data?.message || "Unable to start meeting.");
+  }
+};
+
+const endChannelMeeting = async (meetingId) => {
+  try {
+    await api.put(`/api/team-hub/meetings/${meetingId}/end`);
+    await fetchChannelMeetings(activeChannel._id);
+  } catch (error) {
+    console.error("Error ending meeting:", error);
+    alert(error?.response?.data?.message || "Unable to end meeting.");
   }
 };
 
@@ -1256,7 +1307,7 @@ const toggleReaction = async (messageId, emoji) => {
       gap: "8px",
     }}
   >
-    {["posts", "files", "members", "direct", "tasks", "calendar"].map((tab) => (
+    {["posts", "files", "members", "direct", "tasks", "calendar", "meetings"].map((tab) => (
       <button
         key={tab}
         type="button"
@@ -1876,6 +1927,145 @@ const toggleReaction = async (messageId, emoji) => {
       </div>
     )}
     </div>
+
+    ) : activeTab === "meetings" ? (
+  <div
+    style={{
+      backgroundColor: WHITE,
+      border: `1px solid ${BORDER}`,
+      borderRadius: "16px",
+      padding: "18px",
+    }}
+  >
+    <h3 style={{ marginTop: 0, color: "#1e293b" }}>
+      Channel Meetings
+    </h3>
+
+    <form
+      onSubmit={startChannelMeeting}
+      style={{
+        display: "grid",
+        gridTemplateColumns: "1fr auto",
+        gap: "10px",
+        backgroundColor: "#f8fafc",
+        border: `1px solid ${BORDER}`,
+        borderRadius: "14px",
+        padding: "14px",
+        marginBottom: "18px",
+      }}
+    >
+      <input
+        value={meetingTitle}
+        onChange={(e) => setMeetingTitle(e.target.value)}
+        placeholder="Meeting title, example: Daily Operations Check-In"
+        style={{
+          padding: "11px",
+          borderRadius: "10px",
+          border: `1px solid ${BORDER}`,
+        }}
+      />
+
+      <button
+        type="submit"
+        style={{
+          backgroundColor: ROYAL_BLUE,
+          color: WHITE,
+          border: "none",
+          borderRadius: "10px",
+          padding: "11px 16px",
+          fontWeight: "bold",
+          cursor: "pointer",
+        }}
+      >
+        Start Meeting
+      </button>
+    </form>
+
+    <p style={{ color: MUTED, fontSize: "13px" }}>
+      Meetings open in Jitsi Meet. Staff can use camera, microphone, chat, and screen share inside the meeting room.
+    </p>
+
+    {channelMeetings.length === 0 ? (
+      <p style={{ color: MUTED }}>No meetings started for this channel yet.</p>
+    ) : (
+      <div style={{ display: "grid", gap: "12px" }}>
+        {channelMeetings.map((meeting) => (
+          <div
+            key={meeting._id}
+            style={{
+              border: `1px solid ${BORDER}`,
+              borderRadius: "14px",
+              padding: "14px",
+              backgroundColor:
+                meeting.status === "Active" ? "#f0fdf4" : "#f8fafc",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                gap: "12px",
+                flexWrap: "wrap",
+              }}
+            >
+              <div>
+                <strong style={{ color: "#1e293b" }}>
+                  🎥 {meeting.title}
+                </strong>
+
+                <div
+                  style={{
+                    fontSize: "13px",
+                    color: MUTED,
+                    marginTop: "4px",
+                  }}
+                >
+                  Started by {meeting.startedByName || "Staff"} •{" "}
+                  {formatDateTime(meeting.createdAt)} • {meeting.status}
+                </div>
+              </div>
+
+              <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                <a
+                  href={meeting.meetingUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{
+                    backgroundColor: ROYAL_BLUE,
+                    color: WHITE,
+                    textDecoration: "none",
+                    borderRadius: "8px",
+                    padding: "8px 12px",
+                    fontWeight: "bold",
+                  }}
+                >
+                  Join Meeting
+                </a>
+
+                {meeting.status === "Active" && (
+                  <button
+                    type="button"
+                    onClick={() => endChannelMeeting(meeting._id)}
+                    style={{
+                      backgroundColor: "#dc2626",
+                      color: WHITE,
+                      border: "none",
+                      borderRadius: "8px",
+                      padding: "8px 12px",
+                      cursor: "pointer",
+                      fontWeight: "bold",
+                    }}
+                  >
+                    End
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    )}
+  </div>
 
     ) : activeTab === "calendar" ? (
   <div
