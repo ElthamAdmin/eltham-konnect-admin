@@ -25,6 +25,9 @@ const [selectedMember, setSelectedMember] = useState("");
 const [documentTitle, setDocumentTitle] = useState("");
 const [documentFolder, setDocumentFolder] = useState("General");
 const [documentFile, setDocumentFile] = useState(null);
+const [selectedFolderPath, setSelectedFolderPath] = useState("All");
+const [versionFiles, setVersionFiles] = useState({});
+const [versionNotes, setVersionNotes] = useState({});
 const [announcementTitle, setAnnouncementTitle] = useState("");
 const [announcementMessage, setAnnouncementMessage] = useState("");
 const [announcementPriority, setAnnouncementPriority] = useState("Important");
@@ -460,6 +463,74 @@ const removeMemberFromChannel = async (userId) => {
   } catch (error) {
     console.error("Error uploading channel document:", error);
     alert(error?.response?.data?.message || "Unable to upload document.");
+  }
+};
+
+const uploadDocumentVersion = async (documentId) => {
+  const file = versionFiles[documentId];
+
+  if (!file) {
+    alert("Please choose a file for the new version.");
+    return;
+  }
+
+  try {
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("notes", versionNotes[documentId] || "");
+
+    await api.post(`/api/team-hub/documents/${documentId}/version`, formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+
+    setVersionFiles((prev) => ({ ...prev, [documentId]: null }));
+    setVersionNotes((prev) => ({ ...prev, [documentId]: "" }));
+
+    await fetchChannelDocuments(activeChannel._id);
+  } catch (error) {
+    console.error("Error uploading document version:", error);
+    alert(error?.response?.data?.message || "Unable to upload new version.");
+  }
+};
+
+const toggleDocumentLock = async (doc) => {
+  try {
+    const endpoint = doc.isLocked
+      ? `/api/team-hub/documents/${doc._id}/unlock`
+      : `/api/team-hub/documents/${doc._id}/lock`;
+
+    await api.put(endpoint);
+    await fetchChannelDocuments(activeChannel._id);
+  } catch (error) {
+    console.error("Error updating document lock:", error);
+    alert(error?.response?.data?.message || "Unable to update document lock.");
+  }
+};
+
+const moveDocumentToFolder = async (doc) => {
+  const newFolderPath = prompt(
+    "Enter folder path. Example: Operations/SOPs",
+    doc.folderPath || doc.folder || "General"
+  );
+
+  if (!newFolderPath) return;
+
+  const cleanedPath = newFolderPath.trim();
+  const parts = cleanedPath.split("/").filter(Boolean);
+  const folder = parts[parts.length - 1] || "General";
+  const parentFolder = parts.length > 1 ? parts.slice(0, -1).join("/") : "";
+
+  try {
+    await api.put(`/api/team-hub/documents/${doc._id}/move`, {
+      folder,
+      folderPath: cleanedPath,
+      parentFolder,
+    });
+
+    await fetchChannelDocuments(activeChannel._id);
+  } catch (error) {
+    console.error("Error moving document:", error);
+    alert(error?.response?.data?.message || "Unable to move document.");
   }
 };
 
@@ -1179,13 +1250,15 @@ const toggleReaction = async (messageId, emoji) => {
       padding: "18px",
     }}
   >
-    <h3 style={{ marginTop: 0, color: "#1e293b" }}>Channel Files</h3>
+    <h3 style={{ marginTop: 0, color: "#1e293b" }}>
+      Channel Files
+    </h3>
 
     <form
       onSubmit={uploadChannelDocument}
       style={{
         display: "grid",
-        gridTemplateColumns: "1fr 180px 1fr auto",
+        gridTemplateColumns: "1fr 220px 1fr auto",
         gap: "10px",
         marginBottom: "18px",
       }}
@@ -1204,7 +1277,7 @@ const toggleReaction = async (messageId, emoji) => {
       <input
         value={documentFolder}
         onChange={(e) => setDocumentFolder(e.target.value)}
-        placeholder="Folder"
+        placeholder="Folder path, example: Operations/SOPs"
         style={{
           padding: "11px",
           borderRadius: "10px",
@@ -1233,43 +1306,338 @@ const toggleReaction = async (messageId, emoji) => {
       </button>
     </form>
 
-    {channelDocuments.length === 0 ? (
-      <p style={{ color: MUTED }}>No files uploaded to this channel yet.</p>
-    ) : (
-      <div style={{ display: "grid", gap: "10px" }}>
-        {channelDocuments.map((doc) => (
-          <a
-            key={doc._id}
-            href={`${api.defaults.baseURL}${doc.fileUrl}`}
-            target="_blank"
-            rel="noreferrer"
+    {(() => {
+      const folderPaths = [
+        "All",
+        ...new Set(
+          channelDocuments.map(
+            (doc) => doc.folderPath || doc.folder || "General"
+          )
+        ),
+      ];
+
+      const visibleDocuments =
+        selectedFolderPath === "All"
+          ? channelDocuments
+          : channelDocuments.filter(
+              (doc) =>
+                (doc.folderPath || doc.folder || "General") ===
+                selectedFolderPath
+            );
+
+      return (
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "260px 1fr",
+            gap: "16px",
+          }}
+        >
+          <div
             style={{
-              display: "flex",
-              justifyContent: "space-between",
-              gap: "12px",
-              padding: "12px",
               border: `1px solid ${BORDER}`,
-              borderRadius: "12px",
-              color: "#1e293b",
-              textDecoration: "none",
+              borderRadius: "14px",
+              padding: "12px",
               backgroundColor: "#f8fafc",
+              alignSelf: "start",
             }}
           >
-            <span>
-              📄 <strong>{doc.title}</strong>
-              <div style={{ fontSize: "12px", color: MUTED }}>
-                Folder: {doc.folder || "General"}
+            <strong style={{ color: "#1e293b" }}>Folder Tree</strong>
+
+            <div style={{ display: "grid", gap: "8px", marginTop: "12px" }}>
+              {folderPaths.map((folderPath) => (
+                <button
+                  key={folderPath}
+                  type="button"
+                  onClick={() => setSelectedFolderPath(folderPath)}
+                  style={{
+                    textAlign: "left",
+                    border: `1px solid ${
+                      selectedFolderPath === folderPath ? ROYAL_BLUE : BORDER
+                    }`,
+                    backgroundColor:
+                      selectedFolderPath === folderPath ? "#eef4ff" : WHITE,
+                    color:
+                      selectedFolderPath === folderPath ? ROYAL_BLUE : "#334155",
+                    borderRadius: "10px",
+                    padding: "9px 10px",
+                    cursor: "pointer",
+                    fontWeight: "bold",
+                  }}
+                >
+                  {folderPath === "All" ? "📁 All Files" : `📁 ${folderPath}`}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            {visibleDocuments.length === 0 ? (
+              <p style={{ color: MUTED }}>
+                No files in this folder yet.
+              </p>
+            ) : (
+              <div style={{ display: "grid", gap: "12px" }}>
+                {visibleDocuments.map((doc) => {
+                  const lockedByMe = doc.lockedByUserId === user?.userId;
+                  const lockedByOther =
+                    doc.isLocked && doc.lockedByUserId !== user?.userId;
+
+                  return (
+                    <div
+                      key={doc._id}
+                      style={{
+                        padding: "14px",
+                        border: `1px solid ${
+                          doc.isLocked ? GOLD : BORDER
+                        }`,
+                        borderRadius: "14px",
+                        backgroundColor: doc.isLocked ? "#fff7ed" : WHITE,
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          gap: "12px",
+                          flexWrap: "wrap",
+                        }}
+                      >
+                        <div>
+                          <a
+                            href={`${api.defaults.baseURL}${doc.fileUrl}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            style={{
+                              color: ROYAL_BLUE,
+                              textDecoration: "none",
+                              fontWeight: "bold",
+                            }}
+                          >
+                            📄 {doc.title}
+                          </a>
+
+                          <div
+                            style={{
+                              fontSize: "12px",
+                              color: MUTED,
+                              marginTop: "4px",
+                            }}
+                          >
+                            Folder: {doc.folderPath || doc.folder || "General"} •
+                            Version {doc.currentVersion || 1} • Uploaded by{" "}
+                            {doc.uploadedByName || doc.uploadedBy || "Staff"}
+                          </div>
+
+                          {doc.isLocked && (
+                            <div
+                              style={{
+                                marginTop: "6px",
+                                fontSize: "12px",
+                                color: "#92400e",
+                                fontWeight: "bold",
+                              }}
+                            >
+                              🔒 Locked by {doc.lockedByName || "Staff"}
+                              {lockedByMe ? " (You)" : ""}
+                            </div>
+                          )}
+                        </div>
+
+                        <div
+                          style={{
+                            display: "flex",
+                            gap: "8px",
+                            flexWrap: "wrap",
+                            alignItems: "center",
+                          }}
+                        >
+                          <button
+                            type="button"
+                            onClick={() => toggleDocumentLock(doc)}
+                            disabled={lockedByOther}
+                            style={{
+                              backgroundColor: lockedByOther
+                                ? "#cbd5e1"
+                                : doc.isLocked
+                                ? "#16a34a"
+                                : GOLD,
+                              color: lockedByOther ? "#64748b" : "#111827",
+                              border: "none",
+                              borderRadius: "8px",
+                              padding: "7px 10px",
+                              cursor: lockedByOther ? "not-allowed" : "pointer",
+                              fontWeight: "bold",
+                            }}
+                          >
+                            {doc.isLocked ? "Unlock" : "Lock"}
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => moveDocumentToFolder(doc)}
+                            style={{
+                              backgroundColor: "#eef4ff",
+                              color: ROYAL_BLUE,
+                              border: "none",
+                              borderRadius: "8px",
+                              padding: "7px 10px",
+                              cursor: "pointer",
+                              fontWeight: "bold",
+                            }}
+                          >
+                            Move
+                          </button>
+                        </div>
+                      </div>
+
+                      <div
+                        style={{
+                          marginTop: "12px",
+                          padding: "12px",
+                          borderRadius: "12px",
+                          backgroundColor: "#f8fafc",
+                          border: `1px solid ${BORDER}`,
+                        }}
+                      >
+                        <strong style={{ color: "#1e293b" }}>
+                          Upload New Version
+                        </strong>
+
+                        <div
+                          style={{
+                            display: "grid",
+                            gridTemplateColumns: "1fr 1fr auto",
+                            gap: "10px",
+                            marginTop: "10px",
+                          }}
+                        >
+                          <input
+                            type="file"
+                            disabled={lockedByOther}
+                            onChange={(e) =>
+                              setVersionFiles((prev) => ({
+                                ...prev,
+                                [doc._id]: e.target.files?.[0] || null,
+                              }))
+                            }
+                          />
+
+                          <input
+                            value={versionNotes[doc._id] || ""}
+                            disabled={lockedByOther}
+                            onChange={(e) =>
+                              setVersionNotes((prev) => ({
+                                ...prev,
+                                [doc._id]: e.target.value,
+                              }))
+                            }
+                            placeholder="Version notes"
+                            style={{
+                              padding: "9px",
+                              borderRadius: "10px",
+                              border: `1px solid ${BORDER}`,
+                            }}
+                          />
+
+                          <button
+                            type="button"
+                            disabled={lockedByOther}
+                            onClick={() => uploadDocumentVersion(doc._id)}
+                            style={{
+                              backgroundColor: lockedByOther
+                                ? "#cbd5e1"
+                                : ROYAL_BLUE,
+                              color: WHITE,
+                              border: "none",
+                              borderRadius: "10px",
+                              padding: "8px 12px",
+                              fontWeight: "bold",
+                              cursor: lockedByOther ? "not-allowed" : "pointer",
+                            }}
+                          >
+                            Upload Version
+                          </button>
+                        </div>
+                      </div>
+
+                      {doc.versions?.length > 0 && (
+                        <details style={{ marginTop: "12px" }}>
+                          <summary
+                            style={{
+                              cursor: "pointer",
+                              color: ROYAL_BLUE,
+                              fontWeight: "bold",
+                            }}
+                          >
+                            Version History ({doc.versions.length})
+                          </summary>
+
+                          <div
+                            style={{
+                              display: "grid",
+                              gap: "8px",
+                              marginTop: "10px",
+                            }}
+                          >
+                            {[...(doc.versions || [])]
+                              .sort(
+                                (a, b) =>
+                                  Number(b.versionNumber || 0) -
+                                  Number(a.versionNumber || 0)
+                              )
+                              .map((version) => (
+                                <a
+                                  key={version._id || version.versionNumber}
+                                  href={`${api.defaults.baseURL}${version.fileUrl}`}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  style={{
+                                    color: "#334155",
+                                    textDecoration: "none",
+                                    border: `1px solid ${BORDER}`,
+                                    borderRadius: "10px",
+                                    padding: "9px",
+                                    backgroundColor: WHITE,
+                                  }}
+                                >
+                                  <strong>
+                                    Version {version.versionNumber}
+                                  </strong>{" "}
+                                  — {version.originalName || version.fileName}
+                                  <div
+                                    style={{
+                                      fontSize: "12px",
+                                      color: MUTED,
+                                      marginTop: "3px",
+                                    }}
+                                  >
+                                    Uploaded by{" "}
+                                    {version.uploadedByName ||
+                                      version.uploadedBy ||
+                                      "Staff"}{" "}
+                                    {version.uploadedAt
+                                      ? `on ${formatDateTime(version.uploadedAt)}`
+                                      : ""}
+                                    {version.notes ? ` • ${version.notes}` : ""}
+                                  </div>
+                                </a>
+                              ))}
+                          </div>
+                        </details>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
-            </span>
-            <span style={{ fontSize: "12px", color: MUTED }}>
-              {formatDateTime(doc.createdAt)}
-            </span>
-          </a>
-        ))}
-      </div>
-    )}
+            )}
+          </div>
+        </div>
+      );
+    })()}
   </div>
 ) : activeTab === "members" ? (
+  
   <div
     style={{
       backgroundColor: WHITE,
@@ -1594,7 +1962,7 @@ const toggleReaction = async (messageId, emoji) => {
       </div>
     )}
   </div>
-  
+
     ) : activeTab === "tasks" ? (
   <div
     style={{
