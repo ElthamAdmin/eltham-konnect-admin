@@ -2760,13 +2760,6 @@ flex: "0 0 auto",
   </div>
 
   <div
-    style={{
-      display: "grid",
-      gridTemplateColumns: "repeat(7,1fr)",
-      gap: "8px",
-    }}
-  >
-    <div
   style={{
     display: "grid",
     gridTemplateColumns: "repeat(7,1fr)",
@@ -2786,7 +2779,14 @@ flex: "0 0 auto",
   <div>Sun</div>
 </div>
 
-    {buildCalendarDays().map((day) => (
+<div
+  style={{
+    display: "grid",
+    gridTemplateColumns: "repeat(7,1fr)",
+    gap: "8px",
+  }}
+>
+  {buildCalendarDays().map((day) => (
       <div
         key={day.dateString}
         style={{
