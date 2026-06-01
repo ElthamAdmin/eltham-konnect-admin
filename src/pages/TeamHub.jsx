@@ -1645,7 +1645,9 @@ flex: "0 0 auto",
             <div style={{ display: "grid", gap: "8px", marginTop: "12px" }}>
               {folderPaths.map((folderPath) => (
                 <button
-                  key={folderPath}
+                  key={folderPath.includes("/")
+  ? `📂 ${folderPath}`
+  : `📁 ${folderPath}`}
                   type="button"
                   onClick={() => setSelectedFolderPath(folderPath)}
                   style={{
