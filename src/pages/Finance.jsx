@@ -1093,15 +1093,46 @@ status: account.status || "Active",
     }
   };
 
-  const totalAccountBalances = useMemo(
+  const totalCashAndBankBalances = useMemo(
   () =>
-    accounts.reduce(
-      (sum, account) =>
-        sum + Number(account.baseCurrencyBalance || account.currentBalance || 0),
-      0
-    ),
+    accounts
+      .filter(
+        (account) =>
+          account.accountType === "Bank" ||
+          account.accountType === "Cash"
+      )
+      .reduce(
+        (sum, account) =>
+          sum +
+          Number(
+            account.baseCurrencyBalance ||
+            account.currentBalance ||
+            0
+          ),
+        0
+      ),
   [accounts]
 );
+
+const totalCreditCardBalances = useMemo(
+  () =>
+    accounts
+      .filter((account) => account.accountType === "Credit Card")
+      .reduce(
+        (sum, account) =>
+          sum +
+          Number(
+            account.baseCurrencyBalance ||
+            account.currentBalance ||
+            0
+          ),
+        0
+      ),
+  [accounts]
+);
+
+const netCashPosition =
+  totalCashAndBankBalances - totalCreditCardBalances;
 
   const renderPagination = (
     { page, pages, limit, total },
@@ -1454,10 +1485,10 @@ status: account.status || "Active",
                   marginBottom: "8px",
                 }}
               >
-                {formatCurrency(totalAccountBalances)}
+                {formatCurrency(totalCashAndBankBalances)}
               </div>
               <div style={{ color: "#334155", fontWeight: "bold" }}>
-                Total Account Balances
+                Cash & Bank Balances
               </div>
             </div>
           </div>
