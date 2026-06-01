@@ -1094,13 +1094,14 @@ status: account.status || "Active",
   };
 
   const totalAccountBalances = useMemo(
-    () =>
-      accounts.reduce(
-        (sum, account) => sum + Number(account.currentBalance || 0),
-        0
-      ),
-    [accounts]
-  );
+  () =>
+    accounts.reduce(
+      (sum, account) =>
+        sum + Number(account.baseCurrencyBalance || account.currentBalance || 0),
+      0
+    ),
+  [accounts]
+);
 
   const renderPagination = (
     { page, pages, limit, total },
