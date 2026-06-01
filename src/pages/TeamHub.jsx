@@ -1088,6 +1088,9 @@ const toggleReaction = async (messageId, emoji) => {
             .team-hub-shell {
               grid-template-columns: 1fr !important;
             }
+              .team-hub-kanban {
+  grid-template-columns: 1fr !important;
+}
 
             .team-hub-sidebar {
               max-height: 420px;
@@ -2840,97 +2843,132 @@ flex: "0 0 auto",
     </form>
 
     {channelTasks.length === 0 ? (
-      <p style={{ color: MUTED }}>No tasks created for this channel yet.</p>
-    ) : (
-      <div style={{ display: "grid", gap: "12px" }}>
-        {channelTasks.map((task) => (
+  <p style={{ color: MUTED }}>
+    No tasks created for this channel yet.
+  </p>
+) : (
+  <div
+    className="team-hub-kanban"
+    style={{
+      display: "grid",
+      gridTemplateColumns: "1fr 1fr 1fr",
+      gap: "16px",
+    }}
+  >
+    {/* TO DO */}
+
+    <div
+      style={{
+        backgroundColor: "#fff7ed",
+        borderRadius: "14px",
+        padding: "12px",
+      }}
+    >
+      <h4>📝 To Do</h4>
+
+      {channelTasks
+        .filter((task) => task.status === "Not Started")
+        .map((task) => (
           <div
             key={task._id}
             style={{
-              border: `1px solid ${BORDER}`,
-              borderRadius: "14px",
-              padding: "14px",
-              backgroundColor: task.status === "Completed" ? "#f0fdf4" : WHITE,
+              backgroundColor: WHITE,
+              borderRadius: "10px",
+              padding: "10px",
+              marginBottom: "10px",
             }}
           >
-            <div style={{ display: "flex", justifyContent: "space-between", gap: "12px" }}>
-              <div>
-                <strong style={{ color: "#1e293b" }}>{task.title}</strong>
-                <div style={{ fontSize: "13px", color: MUTED, marginTop: "4px" }}>
-                  Assigned to: {task.assignedToName || "Unassigned"} • Priority: {task.priority}
-                  {task.dueDate ? ` • Due: ${task.dueDate}` : ""}
-                </div>
-              </div>
+            <strong>{task.title}</strong>
 
-              <button
-                type="button"
-                onClick={() => deleteChannelTask(task._id)}
-                style={{
-                  backgroundColor: "#dc2626",
-                  color: WHITE,
-                  border: "none",
-                  borderRadius: "8px",
-                  padding: "6px 10px",
-                  cursor: "pointer",
-                  fontWeight: "bold",
-                }}
-              >
-                Delete
-              </button>
-            </div>
+            <div>{task.assignedToName || "Unassigned"}</div>
 
-            {task.description && (
-              <p style={{ color: "#334155", marginBottom: "12px" }}>
-                {task.description}
-              </p>
-            )}
-
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "160px 1fr 160px",
-                gap: "10px",
-                alignItems: "center",
-              }}
+            <button
+              type="button"
+              onClick={() =>
+                updateChannelTask(task._id, {
+                  status: "In Progress",
+                })
+              }
             >
-              <select
-                value={task.status}
-                onChange={(e) =>
-                  updateChannelTask(task._id, { status: e.target.value })
-                }
-                style={{ padding: "9px", borderRadius: "10px", border: `1px solid ${BORDER}` }}
-              >
-                <option value="Not Started">Not Started</option>
-                <option value="In Progress">In Progress</option>
-                <option value="Completed">Completed</option>
-                <option value="Cancelled">Cancelled</option>
-              </select>
-
-              <input
-                type="range"
-                min="0"
-                max="100"
-                value={task.progress || 0}
-                onChange={(e) =>
-                  updateChannelTask(task._id, { progress: e.target.value })
-                }
-              />
-
-              <strong style={{ color: ROYAL_BLUE }}>
-                {task.progress || 0}% Complete
-              </strong>
-            </div>
-
-            {task.completedAt && (
-              <div style={{ fontSize: "12px", color: MUTED, marginTop: "10px" }}>
-                Completed by {task.completedByName || "Staff"} on{" "}
-                {formatDateTime(task.completedAt)}
-              </div>
-            )}
+              Start
+            </button>
           </div>
         ))}
-      </div>
-    )}
+    </div>
+
+    {/* IN PROGRESS */}
+
+    <div
+      style={{
+        backgroundColor: "#eff6ff",
+        borderRadius: "14px",
+        padding: "12px",
+      }}
+    >
+      <h4>🚧 In Progress</h4>
+
+      {channelTasks
+        .filter((task) => task.status === "In Progress")
+        .map((task) => (
+          <div
+            key={task._id}
+            style={{
+              backgroundColor: WHITE,
+              borderRadius: "10px",
+              padding: "10px",
+              marginBottom: "10px",
+            }}
+          >
+            <strong>{task.title}</strong>
+
+            <div>{task.assignedToName || "Unassigned"}</div>
+
+            <button
+              type="button"
+              onClick={() =>
+                updateChannelTask(task._id, {
+                  status: "Completed",
+                  progress: 100,
+                })
+              }
+            >
+              Complete
+            </button>
+          </div>
+        ))}
+    </div>
+
+    {/* COMPLETED */}
+
+    <div
+      style={{
+        backgroundColor: "#f0fdf4",
+        borderRadius: "14px",
+        padding: "12px",
+      }}
+    >
+      <h4>✅ Completed</h4>
+
+      {channelTasks
+        .filter((task) => task.status === "Completed")
+        .map((task) => (
+          <div
+            key={task._id}
+            style={{
+              backgroundColor: WHITE,
+              borderRadius: "10px",
+              padding: "10px",
+              marginBottom: "10px",
+            }}
+          >
+            <strong>{task.title}</strong>
+
+            <div>{task.assignedToName || "Unassigned"}</div>
+          </div>
+        ))}
+    </div>
+  </div>
+)}
   </div>
   
 ) : activeTab === "direct" ? (
