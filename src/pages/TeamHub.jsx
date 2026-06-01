@@ -1080,6 +1080,7 @@ const toggleReaction = async (messageId, emoji) => {
         gridTemplateColumns: "310px 1fr",
       }}
     >
+    
       <style>
         {`
           @media (max-width: 768px) {
@@ -1110,6 +1111,18 @@ const toggleReaction = async (messageId, emoji) => {
               max-width: 100% !important;
             }
           }
+            .team-hub-meeting-card-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 16px;
+  align-items: start;
+}
+
+@media (max-width: 768px) {
+  .team-hub-meeting-card-row {
+    grid-template-columns: 1fr !important;
+  }
+}
         `}
       </style>
 
@@ -1409,14 +1422,17 @@ const toggleReaction = async (messageId, emoji) => {
 
         {activeChannel && (
   <div
-    style={{
-      backgroundColor: WHITE,
-      borderBottom: `1px solid ${BORDER}`,
-      padding: "0 24px",
-      display: "flex",
-      gap: "8px",
-    }}
-  >
+  style={{
+    backgroundColor: WHITE,
+    borderBottom: `1px solid ${BORDER}`,
+    padding: "0 12px",
+    display: "flex",
+    gap: "8px",
+    overflowX: "auto",
+    whiteSpace: "nowrap",
+    WebkitOverflowScrolling: "touch",
+  }}
+>
     {["posts", "files", "members", "direct", "tasks", "calendar", "meetings"].map((tab) => (
       <button
         key={tab}
@@ -1427,7 +1443,8 @@ const toggleReaction = async (messageId, emoji) => {
           borderBottom:
             activeTab === tab ? `3px solid ${ROYAL_BLUE}` : "3px solid transparent",
           backgroundColor: "transparent",
-          padding: "14px 12px",
+          padding: "14px 16px",
+flex: "0 0 auto",
           fontWeight: "bold",
           color: activeTab === tab ? ROYAL_BLUE : MUTED,
           cursor: "pointer",
@@ -2111,13 +2128,14 @@ const toggleReaction = async (messageId, emoji) => {
             }}
           >
             <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                gap: "12px",
-                flexWrap: "wrap",
-              }}
-            >
+  className="team-hub-meeting-card-row"
+  style={{
+    display: "grid",
+    gridTemplateColumns: "1fr auto",
+    gap: "16px",
+    alignItems: "start",
+  }}
+>
               <div>
                 <strong style={{ color: "#1e293b" }}>
                   🎥 {meeting.title}
@@ -2378,14 +2396,17 @@ const toggleReaction = async (messageId, emoji) => {
   type="button"
   onClick={() => joinTrackedMeeting(meeting)}
   style={{
-    backgroundColor: ROYAL_BLUE,
-    color: WHITE,
-    border: "none",
-    borderRadius: "8px",
-    padding: "8px 12px",
-    fontWeight: "bold",
-    cursor: "pointer",
-  }}
+  backgroundColor: ROYAL_BLUE,
+  color: WHITE,
+  border: "none",
+  borderRadius: "8px",
+  padding: "10px 14px",
+  fontWeight: "bold",
+  cursor: "pointer",
+  alignSelf: "flex-start",
+  height: "fit-content",
+  whiteSpace: "nowrap",
+}}
 >
   Join Meeting
 </button>
