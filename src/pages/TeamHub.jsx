@@ -1279,7 +1279,13 @@ const toggleReaction = async (messageId, emoji) => {
             }}
           >
             <div style={{ fontWeight: "bold", color: "#1e293b" }}>
-              {note.type === "Mention" ? "💬 " : note.type === "Announcement" ? "📢 " : "👥 "}
+              {note.type === "Mention"
+  ? "💬 "
+  : note.type === "Announcement"
+  ? "📢 "
+  : note.type === "MeetingStarted"
+  ? "🎥 "
+  : "👥 "}
               {note.title}
             </div>
             <div style={{ fontSize: "12px", color: MUTED, marginTop: "4px" }}>
