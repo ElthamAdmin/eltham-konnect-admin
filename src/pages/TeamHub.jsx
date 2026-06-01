@@ -793,6 +793,8 @@ const saveMeetingNotes = async (meeting) => {
     });
 
     await fetchChannelMeetings(activeChannel._id);
+
+    alert("Meeting notes saved successfully.");
   } catch (error) {
     console.error("Error saving meeting notes:", error);
     alert(error?.response?.data?.message || "Unable to save meeting notes.");
@@ -2390,21 +2392,27 @@ flex: "0 0 auto",
   />
 
   <button
-    type="button"
-    onClick={() => saveMeetingNotes(meeting)}
+  onClick={async () => {
+    await saveMeetingNotes(meeting);
+    setSuccessMessage("Meeting notes saved.");
+  }}
+>
+  Save Notes & Decisions
+</button>
+
+{successMessage && (
+  <div
     style={{
-      backgroundColor: ROYAL_BLUE,
-      color: WHITE,
-      border: "none",
-      borderRadius: "10px",
-      padding: "9px 12px",
-      cursor: "pointer",
-      fontWeight: "bold",
-      justifySelf: "start",
+      background: "#dcfce7",
+      color: "#166534",
+      padding: "8px",
+      borderRadius: "8px",
+      marginTop: "8px",
     }}
   >
-    Save Notes & Decisions
-  </button>
+    {successMessage}
+  </div>
+)}
 
   <div
     style={{
