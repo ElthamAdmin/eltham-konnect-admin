@@ -62,6 +62,10 @@ const [calendarLocation, setCalendarLocation] = useState("");
 const [calendarAttendees, setCalendarAttendees] = useState([]);
 const [channelMeetings, setChannelMeetings] = useState([]);
 const [meetingTitle, setMeetingTitle] = useState("");
+const [meetingAttendance, setMeetingAttendance] = useState({});
+const [meetingNotesDrafts, setMeetingNotesDrafts] = useState({});
+const [meetingDecisionDrafts, setMeetingDecisionDrafts] = useState({});
+const [meetingActionDrafts, setMeetingActionDrafts] = useState({});
 
   const ROYAL_BLUE = "#0B3D91";
   const GOLD = "#D4AF37";
@@ -736,6 +740,106 @@ const endChannelMeeting = async (meetingId) => {
   } catch (error) {
     console.error("Error ending meeting:", error);
     alert(error?.response?.data?.message || "Unable to end meeting.");
+  }
+};
+
+const joinTrackedMeeting = async (meeting) => {
+  try {
+    await api.post(`/api/team-hub/meetings/${meeting._id}/join`);
+    await fetchMeetingAttendance(meeting._id);
+    window.open(meeting.meetingUrl, "_blank", "noopener,noreferrer");
+  } catch (error) {
+    console.error("Error joining meeting:", error);
+    alert(error?.response?.data?.message || "Unable to join meeting.");
+  }
+};
+
+const leaveTrackedMeeting = async (meetingId) => {
+  try {
+    await api.post(`/api/team-hub/meetings/${meetingId}/leave`);
+    await fetchMeetingAttendance(meetingId);
+  } catch (error) {
+    console.error("Error leaving meeting:", error);
+    alert(error?.response?.data?.message || "Unable to leave meeting.");
+  }
+};
+
+const fetchMeetingAttendance = async (meetingId) => {
+  try {
+    const res = await api.get(`/api/team-hub/meetings/${meetingId}/attendance`);
+    setMeetingAttendance((prev) => ({
+      ...prev,
+      [meetingId]: res.data.data || [],
+    }));
+  } catch (error) {
+    console.error("Error loading meeting attendance:", error);
+  }
+};
+
+const saveMeetingNotes = async (meeting) => {
+  try {
+    await api.put(`/api/team-hub/meetings/${meeting._id}/notes`, {
+      notes: meetingNotesDrafts[meeting._id] ?? meeting.notes ?? "",
+      decisions: meetingDecisionDrafts[meeting._id] ?? meeting.decisions ?? "",
+      actionItems: meeting.actionItems || [],
+    });
+
+    await fetchChannelMeetings(activeChannel._id);
+  } catch (error) {
+    console.error("Error saving meeting notes:", error);
+    alert(error?.response?.data?.message || "Unable to save meeting notes.");
+  }
+};
+
+const addMeetingActionItem = async (meeting) => {
+  const draft = meetingActionDrafts[meeting._id] || {};
+
+  if (!draft.title?.trim()) {
+    alert("Action item title is required.");
+    return;
+  }
+
+  try {
+    const assignedUser = allUsers.find((staff) => staff.userId === draft.assignedToUserId);
+
+    await api.put(`/api/team-hub/meetings/${meeting._id}/notes`, {
+      notes: meeting.notes || "",
+      decisions: meeting.decisions || "",
+      actionItems: [
+        ...(meeting.actionItems || []),
+        {
+          title: draft.title,
+          assignedToUserId: draft.assignedToUserId || "",
+          assignedToName: assignedUser?.fullName || "",
+          dueDate: draft.dueDate || "",
+          status: "Pending",
+        },
+      ],
+    });
+
+    setMeetingActionDrafts((prev) => ({
+      ...prev,
+      [meeting._id]: { title: "", assignedToUserId: "", dueDate: "" },
+    }));
+
+    await fetchChannelMeetings(activeChannel._id);
+  } catch (error) {
+    console.error("Error adding action item:", error);
+    alert(error?.response?.data?.message || "Unable to add action item.");
+  }
+};
+
+const convertActionItemToTask = async (meetingId, actionItemId) => {
+  try {
+    await api.post(
+      `/api/team-hub/meetings/${meetingId}/action-items/${actionItemId}/convert-task`
+    );
+
+    await fetchChannelMeetings(activeChannel._id);
+    await fetchChannelTasks(activeChannel._id);
+  } catch (error) {
+    console.error("Error converting action item:", error);
+    alert(error?.response?.data?.message || "Unable to convert action item.");
   }
 };
 
@@ -2028,25 +2132,263 @@ const toggleReaction = async (messageId, emoji) => {
                 >
                   Started by {meeting.startedByName || "Staff"} •{" "}
                   {formatDateTime(meeting.createdAt)} • {meeting.status}
+                  <div style={{ marginTop: "14px", display: "grid", gap: "12px" }}>
+  <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+    <button
+      type="button"
+      onClick={() => leaveTrackedMeeting(meeting._id)}
+      style={{
+        backgroundColor: "#f97316",
+        color: WHITE,
+        border: "none",
+        borderRadius: "8px",
+        padding: "8px 12px",
+        cursor: "pointer",
+        fontWeight: "bold",
+      }}
+    >
+      Mark Me Left
+    </button>
+
+    <button
+      type="button"
+      onClick={() => fetchMeetingAttendance(meeting._id)}
+      style={{
+        backgroundColor: "#eef4ff",
+        color: ROYAL_BLUE,
+        border: "none",
+        borderRadius: "8px",
+        padding: "8px 12px",
+        cursor: "pointer",
+        fontWeight: "bold",
+      }}
+    >
+      View Attendance
+    </button>
+  </div>
+
+  {meetingAttendance[meeting._id]?.length > 0 && (
+    <div
+      style={{
+        border: `1px solid ${BORDER}`,
+        borderRadius: "12px",
+        padding: "10px",
+        backgroundColor: WHITE,
+      }}
+    >
+      <strong>Attendance</strong>
+
+      <div style={{ display: "grid", gap: "6px", marginTop: "8px" }}>
+        {meetingAttendance[meeting._id].map((row) => (
+          <div key={row._id} style={{ fontSize: "13px", color: "#334155" }}>
+            {row.fullName} • Joined {formatDateTime(row.joinTime)}
+            {row.leaveTime ? ` • Left ${formatDateTime(row.leaveTime)}` : " • Still joined"}
+            {row.durationMinutes ? ` • ${row.durationMinutes} mins` : ""}
+          </div>
+        ))}
+      </div>
+    </div>
+  )}
+
+  <textarea
+    value={meetingNotesDrafts[meeting._id] ?? meeting.notes ?? ""}
+    onChange={(e) =>
+      setMeetingNotesDrafts((prev) => ({
+        ...prev,
+        [meeting._id]: e.target.value,
+      }))
+    }
+    placeholder="Meeting notes..."
+    rows={2}
+    style={{
+      padding: "10px",
+      borderRadius: "10px",
+      border: `1px solid ${BORDER}`,
+      fontFamily: "Arial, sans-serif",
+      resize: "none",
+    }}
+  />
+
+  <textarea
+    value={meetingDecisionDrafts[meeting._id] ?? meeting.decisions ?? ""}
+    onChange={(e) =>
+      setMeetingDecisionDrafts((prev) => ({
+        ...prev,
+        [meeting._id]: e.target.value,
+      }))
+    }
+    placeholder="Decisions made..."
+    rows={2}
+    style={{
+      padding: "10px",
+      borderRadius: "10px",
+      border: `1px solid ${BORDER}`,
+      fontFamily: "Arial, sans-serif",
+      resize: "none",
+    }}
+  />
+
+  <button
+    type="button"
+    onClick={() => saveMeetingNotes(meeting)}
+    style={{
+      backgroundColor: ROYAL_BLUE,
+      color: WHITE,
+      border: "none",
+      borderRadius: "10px",
+      padding: "9px 12px",
+      cursor: "pointer",
+      fontWeight: "bold",
+      justifySelf: "start",
+    }}
+  >
+    Save Notes & Decisions
+  </button>
+
+  <div
+    style={{
+      border: `1px solid ${BORDER}`,
+      borderRadius: "12px",
+      padding: "10px",
+      backgroundColor: "#f8fafc",
+    }}
+  >
+    <strong>Action Items</strong>
+
+    <div style={{ display: "grid", gridTemplateColumns: "1fr 180px 150px auto", gap: "8px", marginTop: "10px" }}>
+      <input
+        value={meetingActionDrafts[meeting._id]?.title || ""}
+        onChange={(e) =>
+          setMeetingActionDrafts((prev) => ({
+            ...prev,
+            [meeting._id]: {
+              ...(prev[meeting._id] || {}),
+              title: e.target.value,
+            },
+          }))
+        }
+        placeholder="Action item"
+        style={{ padding: "9px", borderRadius: "10px", border: `1px solid ${BORDER}` }}
+      />
+
+      <select
+        value={meetingActionDrafts[meeting._id]?.assignedToUserId || ""}
+        onChange={(e) =>
+          setMeetingActionDrafts((prev) => ({
+            ...prev,
+            [meeting._id]: {
+              ...(prev[meeting._id] || {}),
+              assignedToUserId: e.target.value,
+            },
+          }))
+        }
+        style={{ padding: "9px", borderRadius: "10px", border: `1px solid ${BORDER}` }}
+      >
+        <option value="">Assign to...</option>
+        {allUsers.map((staff) => (
+          <option key={staff.userId} value={staff.userId}>
+            {staff.fullName}
+          </option>
+        ))}
+      </select>
+
+      <input
+        type="date"
+        value={meetingActionDrafts[meeting._id]?.dueDate || ""}
+        onChange={(e) =>
+          setMeetingActionDrafts((prev) => ({
+            ...prev,
+            [meeting._id]: {
+              ...(prev[meeting._id] || {}),
+              dueDate: e.target.value,
+            },
+          }))
+        }
+        style={{ padding: "9px", borderRadius: "10px", border: `1px solid ${BORDER}` }}
+      />
+
+      <button
+        type="button"
+        onClick={() => addMeetingActionItem(meeting)}
+        style={{
+          backgroundColor: GOLD,
+          color: "#111827",
+          border: "none",
+          borderRadius: "10px",
+          padding: "9px 12px",
+          fontWeight: "bold",
+          cursor: "pointer",
+        }}
+      >
+        Add
+      </button>
+    </div>
+
+    {meeting.actionItems?.length > 0 && (
+      <div style={{ display: "grid", gap: "8px", marginTop: "10px" }}>
+        {meeting.actionItems.map((item) => (
+          <div
+            key={item._id}
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              gap: "10px",
+              padding: "9px",
+              borderRadius: "10px",
+              backgroundColor: WHITE,
+              border: `1px solid ${BORDER}`,
+            }}
+          >
+            <div style={{ fontSize: "13px" }}>
+              <strong>{item.title}</strong>
+              <div style={{ color: MUTED }}>
+                {item.assignedToName || "Unassigned"}
+                {item.dueDate ? ` • Due ${item.dueDate}` : ""} • {item.status}
+              </div>
+            </div>
+
+            {!item.createdTaskId && (
+              <button
+                type="button"
+                onClick={() => convertActionItemToTask(meeting._id, item._id)}
+                style={{
+                  backgroundColor: ROYAL_BLUE,
+                  color: WHITE,
+                  border: "none",
+                  borderRadius: "8px",
+                  padding: "7px 10px",
+                  cursor: "pointer",
+                  fontWeight: "bold",
+                }}
+              >
+                Convert to Task
+              </button>
+            )}
+          </div>
+        ))}
+      </div>
+    )}
+  </div>
+</div>
                 </div>
               </div>
 
               <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-                <a
-                  href={meeting.meetingUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  style={{
-                    backgroundColor: ROYAL_BLUE,
-                    color: WHITE,
-                    textDecoration: "none",
-                    borderRadius: "8px",
-                    padding: "8px 12px",
-                    fontWeight: "bold",
-                  }}
-                >
-                  Join Meeting
-                </a>
+                <button
+  type="button"
+  onClick={() => joinTrackedMeeting(meeting)}
+  style={{
+    backgroundColor: ROYAL_BLUE,
+    color: WHITE,
+    border: "none",
+    borderRadius: "8px",
+    padding: "8px 12px",
+    fontWeight: "bold",
+    cursor: "pointer",
+  }}
+>
+  Join Meeting
+</button>
 
                 {meeting.status === "Active" && (
                   <button
