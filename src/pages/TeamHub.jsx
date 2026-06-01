@@ -52,6 +52,13 @@ const [taskAssignedTo, setTaskAssignedTo] = useState("");
 const [taskPriority, setTaskPriority] = useState("Medium");
 const [taskDueDate, setTaskDueDate] = useState("");
 const [calendarEvents, setCalendarEvents] = useState([]);
+const [calendarMonth, setCalendarMonth] = useState(
+  new Date().getMonth()
+);
+
+const [calendarYear, setCalendarYear] = useState(
+  new Date().getFullYear()
+);
 const [calendarTitle, setCalendarTitle] = useState("");
 const [calendarDescription, setCalendarDescription] = useState("");
 const [calendarEventType, setCalendarEventType] = useState("Event");
@@ -893,6 +900,44 @@ const updateCalendarEvent = async (eventId, updates) => {
     console.error("Error updating calendar event:", error);
     alert(error?.response?.data?.message || "Unable to update calendar event.");
   }
+};
+
+const monthNames = [
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
+];
+
+const buildCalendarDays = () => {
+  const firstDay = new Date(calendarYear, calendarMonth, 1);
+  const lastDay = new Date(calendarYear, calendarMonth + 1, 0);
+
+  const days = [];
+
+  for (let i = 1; i <= lastDay.getDate(); i++) {
+    const dateString = `${calendarYear}-${String(
+      calendarMonth + 1
+    ).padStart(2, "0")}-${String(i).padStart(2, "0")}`;
+
+    days.push({
+      day: i,
+      dateString,
+      events: calendarEvents.filter(
+        (event) => event.startDate === dateString
+      ),
+    });
+  }
+
+  return days;
 };
 
 const deleteCalendarEvent = async (eventId) => {
@@ -2663,6 +2708,108 @@ flex: "0 0 auto",
         Add Calendar Event
       </button>
     </form>
+
+    <div
+  style={{
+    background: WHITE,
+    border: `1px solid ${BORDER}`,
+    borderRadius: "14px",
+    padding: "16px",
+    marginBottom: "20px",
+  }}
+>
+  <div
+    style={{
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "center",
+      marginBottom: "12px",
+    }}
+  >
+    <button
+      type="button"
+      onClick={() => {
+        if (calendarMonth === 0) {
+          setCalendarMonth(11);
+          setCalendarYear((prev) => prev - 1);
+        } else {
+          setCalendarMonth((prev) => prev - 1);
+        }
+      }}
+    >
+      ◀
+    </button>
+
+    <h3>
+      {monthNames[calendarMonth]} {calendarYear}
+    </h3>
+
+    <button
+      type="button"
+      onClick={() => {
+        if (calendarMonth === 11) {
+          setCalendarMonth(0);
+          setCalendarYear((prev) => prev + 1);
+        } else {
+          setCalendarMonth((prev) => prev + 1);
+        }
+      }}
+    >
+      ▶
+    </button>
+  </div>
+
+  <div
+    style={{
+      display: "grid",
+      gridTemplateColumns: "repeat(7,1fr)",
+      gap: "8px",
+    }}
+  >
+    {buildCalendarDays().map((day) => (
+      <div
+        key={day.dateString}
+        style={{
+          minHeight: "120px",
+          border: `1px solid ${BORDER}`,
+          borderRadius: "10px",
+          padding: "8px",
+          overflow: "auto",
+        }}
+      >
+        <strong>{day.day}</strong>
+
+        {day.events.map((event) => (
+          <div
+            key={event._id}
+            style={{
+              marginTop: "6px",
+              fontSize: "12px",
+              padding: "4px",
+              borderRadius: "6px",
+              backgroundColor:
+                event.eventType === "Meeting"
+                  ? "#dbeafe"
+                  : event.eventType === "Deadline"
+                  ? "#fee2e2"
+                  : event.eventType === "Staff Schedule"
+                  ? "#dcfce7"
+                  : "#fef3c7",
+            }}
+          >
+            {event.eventType === "Meeting" && "📅"}
+            {event.eventType === "Deadline" && "⏰"}
+            {event.eventType === "Staff Schedule" && "👥"}
+            {event.eventType === "Event" && "📌"}
+
+            {" "}
+            {event.title}
+          </div>
+        ))}
+      </div>
+    ))}
+  </div>
+</div>
 
     {calendarEvents.length === 0 ? (
       <p style={{ color: MUTED }}>No calendar events for this channel yet.</p>
