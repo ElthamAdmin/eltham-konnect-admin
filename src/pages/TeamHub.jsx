@@ -74,6 +74,7 @@ const [meetingAttendance, setMeetingAttendance] = useState({});
 const [meetingNotesDrafts, setMeetingNotesDrafts] = useState({});
 const [meetingDecisionDrafts, setMeetingDecisionDrafts] = useState({});
 const [meetingActionDrafts, setMeetingActionDrafts] = useState({});
+const [successMessage, setSuccessMessage] = useState("");
 
   const ROYAL_BLUE = "#0B3D91";
   const GOLD = "#D4AF37";
