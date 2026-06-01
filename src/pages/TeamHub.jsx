@@ -2766,6 +2766,26 @@ flex: "0 0 auto",
       gap: "8px",
     }}
   >
+    <div
+  style={{
+    display: "grid",
+    gridTemplateColumns: "repeat(7,1fr)",
+    gap: "8px",
+    marginBottom: "8px",
+    fontWeight: "bold",
+    textAlign: "center",
+    color: "#475569",
+  }}
+>
+  <div>Mon</div>
+  <div>Tue</div>
+  <div>Wed</div>
+  <div>Thu</div>
+  <div>Fri</div>
+  <div>Sat</div>
+  <div>Sun</div>
+</div>
+
     {buildCalendarDays().map((day) => (
       <div
         key={day.dateString}
