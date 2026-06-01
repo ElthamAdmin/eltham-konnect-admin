@@ -34,12 +34,18 @@ function BankingReconciliation() {
     loadBanking();
   }, []);
 
-  const money = (value) => `JMD ${Number(value || 0).toLocaleString()}`;
+  const money = (value, currency = "JMD") =>
+  `${currency} ${Number(value || 0).toLocaleString()}`;
 
   const totalCash = useMemo(
-    () => accounts.reduce((sum, account) => sum + Number(account.currentBalance || 0), 0),
-    [accounts]
-  );
+  () =>
+    accounts.reduce(
+      (sum, account) =>
+        sum + Number(account.baseCurrencyBalance || 0),
+      0
+    ),
+  [accounts]
+);
 
   const recentTransactions = transactions.slice(0, 25);
 
@@ -132,8 +138,9 @@ function BankingReconciliation() {
               <option value="">Select Account</option>
               {accounts.map((account) => (
                 <option key={account._id} value={account.accountNumber}>
-                  {account.accountName} ({account.accountNumber}) - {money(account.currentBalance)}
-                </option>
+  {account.accountName} ({account.accountNumber}) -{" "}
+  {money(account.currentBalance, account.currency)}
+</option>
               ))}
             </select>
 
@@ -184,6 +191,8 @@ function BankingReconciliation() {
                 <th>Bank</th>
                 <th>Opening Balance</th>
                 <th>Current Balance</th>
+                <th>Currency</th>
+<th>JMD Equivalent</th>
                 <th>Status</th>
               </tr>
             </thead>
@@ -196,8 +205,22 @@ function BankingReconciliation() {
                     <td>{account.accountName}</td>
                     <td>{account.accountType}</td>
                     <td>{account.bankName || "—"}</td>
-                    <td>{money(account.openingBalance)}</td>
-                    <td style={{ fontWeight: "bold" }}>{money(account.currentBalance)}</td>
+                    <td>
+  {money(account.openingBalance, account.currency)}
+</td>
+
+<td style={{ fontWeight: "bold" }}>
+  {money(account.currentBalance, account.currency)}
+</td>
+<td>{account.currency || "JMD"}</td>
+
+<td>
+  {money(
+    account.baseCurrencyBalance || account.currentBalance,
+    "JMD"
+  )}
+</td>
+
                     <td>{account.status}</td>
                   </tr>
                 ))
