@@ -1641,35 +1641,86 @@ flex: "0 0 auto",
     Create Folder
   </button>
 </div>
+<div
+  style={{
+    display: "grid",
+    gap: "8px",
+    marginTop: "12px",
+  }}
+>
+  <button
+    type="button"
+    onClick={() => setSelectedFolderPath("All")}
+    style={{
+      textAlign: "left",
+      border: `1px solid ${BORDER}`,
+      borderRadius: "10px",
+      padding: "9px 10px",
+      fontWeight: "bold",
+      backgroundColor: WHITE,
+      cursor: "pointer",
+    }}
+  >
+    📁 All Files
+  </button>
 
-            <div style={{ display: "grid", gap: "8px", marginTop: "12px" }}>
-              {folderPaths.map((folderPath) => (
-                <button
-                  key={folderPath.includes("/")
-  ? `📂 ${folderPath}`
-  : `📁 ${folderPath}`}
-                  type="button"
-                  onClick={() => setSelectedFolderPath(folderPath)}
-                  style={{
-                    textAlign: "left",
-                    border: `1px solid ${
-                      selectedFolderPath === folderPath ? ROYAL_BLUE : BORDER
-                    }`,
-                    backgroundColor:
-                      selectedFolderPath === folderPath ? "#eef4ff" : WHITE,
-                    color:
-                      selectedFolderPath === folderPath ? ROYAL_BLUE : "#334155",
-                    borderRadius: "10px",
-                    padding: "9px 10px",
-                    cursor: "pointer",
-                    fontWeight: "bold",
-                  }}
-                >
-                  {folderPath === "All" ? "📁 All Files" : `📁 ${folderPath}`}
-                </button>
-              ))}
-            </div>
-          </div>
+  {channelFolders
+    .filter((f) => !f.parentFolderPath)
+    .map((parentFolder) => (
+      <div key={parentFolder._id}>
+        <button
+          type="button"
+          onClick={() =>
+            setSelectedFolderPath(parentFolder.folderPath)
+          }
+          style={{
+            width: "100%",
+            textAlign: "left",
+            border: `1px solid ${BORDER}`,
+            borderRadius: "10px",
+            padding: "9px 10px",
+            fontWeight: "bold",
+            backgroundColor: "#eef4ff",
+            cursor: "pointer",
+          }}
+        >
+          ▼ {parentFolder.name}
+        </button>
+
+        {channelFolders
+          .filter(
+            (child) =>
+              child.parentFolderPath ===
+              parentFolder.folderPath
+          )
+          .map((childFolder) => (
+            <button
+              key={childFolder._id}
+              type="button"
+              onClick={() =>
+                setSelectedFolderPath(
+                  childFolder.folderPath
+                )
+              }
+              style={{
+                width: "100%",
+                textAlign: "left",
+                marginTop: "4px",
+                marginLeft: "15px",
+                border: `1px solid ${BORDER}`,
+                borderRadius: "10px",
+                padding: "8px",
+                backgroundColor: WHITE,
+                cursor: "pointer",
+              }}
+            >
+              📂 {childFolder.name}
+            </button>
+          ))}
+      </div>
+    ))}
+</div>
+</div>
 
           <div>
             {visibleDocuments.length === 0 ? (
