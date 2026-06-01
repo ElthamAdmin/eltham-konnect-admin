@@ -1728,18 +1728,23 @@ flex: "0 0 auto",
                           </div>
 
                           {doc.isLocked && (
-                            <div
-                              style={{
-                                marginTop: "6px",
-                                fontSize: "12px",
-                                color: "#92400e",
-                                fontWeight: "bold",
-                              }}
-                            >
-                              🔒 Locked by {doc.lockedByName || "Staff"}
-                              {lockedByMe ? " (You)" : ""}
-                            </div>
-                          )}
+  <div style={{ marginTop: "8px" }}>
+    <span
+      style={{
+        display: "inline-block",
+        backgroundColor: "#fef3c7",
+        color: "#92400e",
+        padding: "4px 10px",
+        borderRadius: "999px",
+        fontWeight: "bold",
+        fontSize: "12px",
+      }}
+    >
+      🔒 Locked by {doc.lockedByName || "Staff"}
+      {lockedByMe ? " (You)" : ""}
+    </span>
+  </div>
+)}
                         </div>
 
                         <div
@@ -1750,6 +1755,36 @@ flex: "0 0 auto",
                             alignItems: "center",
                           }}
                         >
+                          <a
+  href={`${api.defaults.baseURL}${doc.fileUrl}`}
+  target="_blank"
+  rel="noreferrer"
+  style={{
+    backgroundColor: ROYAL_BLUE,
+    color: WHITE,
+    textDecoration: "none",
+    borderRadius: "8px",
+    padding: "7px 10px",
+    fontWeight: "bold",
+  }}
+>
+  Open
+</a>
+
+<a
+  href={`${api.defaults.baseURL}${doc.fileUrl}`}
+  download
+  style={{
+    backgroundColor: "#16a34a",
+    color: WHITE,
+    textDecoration: "none",
+    borderRadius: "8px",
+    padding: "7px 10px",
+    fontWeight: "bold",
+  }}
+>
+  Download
+</a>
                           <button
                             type="button"
                             onClick={() => toggleDocumentLock(doc)}
