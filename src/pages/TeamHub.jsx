@@ -26,6 +26,7 @@ const [documentTitle, setDocumentTitle] = useState("");
 const [documentFolder, setDocumentFolder] = useState("General");
 const [documentFile, setDocumentFile] = useState(null);
 const [selectedFolderPath, setSelectedFolderPath] = useState("All");
+const [expandedFolders, setExpandedFolders] = useState({});
 const [channelFolders, setChannelFolders] = useState([]);
 const [newFolderName, setNewFolderName] = useState("");
 const [newFolderParent, setNewFolderParent] = useState("");
@@ -1669,31 +1670,37 @@ flex: "0 0 auto",
     .map((parentFolder) => (
       <div key={parentFolder._id}>
         <button
-          type="button"
-          onClick={() =>
-            setSelectedFolderPath(parentFolder.folderPath)
-          }
-          style={{
-            width: "100%",
-            textAlign: "left",
-            border: `1px solid ${BORDER}`,
-            borderRadius: "10px",
-            padding: "9px 10px",
-            fontWeight: "bold",
-            backgroundColor: "#eef4ff",
-            cursor: "pointer",
-          }}
-        >
-          ▼ {parentFolder.name}
-        </button>
+  type="button"
+  onClick={() => {
+    setSelectedFolderPath(parentFolder.folderPath);
+    setExpandedFolders((prev) => ({
+      ...prev,
+      [parentFolder.folderPath]: !prev[parentFolder.folderPath],
+    }));
+  }}
+  style={{
+    width: "100%",
+    textAlign: "left",
+    border: `1px solid ${BORDER}`,
+    borderRadius: "10px",
+    padding: "9px 10px",
+    fontWeight: "bold",
+    backgroundColor:
+      selectedFolderPath === parentFolder.folderPath ? "#eef4ff" : WHITE,
+    cursor: "pointer",
+  }}
+>
+  {expandedFolders[parentFolder.folderPath] ? "▼" : "▶"} {parentFolder.name}
+</button>
 
-        {channelFolders
-          .filter(
-            (child) =>
-              child.parentFolderPath ===
-              parentFolder.folderPath
-          )
-          .map((childFolder) => (
+        {expandedFolders[parentFolder.folderPath] &&
+  channelFolders
+    .filter(
+      (child) =>
+        child.parentFolderPath ===
+        parentFolder.folderPath
+    )
+    .map((childFolder) => (
             <button
               key={childFolder._id}
               type="button"
