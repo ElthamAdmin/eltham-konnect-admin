@@ -134,7 +134,7 @@ const [accounts, setAccounts] = useState([]);
       const res = await api.get(`/api/pos/invoice/${invoiceNumber.trim()}`);
       setInvoiceType(res.data.data.invoiceType);
       setLoadedInvoice(res.data.data.invoice);
-      setAmountTendered(res.data.data.invoice.finalTotal || "");
+      setAmountTendered("");
     } catch (error) {
       setLoadedInvoice(null);
       setInvoiceType("");
@@ -585,6 +585,82 @@ const printReceipt = () => {
           Math.max(
             Number(amountTendered || 0) -
               Number(loadedInvoice.finalTotal || 0),
+            0
+          )
+        )}
+      </div>
+    </div>
+  )}
+</div>
+
+{/* AMOUNT TENDERED / NUMBER PAD */}
+<div
+  style={{
+    background: "white",
+    padding: "14px",
+    borderRadius: "12px",
+    marginBottom: "16px",
+    boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+  }}
+>
+  <label style={{ display: "block", fontWeight: "bold", marginBottom: "8px" }}>
+    Amount Tendered
+  </label>
+
+  <input
+    type="number"
+    value={amountTendered}
+    onChange={(e) => setAmountTendered(e.target.value)}
+    disabled={!loadedInvoice || loadedInvoice.status === "Paid"}
+    placeholder="Enter amount received"
+    style={{
+      width: "100%",
+      padding: "14px",
+      borderRadius: "10px",
+      border: "1px solid #cbd5e1",
+      fontSize: "22px",
+      fontWeight: "bold",
+      marginBottom: "10px",
+    }}
+  />
+
+  <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "8px" }}>
+    {["1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "00", "Clear"].map((key) => (
+      <button
+        key={key}
+        onClick={() => {
+          if (key === "Clear") {
+            setAmountTendered("");
+          } else {
+            setAmountTendered((prev) => `${prev || ""}${key}`);
+          }
+        }}
+        disabled={!loadedInvoice || loadedInvoice.status === "Paid"}
+        style={{
+          padding: "18px",
+          borderRadius: "10px",
+          border: "none",
+          background: "#dbeafe",
+          fontSize: "22px",
+          fontWeight: "bold",
+          cursor: "pointer",
+        }}
+      >
+        {key}
+      </button>
+    ))}
+  </div>
+
+  {loadedInvoice && (
+    <div style={{ marginTop: "12px", fontWeight: "bold" }}>
+      <div>Invoice Balance: {money(loadedInvoice.balanceDue || loadedInvoice.finalTotal)}</div>
+      <div>Tendered: {money(amountTendered)}</div>
+      <div style={{ color: "#15803d" }}>
+        Change:{" "}
+        {money(
+          Math.max(
+            Number(amountTendered || 0) -
+              Number(loadedInvoice.balanceDue || loadedInvoice.finalTotal || 0),
             0
           )
         )}
