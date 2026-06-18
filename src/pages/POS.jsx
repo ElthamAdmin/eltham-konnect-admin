@@ -488,13 +488,26 @@ const printReceipt = () => {
           </div>
 
           <div
-            style={{
-              fontSize: "28px",
-              marginBottom: "12px",
-            }}
-          >
-            Tax: {money(loadedInvoice?.gct || 0)}
-          </div>
+  style={{
+    fontSize: "28px",
+    marginBottom: "12px",
+  }}
+>
+  Tax: {money(loadedInvoice?.gct || 0)}
+</div>
+
+{Number(loadedInvoice?.pointsRedeemed || 0) > 0 && (
+  <div
+    style={{
+      fontSize: "28px",
+      marginBottom: "12px",
+      color: "#facc15",
+    }}
+  >
+    EK Points Redeemed:
+    -{money(loadedInvoice?.pointsRedeemed || 0)}
+  </div>
+)}
 
           <div
             style={{
@@ -502,7 +515,7 @@ const printReceipt = () => {
               fontWeight: "bold",
             }}
           >
-            {money(loadedInvoice?.finalTotal || 0)}
+            Amount Due: {money(loadedInvoice?.finalTotal || 0)}
           </div>
         </div>
 
@@ -527,71 +540,6 @@ const printReceipt = () => {
         >
           PAY
         </button>
-
-        <div
-  style={{
-    background: "white",
-    padding: "14px",
-    borderRadius: "12px",
-    marginBottom: "16px",
-    boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-  }}
->
-  <label
-    style={{
-      display: "block",
-      fontWeight: "bold",
-      marginBottom: "8px",
-    }}
-  >
-    Amount Tendered
-  </label>
-
-  <input
-    type="number"
-    value={amountTendered}
-    onChange={(e) => setAmountTendered(e.target.value)}
-    disabled={!loadedInvoice || loadedInvoice.status === "Paid"}
-    placeholder="Enter amount customer paid"
-    style={{
-      width: "100%",
-      padding: "12px",
-      borderRadius: "10px",
-      border: "1px solid #cbd5e1",
-      fontSize: "18px",
-      fontWeight: "bold",
-    }}
-  />
-
-  {loadedInvoice && Number(amountTendered || 0) > 0 && (
-    <div style={{ marginTop: "10px" }}>
-      <div>
-        Invoice Total: {money(loadedInvoice.finalTotal)}
-      </div>
-
-      <div>
-        Tendered: {money(amountTendered)}
-      </div>
-
-      <div
-        style={{
-          color: "#15803d",
-          fontWeight: "bold",
-        }}
-      >
-        Change:
-        {" "}
-        {money(
-          Math.max(
-            Number(amountTendered || 0) -
-              Number(loadedInvoice.finalTotal || 0),
-            0
-          )
-        )}
-      </div>
-    </div>
-  )}
-</div>
 
 {/* AMOUNT TENDERED / NUMBER PAD */}
 <div
