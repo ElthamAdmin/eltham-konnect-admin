@@ -187,14 +187,16 @@ const updateWorkflow = async () => {
       <thead style={{ backgroundColor: "#eef4ff" }}>
         <tr>
           <th>Priority</th>
-          <th>Score</th>
-          <th>Customer</th>
-          <th>Invoice</th>
-          <th>Days</th>
-          <th>Balance</th>
-          <th>Reason</th>
-          <th>Next Action</th>
-          <th>Collector</th>
+<th>Score</th>
+<th>Customer</th>
+<th>Invoice</th>
+<th>Days</th>
+<th>Balance</th>
+<th>Current Status</th>
+<th>Auto Status</th>
+<th>Reason</th>
+<th>Next Action</th>
+<th>Collector</th>
         </tr>
       </thead>
 
@@ -225,14 +227,18 @@ const updateWorkflow = async () => {
               <td>{item.invoiceNumber}</td>
               <td>{item.daysOutstanding}</td>
               <td>{money(item.balanceDue)}</td>
-              <td>{item.reason}</td>
-              <td>{item.recommendedAction}</td>
-              <td>{item.assignedCollector || "Unassigned"}</td>
+              <td>{item.collectionsStatus}</td>
+<td style={{ fontWeight: "bold", color: item.statusChangeRecommended ? "#dc2626" : "#16a34a" }}>
+  {item.automatedStatus}
+</td>
+<td>{item.reason}</td>
+<td>{item.recommendedAction}</td>
+<td>{item.assignedCollector || "Unassigned"}</td>
             </tr>
           ))
         ) : (
           <tr>
-            <td colSpan="9" style={{ textAlign: "center", color: MUTED }}>
+            <td colSpan="11" style={{ textAlign: "center", color: MUTED }}>
               No collection work queue items found.
             </td>
           </tr>
