@@ -5,10 +5,9 @@ function AccountsReceivable() {
   const [dashboard, setDashboard] = useState(null);
   const [aging, setAging] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
-
-const [selectedCustomerId, setSelectedCustomerId] = useState("");
-const [customerProfile, setCustomerProfile] = useState(null);
-const [collectionNote, setCollectionNote] = useState("");
+  const [selectedCustomerId, setSelectedCustomerId] = useState("");
+  const [customerProfile, setCustomerProfile] = useState(null);
+  const [collectionNote, setCollectionNote] = useState("");
 
   const ROYAL_BLUE = "#0B3D91";
   const BORDER = "#dbe3ef";
@@ -31,6 +30,46 @@ const [collectionNote, setCollectionNote] = useState("");
     }
   };
 
+  const loadCustomerProfile = async (customerEkonId) => {
+    try {
+      setSelectedCustomerId(customerEkonId);
+      const res = await api.get(
+        `/api/accounts-receivable/collections/customers/${customerEkonId}`
+      );
+      setCustomerProfile(res.data.data);
+    } catch (error) {
+      console.error("Customer collections profile error:", error);
+      alert(error?.response?.data?.message || "Could not load customer profile.");
+    }
+  };
+
+  const addNoteToFirstOpenInvoice = async () => {
+    try {
+      const firstInvoice = customerProfile?.openInvoices?.[0];
+
+      if (!firstInvoice) {
+        alert("No open invoice found for this customer.");
+        return;
+      }
+
+      if (!collectionNote.trim()) {
+        alert("Enter a collection note.");
+        return;
+      }
+
+      await api.post(
+        `/api/accounts-receivable/collections/invoices/${firstInvoice.invoiceNumber}/notes`,
+        { note: collectionNote }
+      );
+
+      setCollectionNote("");
+      await loadCustomerProfile(customerProfile.customer.ekonId);
+    } catch (error) {
+      console.error("Add collection note error:", error);
+      alert(error?.response?.data?.message || "Could not add note.");
+    }
+  };
+
   useEffect(() => {
     loadReceivables();
   }, []);
@@ -49,8 +88,10 @@ const [collectionNote, setCollectionNote] = useState("");
     if (!value) return 0;
     const created = new Date(value);
     if (Number.isNaN(created.getTime())) return 0;
-    const diff = Date.now() - created.getTime();
-    return Math.max(0, Math.floor(diff / (1000 * 60 * 60 * 24)));
+    return Math.max(
+      0,
+      Math.floor((Date.now() - created.getTime()) / (1000 * 60 * 60 * 24))
+    );
   };
 
   return (
@@ -99,128 +140,128 @@ const [collectionNote, setCollectionNote] = useState("");
       </div>
 
       {customerProfile && (
-  <Section title={`Customer Collections Profile - ${customerProfile.customer.name}`}>
-    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "12px", marginBottom: "16px" }}>
-      <Card><h3>{customerProfile.customer.ekonId}</h3><p><b>EKON ID</b></p></Card>
-      <Card><h3>{money(customerProfile.summary.outstandingBalance)}</h3><p><b>Outstanding</b></p></Card>
-      <Card><h3>{customerProfile.summary.openInvoiceCount}</h3><p><b>Open Invoices</b></p></Card>
-      <Card><h3>{customerProfile.summary.oldestInvoiceDays}</h3><p><b>Oldest Days</b></p></Card>
-      <Card><h3>{customerProfile.summary.riskLevel}</h3><p><b>Risk Level</b></p></Card>
-      <Card><h3>{customerProfile.summary.collectionStatus}</h3><p><b>Collection Status</b></p></Card>
-    </div>
+        <Section title={`Customer Collections Profile - ${customerProfile.customer.name}`}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "12px", marginBottom: "16px" }}>
+            <Card><h3>{customerProfile.customer.ekonId}</h3><p><b>EKON ID</b></p></Card>
+            <Card><h3>{money(customerProfile.summary.outstandingBalance)}</h3><p><b>Outstanding</b></p></Card>
+            <Card><h3>{customerProfile.summary.openInvoiceCount}</h3><p><b>Open Invoices</b></p></Card>
+            <Card><h3>{customerProfile.summary.oldestInvoiceDays}</h3><p><b>Oldest Days</b></p></Card>
+            <Card><h3>{customerProfile.summary.riskLevel}</h3><p><b>Risk Level</b></p></Card>
+            <Card><h3>{customerProfile.summary.collectionStatus}</h3><p><b>Collection Status</b></p></Card>
+          </div>
 
-    <p><b>Email:</b> {customerProfile.customer.email || "—"}</p>
-    <p><b>Phone:</b> {customerProfile.customer.phone || "—"}</p>
-    <p><b>Branch:</b> {customerProfile.customer.branch || "—"}</p>
+          <p><b>Email:</b> {customerProfile.customer.email || "—"}</p>
+          <p><b>Phone:</b> {customerProfile.customer.phone || "—"}</p>
+          <p><b>Branch:</b> {customerProfile.customer.branch || "—"}</p>
 
-    <h3>Recommendations</h3>
-    <ul>
-      {(customerProfile.recommendations || []).map((item, index) => (
-        <li key={index}>{item}</li>
-      ))}
-    </ul>
+          <h3>Recommendations</h3>
+          <ul>
+            {(customerProfile.recommendations || []).map((item, index) => (
+              <li key={index}>{item}</li>
+            ))}
+          </ul>
 
-    <h3>Open Invoices</h3>
-    <table border="1" cellPadding="9" style={{ width: "100%", borderCollapse: "collapse", borderColor: BORDER }}>
-      <thead style={{ backgroundColor: "#eef4ff" }}>
-        <tr>
-          <th>Invoice</th>
-          <th>Date</th>
-          <th>Days</th>
-          <th>Balance</th>
-          <th>Status</th>
-          <th>Collection</th>
-          <th>Promise</th>
-        </tr>
-      </thead>
-      <tbody>
-        {(customerProfile.openInvoices || []).map((invoice) => (
-          <tr key={invoice.invoiceNumber}>
-            <td>{invoice.invoiceNumber}</td>
-            <td>{String(invoice.invoiceDate || "").slice(0, 10)}</td>
-            <td>{invoice.daysOutstanding}</td>
-            <td>{money(invoice.balanceDue)}</td>
-            <td>{invoice.status}</td>
-            <td>{invoice.collectionsStatus || "Normal"}</td>
-            <td>{invoice.promiseToPayStatus || "None"}</td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
+          <h3>Open Invoices</h3>
+          <table border="1" cellPadding="9" style={{ width: "100%", borderCollapse: "collapse", borderColor: BORDER }}>
+            <thead style={{ backgroundColor: "#eef4ff" }}>
+              <tr>
+                <th>Invoice</th>
+                <th>Date</th>
+                <th>Days</th>
+                <th>Balance</th>
+                <th>Status</th>
+                <th>Collection</th>
+                <th>Promise</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(customerProfile.openInvoices || []).map((invoice) => (
+                <tr key={invoice.invoiceNumber}>
+                  <td>{invoice.invoiceNumber}</td>
+                  <td>{String(invoice.invoiceDate || "").slice(0, 10)}</td>
+                  <td>{invoice.daysOutstanding}</td>
+                  <td>{money(invoice.balanceDue)}</td>
+                  <td>{invoice.status}</td>
+                  <td>{invoice.collectionsStatus || "Normal"}</td>
+                  <td>{invoice.promiseToPayStatus || "None"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
 
-    <h3>Add Collection Note</h3>
-    <textarea
-      value={collectionNote}
-      onChange={(e) => setCollectionNote(e.target.value)}
-      placeholder="Enter collection note for this customer..."
-      style={{
-        width: "100%",
-        minHeight: "80px",
-        padding: "10px",
-        borderRadius: "8px",
-        border: `1px solid ${BORDER}`,
-      }}
-    />
+          <h3>Add Collection Note</h3>
+          <textarea
+            value={collectionNote}
+            onChange={(e) => setCollectionNote(e.target.value)}
+            placeholder="Enter collection note for this customer..."
+            style={{
+              width: "100%",
+              minHeight: "80px",
+              padding: "10px",
+              borderRadius: "8px",
+              border: `1px solid ${BORDER}`,
+            }}
+          />
 
-    <button
-      type="button"
-      onClick={addNoteToFirstOpenInvoice}
-      style={{
-        marginTop: "10px",
-        padding: "10px 14px",
-        border: "none",
-        borderRadius: "8px",
-        backgroundColor: ROYAL_BLUE,
-        color: "white",
-        fontWeight: "bold",
-        cursor: "pointer",
-      }}
-    >
-      Add Note
-    </button>
+          <button
+            type="button"
+            onClick={addNoteToFirstOpenInvoice}
+            style={{
+              marginTop: "10px",
+              padding: "10px 14px",
+              border: "none",
+              borderRadius: "8px",
+              backgroundColor: ROYAL_BLUE,
+              color: "white",
+              fontWeight: "bold",
+              cursor: "pointer",
+            }}
+          >
+            Add Note
+          </button>
 
-    <h3>Collection Notes</h3>
-    {(customerProfile.collectionNotes || []).length > 0 ? (
-      <ul>
-        {customerProfile.collectionNotes.map((note, index) => (
-          <li key={index}>
-            <b>{new Date(note.createdAt).toLocaleString()}:</b> {note.note} — {note.createdBy}
-          </li>
-        ))}
-      </ul>
-    ) : (
-      <p style={{ color: MUTED }}>No collection notes yet.</p>
-    )}
+          <h3>Collection Notes</h3>
+          {(customerProfile.collectionNotes || []).length > 0 ? (
+            <ul>
+              {customerProfile.collectionNotes.map((note, index) => (
+                <li key={index}>
+                  <b>{new Date(note.createdAt).toLocaleString()}:</b> {note.note} — {note.createdBy}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p style={{ color: MUTED }}>No collection notes yet.</p>
+          )}
 
-    <h3>Payment History</h3>
-    {(customerProfile.paymentHistory || []).length > 0 ? (
-      <table border="1" cellPadding="9" style={{ width: "100%", borderCollapse: "collapse", borderColor: BORDER }}>
-        <thead style={{ backgroundColor: "#eef4ff" }}>
-          <tr>
-            <th>Invoice</th>
-            <th>Date</th>
-            <th>Amount</th>
-            <th>Method</th>
-            <th>Received By</th>
-          </tr>
-        </thead>
-        <tbody>
-          {customerProfile.paymentHistory.map((payment, index) => (
-            <tr key={index}>
-              <td>{payment.invoiceNumber}</td>
-              <td>{String(payment.paymentDate || "").slice(0, 10)}</td>
-              <td>{money(payment.amount)}</td>
-              <td>{payment.paymentMethod}</td>
-              <td>{payment.receivedBy}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    ) : (
-      <p style={{ color: MUTED }}>No payment history found.</p>
-    )}
-  </Section>
-)}
+          <h3>Payment History</h3>
+          {(customerProfile.paymentHistory || []).length > 0 ? (
+            <table border="1" cellPadding="9" style={{ width: "100%", borderCollapse: "collapse", borderColor: BORDER }}>
+              <thead style={{ backgroundColor: "#eef4ff" }}>
+                <tr>
+                  <th>Invoice</th>
+                  <th>Date</th>
+                  <th>Amount</th>
+                  <th>Method</th>
+                  <th>Received By</th>
+                </tr>
+              </thead>
+              <tbody>
+                {customerProfile.paymentHistory.map((payment, index) => (
+                  <tr key={index}>
+                    <td>{payment.invoiceNumber}</td>
+                    <td>{String(payment.paymentDate || "").slice(0, 10)}</td>
+                    <td>{money(payment.amount)}</td>
+                    <td>{payment.paymentMethod}</td>
+                    <td>{payment.receivedBy}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <p style={{ color: MUTED }}>No payment history found.</p>
+          )}
+        </Section>
+      )}
 
       <Section title="Customer Receivable Ledger">
         <div style={{ overflowX: "auto", overflowY: "auto", maxHeight: "70vh", border: `1px solid ${BORDER}`, borderRadius: "12px" }}>
@@ -240,9 +281,24 @@ const [collectionNote, setCollectionNote] = useState("");
             <tbody>
               {filteredRows.length > 0 ? (
                 filteredRows.map((row) => (
-                  <tr key={row.invoiceNumber}>
+                  <tr key={row.invoiceNumber} style={{ backgroundColor: selectedCustomerId === row.customerEkonId ? "#f0f7ff" : "white" }}>
                     <td style={{ fontWeight: "bold" }}>{row.invoiceNumber}</td>
-                    <td>{row.customerName}</td>
+                    <td>
+                      <button
+                        type="button"
+                        onClick={() => loadCustomerProfile(row.customerEkonId)}
+                        style={{
+                          background: "none",
+                          border: "none",
+                          color: ROYAL_BLUE,
+                          fontWeight: "bold",
+                          cursor: "pointer",
+                          textDecoration: "underline",
+                        }}
+                      >
+                        {row.customerName}
+                      </button>
+                    </td>
                     <td>{row.customerEkonId}</td>
                     <td>{String(row.invoiceDate || "").slice(0, 10)}</td>
                     <td>{getAgeDays(row.invoiceDate)} day(s)</td>
@@ -266,23 +322,6 @@ const [collectionNote, setCollectionNote] = useState("");
   );
 }
 
-<td>
-  <button
-    type="button"
-    onClick={() => loadCustomerProfile(row.customerEkonId)}
-    style={{
-      background: "none",
-      border: "none",
-      color: ROYAL_BLUE,
-      fontWeight: "bold",
-      cursor: "pointer",
-      textDecoration: "underline",
-    }}
-  >
-    {row.customerName}
-  </button>
-</td>
-
 function MiniTable({ title, rows, money, showAge = false }) {
   const BORDER = "#dbe3ef";
 
@@ -290,7 +329,10 @@ function MiniTable({ title, rows, money, showAge = false }) {
     if (!value) return 0;
     const created = new Date(value);
     if (Number.isNaN(created.getTime())) return 0;
-    return Math.max(0, Math.floor((Date.now() - created.getTime()) / (1000 * 60 * 60 * 24)));
+    return Math.max(
+      0,
+      Math.floor((Date.now() - created.getTime()) / (1000 * 60 * 60 * 24))
+    );
   };
 
   return (
@@ -322,46 +364,6 @@ function MiniTable({ title, rows, money, showAge = false }) {
     </Section>
   );
 }
-
-const loadCustomerProfile = async (customerEkonId) => {
-  try {
-    setSelectedCustomerId(customerEkonId);
-    const res = await api.get(
-      `/api/accounts-receivable/collections/customers/${customerEkonId}`
-    );
-    setCustomerProfile(res.data.data);
-  } catch (error) {
-    console.error("Customer collections profile error:", error);
-    alert(error?.response?.data?.message || "Could not load customer profile.");
-  }
-};
-
-const addNoteToFirstOpenInvoice = async () => {
-  try {
-    const firstInvoice = customerProfile?.openInvoices?.[0];
-
-    if (!firstInvoice) {
-      alert("No open invoice found for this customer.");
-      return;
-    }
-
-    if (!collectionNote.trim()) {
-      alert("Enter a collection note.");
-      return;
-    }
-
-    await api.post(
-      `/api/accounts-receivable/collections/invoices/${firstInvoice.invoiceNumber}/notes`,
-      { note: collectionNote }
-    );
-
-    setCollectionNote("");
-    await loadCustomerProfile(customerProfile.customer.ekonId);
-  } catch (error) {
-    console.error("Add collection note error:", error);
-    alert(error?.response?.data?.message || "Could not add note.");
-  }
-};
 
 function Section({ title, children }) {
   return (
