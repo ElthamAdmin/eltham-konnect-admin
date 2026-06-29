@@ -8,6 +8,15 @@ function AccountsReceivable() {
   const [selectedCustomerId, setSelectedCustomerId] = useState("");
   const [customerProfile, setCustomerProfile] = useState(null);
   const [collectionNote, setCollectionNote] = useState("");
+  const [selectedInvoiceNumber, setSelectedInvoiceNumber] = useState("");
+  const [workflowForm, setWorkflowForm] = useState({
+  collectionsStatus: "Normal",
+  assignedCollector: "",
+  nextFollowUpDate: "",
+  promiseToPayDate: "",
+  promiseToPayAmount: "",
+  promiseToPayStatus: "None",
+});
 
   const ROYAL_BLUE = "#0B3D91";
   const BORDER = "#dbe3ef";
@@ -69,6 +78,42 @@ function AccountsReceivable() {
       alert(error?.response?.data?.message || "Could not add note.");
     }
   };
+
+  const selectInvoiceForWorkflow = (invoice) => {
+  setSelectedInvoiceNumber(invoice.invoiceNumber);
+  setWorkflowForm({
+    collectionsStatus: invoice.collectionsStatus || "Normal",
+    assignedCollector: invoice.assignedCollector || "",
+    nextFollowUpDate: invoice.nextFollowUpDate
+      ? String(invoice.nextFollowUpDate).slice(0, 10)
+      : "",
+    promiseToPayDate: invoice.promiseToPayDate
+      ? String(invoice.promiseToPayDate).slice(0, 10)
+      : "",
+    promiseToPayAmount: invoice.promiseToPayAmount || "",
+    promiseToPayStatus: invoice.promiseToPayStatus || "None",
+  });
+};
+
+const updateWorkflow = async () => {
+  try {
+    if (!selectedInvoiceNumber) {
+      alert("Select an invoice first.");
+      return;
+    }
+
+    await api.put(
+      `/api/accounts-receivable/collections/invoices/${selectedInvoiceNumber}/workflow`,
+      workflowForm
+    );
+
+    await loadCustomerProfile(customerProfile.customer.ekonId);
+    alert("Collection workflow updated.");
+  } catch (error) {
+    console.error("Update workflow error:", error);
+    alert(error?.response?.data?.message || "Could not update workflow.");
+  }
+};
 
   useEffect(() => {
     loadReceivables();
@@ -172,6 +217,7 @@ function AccountsReceivable() {
                 <th>Status</th>
                 <th>Collection</th>
                 <th>Promise</th>
+                <th>Action</th>
               </tr>
             </thead>
             <tbody>
@@ -184,10 +230,155 @@ function AccountsReceivable() {
                   <td>{invoice.status}</td>
                   <td>{invoice.collectionsStatus || "Normal"}</td>
                   <td>{invoice.promiseToPayStatus || "None"}</td>
+                  <td>
+  <button
+    type="button"
+    onClick={() => selectInvoiceForWorkflow(invoice)}
+    style={{
+      padding: "6px 10px",
+      border: "none",
+      borderRadius: "8px",
+      backgroundColor: ROYAL_BLUE,
+      color: "white",
+      fontWeight: "bold",
+      cursor: "pointer",
+    }}
+  >
+    Manage
+  </button>
+</td>
                 </tr>
               ))}
             </tbody>
           </table>
+
+          {selectedInvoiceNumber && (
+  <>
+    <h3>Collection Actions</h3>
+
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+        gap: "12px",
+        marginBottom: "12px",
+      }}
+    >
+      <div>
+        <label><b>Selected Invoice</b></label>
+        <input
+          value={selectedInvoiceNumber}
+          readOnly
+          style={{ width: "100%", padding: "9px", border: `1px solid ${BORDER}`, borderRadius: "8px" }}
+        />
+      </div>
+
+      <div>
+        <label><b>Collection Status</b></label>
+        <select
+          value={workflowForm.collectionsStatus}
+          onChange={(e) =>
+            setWorkflowForm({ ...workflowForm, collectionsStatus: e.target.value })
+          }
+          style={{ width: "100%", padding: "9px", border: `1px solid ${BORDER}`, borderRadius: "8px" }}
+        >
+          <option>Normal</option>
+          <option>Reminder Sent</option>
+          <option>Contacted</option>
+          <option>No Answer</option>
+          <option>Follow Up</option>
+          <option>Promise To Pay</option>
+          <option>Payment Arrangement</option>
+          <option>Overdue</option>
+          <option>Final Notice</option>
+          <option>Collections</option>
+          <option>Legal Review</option>
+          <option>Written Off</option>
+        </select>
+      </div>
+
+      <div>
+        <label><b>Assigned Collector</b></label>
+        <input
+          value={workflowForm.assignedCollector}
+          onChange={(e) =>
+            setWorkflowForm({ ...workflowForm, assignedCollector: e.target.value })
+          }
+          style={{ width: "100%", padding: "9px", border: `1px solid ${BORDER}`, borderRadius: "8px" }}
+        />
+      </div>
+
+      <div>
+        <label><b>Next Follow-up</b></label>
+        <input
+          type="date"
+          value={workflowForm.nextFollowUpDate}
+          onChange={(e) =>
+            setWorkflowForm({ ...workflowForm, nextFollowUpDate: e.target.value })
+          }
+          style={{ width: "100%", padding: "9px", border: `1px solid ${BORDER}`, borderRadius: "8px" }}
+        />
+      </div>
+
+      <div>
+        <label><b>Promise Date</b></label>
+        <input
+          type="date"
+          value={workflowForm.promiseToPayDate}
+          onChange={(e) =>
+            setWorkflowForm({ ...workflowForm, promiseToPayDate: e.target.value })
+          }
+          style={{ width: "100%", padding: "9px", border: `1px solid ${BORDER}`, borderRadius: "8px" }}
+        />
+      </div>
+
+      <div>
+        <label><b>Promise Amount</b></label>
+        <input
+          type="number"
+          value={workflowForm.promiseToPayAmount}
+          onChange={(e) =>
+            setWorkflowForm({ ...workflowForm, promiseToPayAmount: e.target.value })
+          }
+          style={{ width: "100%", padding: "9px", border: `1px solid ${BORDER}`, borderRadius: "8px" }}
+        />
+      </div>
+
+      <div>
+        <label><b>Promise Status</b></label>
+        <select
+          value={workflowForm.promiseToPayStatus}
+          onChange={(e) =>
+            setWorkflowForm({ ...workflowForm, promiseToPayStatus: e.target.value })
+          }
+          style={{ width: "100%", padding: "9px", border: `1px solid ${BORDER}`, borderRadius: "8px" }}
+        >
+          <option>None</option>
+          <option>Pending</option>
+          <option>Fulfilled</option>
+          <option>Broken</option>
+        </select>
+      </div>
+    </div>
+
+    <button
+      type="button"
+      onClick={updateWorkflow}
+      style={{
+        padding: "10px 14px",
+        border: "none",
+        borderRadius: "8px",
+        backgroundColor: ROYAL_BLUE,
+        color: "white",
+        fontWeight: "bold",
+        cursor: "pointer",
+        marginBottom: "18px",
+      }}
+    >
+      Save Collection Workflow
+    </button>
+  </>
+)}
 
           <h3>Add Collection Note</h3>
           <textarea
