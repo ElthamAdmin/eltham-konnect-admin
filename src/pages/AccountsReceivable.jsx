@@ -3,6 +3,7 @@ import api from "../api";
 
 function AccountsReceivable() {
   const [dashboard, setDashboard] = useState(null);
+  const [workQueue, setWorkQueue] = useState(null);
   const [aging, setAging] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCustomerId, setSelectedCustomerId] = useState("");
@@ -26,13 +27,15 @@ function AccountsReceivable() {
 
   const loadReceivables = async () => {
     try {
-      const [dashboardRes, agingRes] = await Promise.all([
-        api.get("/api/accounts-receivable/collections-dashboard"),
-        api.get("/api/accounts-receivable/aging"),
-      ]);
+      const [dashboardRes, agingRes, queueRes] = await Promise.all([
+  api.get("/api/accounts-receivable/collections-dashboard"),
+  api.get("/api/accounts-receivable/aging"),
+  api.get("/api/accounts-receivable/collections/work-queue"),
+]);
 
       setDashboard(dashboardRes.data.data);
       setAging(agingRes.data.data);
+      setWorkQueue(queueRes.data.data);
     } catch (error) {
       console.error("Accounts receivable error:", error);
       alert(error?.response?.data?.message || "Could not load receivables.");
@@ -168,6 +171,76 @@ const updateWorkflow = async () => {
           <p style={{ color: MUTED }}>No collection recommendations available.</p>
         )}
       </Section>
+
+      <Section title="Automated Collections Work Queue">
+  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "12px", marginBottom: "16px" }}>
+    <Card><h3>{workQueue?.summary?.totalOpenItems || 0}</h3><p><b>Total Queue</b></p></Card>
+    <Card><h3>{workQueue?.summary?.dueToday || 0}</h3><p><b>Follow-ups Due</b></p></Card>
+    <Card><h3>{workQueue?.summary?.promiseDue || 0}</h3><p><b>Promises Due</b></p></Card>
+    <Card><h3>{workQueue?.summary?.brokenPromises || 0}</h3><p><b>Broken Promises</b></p></Card>
+    <Card><h3>{workQueue?.summary?.highRisk || 0}</h3><p><b>High Risk</b></p></Card>
+    <Card><h3>{workQueue?.summary?.over90 || 0}</h3><p><b>90+ Days</b></p></Card>
+  </div>
+
+  <div style={{ overflowX: "auto", border: `1px solid ${BORDER}`, borderRadius: "12px" }}>
+    <table border="1" cellPadding="9" style={{ minWidth: "1200px", width: "100%", borderCollapse: "collapse", borderColor: BORDER }}>
+      <thead style={{ backgroundColor: "#eef4ff" }}>
+        <tr>
+          <th>Priority</th>
+          <th>Score</th>
+          <th>Customer</th>
+          <th>Invoice</th>
+          <th>Days</th>
+          <th>Balance</th>
+          <th>Reason</th>
+          <th>Next Action</th>
+          <th>Collector</th>
+        </tr>
+      </thead>
+
+      <tbody>
+        {(workQueue?.queue || []).length > 0 ? (
+          workQueue.queue.slice(0, 15).map((item) => (
+            <tr key={item.invoiceNumber}>
+              <td style={{ fontWeight: "bold", color: item.priority === "Critical" ? "#dc2626" : item.priority === "High" ? "#ea580c" : item.priority === "Medium" ? "#f59e0b" : "#16a34a" }}>
+                {item.priority}
+              </td>
+              <td>{item.priorityScore}</td>
+              <td>
+                <button
+                  type="button"
+                  onClick={() => loadCustomerProfile(item.customerEkonId)}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    color: ROYAL_BLUE,
+                    fontWeight: "bold",
+                    cursor: "pointer",
+                    textDecoration: "underline",
+                  }}
+                >
+                  {item.customerName}
+                </button>
+              </td>
+              <td>{item.invoiceNumber}</td>
+              <td>{item.daysOutstanding}</td>
+              <td>{money(item.balanceDue)}</td>
+              <td>{item.reason}</td>
+              <td>{item.recommendedAction}</td>
+              <td>{item.assignedCollector || "Unassigned"}</td>
+            </tr>
+          ))
+        ) : (
+          <tr>
+            <td colSpan="9" style={{ textAlign: "center", color: MUTED }}>
+              No collection work queue items found.
+            </td>
+          </tr>
+        )}
+      </tbody>
+    </table>
+  </div>
+</Section>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(360px, 1fr))", gap: "16px", marginBottom: "16px" }}>
         <MiniTable title="Top Debtors" rows={dashboard?.topDebtors || []} money={money} />
