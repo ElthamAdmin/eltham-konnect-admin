@@ -411,18 +411,60 @@ const updateWorkflow = async () => {
             Add Note
           </button>
 
-          <h3>Collection Notes</h3>
-          {(customerProfile.collectionNotes || []).length > 0 ? (
-            <ul>
-              {customerProfile.collectionNotes.map((note, index) => (
-                <li key={index}>
-                  <b>{new Date(note.createdAt).toLocaleString()}:</b> {note.note} — {note.createdBy}
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p style={{ color: MUTED }}>No collection notes yet.</p>
-          )}
+          <h3>Collection Timeline</h3>
+
+{(customerProfile.collectionTimeline || []).length > 0 ? (
+  <div style={{ display: "grid", gap: "12px" }}>
+    {customerProfile.collectionTimeline.map((item, index) => (
+      <div
+        key={`${item.type}-${item.invoiceNumber}-${index}`}
+        style={{
+          border: `1px solid ${BORDER}`,
+          borderLeft: `6px solid ${
+            item.severity === "Critical"
+              ? "#dc2626"
+              : item.severity === "Warning"
+                ? "#f59e0b"
+                : item.severity === "Success"
+                  ? "#16a34a"
+                  : ROYAL_BLUE
+          }`,
+          borderRadius: "10px",
+          padding: "12px",
+          backgroundColor: "#f8fafc",
+        }}
+      >
+        <div style={{ display: "flex", justifyContent: "space-between", gap: "12px" }}>
+          <div>
+            <strong>{item.title}</strong>
+            <p style={{ margin: "6px 0", color: MUTED }}>{item.description}</p>
+            <small>
+              Invoice: <b>{item.invoiceNumber}</b> · Type: <b>{item.type}</b> · By:{" "}
+              <b>{item.createdBy || "System"}</b>
+            </small>
+          </div>
+
+          <div style={{ textAlign: "right", minWidth: "150px" }}>
+            <b>{item.date ? new Date(item.date).toLocaleDateString() : "—"}</b>
+            <br />
+            <small>{item.date ? new Date(item.date).toLocaleTimeString() : ""}</small>
+          </div>
+        </div>
+
+        {item.metadata?.journalEntryNumber && (
+          <p style={{ marginBottom: 0, marginTop: "8px" }}>
+            <small>
+              JE: <b>{item.metadata.journalEntryNumber}</b> · Method:{" "}
+              <b>{item.metadata.paymentMethod || "—"}</b>
+            </small>
+          </p>
+        )}
+      </div>
+    ))}
+  </div>
+) : (
+  <p style={{ color: MUTED }}>No collection timeline yet.</p>
+)}
 
           <h3>Payment History</h3>
           {(customerProfile.paymentHistory || []).length > 0 ? (
