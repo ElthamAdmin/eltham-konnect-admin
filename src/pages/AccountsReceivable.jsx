@@ -6,6 +6,7 @@ function AccountsReceivable() {
   const [workQueue, setWorkQueue] = useState(null);
   const [reminderQueue, setReminderQueue] = useState(null);
   const [performance, setPerformance] = useState(null);
+  const [writeOffs, setWriteOffs] = useState(null);
   const [aging, setAging] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCustomerId, setSelectedCustomerId] = useState("");
@@ -35,12 +36,14 @@ function AccountsReceivable() {
   queueRes,
   reminderRes,
   performanceRes,
+  writeOffRes,
 ] = await Promise.all([
   api.get("/api/accounts-receivable/collections-dashboard"),
   api.get("/api/accounts-receivable/aging"),
   api.get("/api/accounts-receivable/collections/work-queue"),
   api.get("/api/accounts-receivable/collections/reminders"),
   api.get("/api/accounts-receivable/collections/performance"),
+  api.get("/api/accounts-receivable/write-offs"),
 ]);
 
       setDashboard(dashboardRes.data.data);
@@ -48,6 +51,7 @@ function AccountsReceivable() {
       setWorkQueue(queueRes.data.data);
       setReminderQueue(reminderRes.data.data);
       setPerformance(performanceRes.data.data);
+      setWriteOffs(writeOffRes.data.data);
     } catch (error) {
       console.error("Accounts receivable error:", error);
       alert(error?.response?.data?.message || "Could not load receivables.");
@@ -276,6 +280,60 @@ const sendReminder = async (item) => {
         </tbody>
       </table>
     </div>
+  </div>
+</Section>
+
+<Section title="Bad Debt / Write-Off Management">
+  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "12px", marginBottom: "16px" }}>
+    <Card><h3>{writeOffs?.kpis?.pendingApprovalCount || 0}</h3><p><b>Pending Approval</b></p></Card>
+    <Card><h3>{writeOffs?.kpis?.writtenOffCount || 0}</h3><p><b>Written Off</b></p></Card>
+    <Card><h3>{money(writeOffs?.kpis?.totalWrittenOff)}</h3><p><b>Total Written Off</b></p></Card>
+    <Card><h3>{money(writeOffs?.kpis?.totalRecovered)}</h3><p><b>Recovered</b></p></Card>
+    <Card><h3>{money(writeOffs?.kpis?.netBadDebt)}</h3><p><b>Net Bad Debt</b></p></Card>
+    <Card><h3>{writeOffs?.kpis?.recoveryRate || 0}%</h3><p><b>Recovery Rate</b></p></Card>
+  </div>
+
+  <div style={{ overflowX: "auto", border: `1px solid ${BORDER}`, borderRadius: "12px" }}>
+    <table border="1" cellPadding="9" style={{ minWidth: "1300px", width: "100%", borderCollapse: "collapse", borderColor: BORDER }}>
+      <thead style={{ backgroundColor: "#eef4ff" }}>
+        <tr>
+          <th>Invoice</th>
+          <th>Customer</th>
+          <th>Status</th>
+          <th>Reason</th>
+          <th>Amount</th>
+          <th>Recovered</th>
+          <th>Requested By</th>
+          <th>Approved By</th>
+          <th>Write-Off JE</th>
+          <th>Recovery JE</th>
+        </tr>
+      </thead>
+      <tbody>
+        {(writeOffs?.register || []).length > 0 ? (
+          writeOffs.register.map((item) => (
+            <tr key={`wo-${item.invoiceNumber}`}>
+              <td><b>{item.invoiceNumber}</b></td>
+              <td>{item.customerName}</td>
+              <td>{item.writeOffStatus}</td>
+              <td>{item.writeOffReason || "—"}</td>
+              <td>{money(item.writeOffAmount)}</td>
+              <td>{money(item.writeOffRecoveredAmount)}</td>
+              <td>{item.writeOffRequestedBy || "—"}</td>
+              <td>{item.writeOffApprovedBy || "—"}</td>
+              <td>{item.writeOffJournalEntryNumber || "Pending"}</td>
+              <td>{item.recoveryJournalEntryNumber || "—"}</td>
+            </tr>
+          ))
+        ) : (
+          <tr>
+            <td colSpan="10" style={{ textAlign: "center", color: MUTED }}>
+              No write-off records found.
+            </td>
+          </tr>
+        )}
+      </tbody>
+    </table>
   </div>
 </Section>
 
