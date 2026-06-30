@@ -21,6 +21,15 @@ function AccountsReceivable() {
   promiseToPayAmount: "",
   promiseToPayStatus: "None",
 });
+const [writeOffForm, setWriteOffForm] = useState({
+  invoiceNumber: "",
+  reason: "Other",
+  amount: "",
+  notes: "",
+  rejectionNotes: "",
+  recoveryAmount: "",
+  recoveryJournalEntryNumber: "",
+});
 
   const ROYAL_BLUE = "#0B3D91";
   const BORDER = "#dbe3ef";
@@ -153,6 +162,87 @@ const sendReminder = async (item) => {
   } catch (error) {
     console.error("Reminder error:", error);
     alert(error?.response?.data?.message || "Could not log reminder.");
+  }
+};
+
+const requestWriteOff = async () => {
+  try {
+    if (!writeOffForm.invoiceNumber) {
+      alert("Select an invoice for write-off first.");
+      return;
+    }
+
+    await api.post(
+      `/api/accounts-receivable/write-offs/invoices/${writeOffForm.invoiceNumber}/request`,
+      {
+        reason: writeOffForm.reason,
+        amount: writeOffForm.amount,
+        notes: writeOffForm.notes,
+      }
+    );
+
+    alert("Write-off request submitted.");
+    await loadReceivables();
+
+    if (selectedCustomerId) {
+      await loadCustomerProfile(selectedCustomerId);
+    }
+  } catch (error) {
+    console.error("Write-off request error:", error);
+    alert(error?.response?.data?.message || "Could not request write-off.");
+  }
+};
+
+const approveWriteOff = async (invoiceNumber) => {
+  try {
+    await api.put(`/api/accounts-receivable/write-offs/invoices/${invoiceNumber}/approve`);
+
+    alert("Write-off approved.");
+    await loadReceivables();
+
+    if (selectedCustomerId) {
+      await loadCustomerProfile(selectedCustomerId);
+    }
+  } catch (error) {
+    console.error("Approve write-off error:", error);
+    alert(error?.response?.data?.message || "Could not approve write-off.");
+  }
+};
+
+const rejectWriteOff = async (invoiceNumber) => {
+  try {
+    await api.put(`/api/accounts-receivable/write-offs/invoices/${invoiceNumber}/reject`, {
+      notes: writeOffForm.rejectionNotes,
+    });
+
+    alert("Write-off rejected.");
+    await loadReceivables();
+
+    if (selectedCustomerId) {
+      await loadCustomerProfile(selectedCustomerId);
+    }
+  } catch (error) {
+    console.error("Reject write-off error:", error);
+    alert(error?.response?.data?.message || "Could not reject write-off.");
+  }
+};
+
+const recordRecovery = async (invoiceNumber) => {
+  try {
+    await api.post(`/api/accounts-receivable/write-offs/invoices/${invoiceNumber}/recovery`, {
+      amount: writeOffForm.recoveryAmount,
+      recoveryJournalEntryNumber: writeOffForm.recoveryJournalEntryNumber,
+    });
+
+    alert("Recovery recorded.");
+    await loadReceivables();
+
+    if (selectedCustomerId) {
+      await loadCustomerProfile(selectedCustomerId);
+    }
+  } catch (error) {
+    console.error("Recovery error:", error);
+    alert(error?.response?.data?.message || "Could not record recovery.");
   }
 };
 
@@ -294,7 +384,7 @@ const sendReminder = async (item) => {
   </div>
 
   <div style={{ overflowX: "auto", border: `1px solid ${BORDER}`, borderRadius: "12px" }}>
-    <table border="1" cellPadding="9" style={{ minWidth: "1300px", width: "100%", borderCollapse: "collapse", borderColor: BORDER }}>
+    <table border="1" cellPadding="9" style={{ minWidth: "1450px", width: "100%", borderCollapse: "collapse", borderColor: BORDER }}>
       <thead style={{ backgroundColor: "#eef4ff" }}>
         <tr>
           <th>Invoice</th>
@@ -307,8 +397,10 @@ const sendReminder = async (item) => {
           <th>Approved By</th>
           <th>Write-Off JE</th>
           <th>Recovery JE</th>
+          <th>Actions</th>
         </tr>
       </thead>
+
       <tbody>
         {(writeOffs?.register || []).length > 0 ? (
           writeOffs.register.map((item) => (
@@ -323,17 +415,83 @@ const sendReminder = async (item) => {
               <td>{item.writeOffApprovedBy || "—"}</td>
               <td>{item.writeOffJournalEntryNumber || "Pending"}</td>
               <td>{item.recoveryJournalEntryNumber || "—"}</td>
+              <td>
+                {item.writeOffStatus === "Pending Approval" && (
+                  <>
+                    <button type="button" onClick={() => approveWriteOff(item.invoiceNumber)} style={{ marginRight: "6px", padding: "6px 10px", border: "none", borderRadius: "8px", backgroundColor: "#16a34a", color: "white", fontWeight: "bold", cursor: "pointer" }}>
+                      Approve
+                    </button>
+
+                    <button type="button" onClick={() => rejectWriteOff(item.invoiceNumber)} style={{ padding: "6px 10px", border: "none", borderRadius: "8px", backgroundColor: "#dc2626", color: "white", fontWeight: "bold", cursor: "pointer" }}>
+                      Reject
+                    </button>
+                  </>
+                )}
+
+                {["Written Off", "Recovered"].includes(item.writeOffStatus) && (
+                  <button type="button" onClick={() => recordRecovery(item.invoiceNumber)} style={{ padding: "6px 10px", border: "none", borderRadius: "8px", backgroundColor: ROYAL_BLUE, color: "white", fontWeight: "bold", cursor: "pointer" }}>
+                    Record Recovery
+                  </button>
+                )}
+              </td>
             </tr>
           ))
         ) : (
           <tr>
-            <td colSpan="10" style={{ textAlign: "center", color: MUTED }}>
+            <td colSpan="11" style={{ textAlign: "center", color: MUTED }}>
               No write-off records found.
             </td>
           </tr>
         )}
       </tbody>
     </table>
+  </div>
+
+  <div style={{ marginTop: "18px", border: `1px solid ${BORDER}`, borderRadius: "12px", padding: "16px", backgroundColor: "#f8fafc" }}>
+    <h3 style={{ marginTop: 0 }}>Write-Off Action Panel</h3>
+
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "12px" }}>
+      <div>
+        <label><b>Invoice Number</b></label>
+        <input value={writeOffForm.invoiceNumber} onChange={(e) => setWriteOffForm({ ...writeOffForm, invoiceNumber: e.target.value })} style={{ width: "100%", padding: "9px", border: `1px solid ${BORDER}`, borderRadius: "8px" }} />
+      </div>
+
+      <div>
+        <label><b>Reason</b></label>
+        <select value={writeOffForm.reason} onChange={(e) => setWriteOffForm({ ...writeOffForm, reason: e.target.value })} style={{ width: "100%", padding: "9px", border: `1px solid ${BORDER}`, borderRadius: "8px" }}>
+          <option>Customer Unable To Pay</option>
+          <option>Unable To Locate Customer</option>
+          <option>Small Balance</option>
+          <option>Dispute Resolved As Write-Off</option>
+          <option>Management Approval</option>
+          <option>Other</option>
+        </select>
+      </div>
+
+      <div>
+        <label><b>Write-Off Amount</b></label>
+        <input type="number" value={writeOffForm.amount} onChange={(e) => setWriteOffForm({ ...writeOffForm, amount: e.target.value })} style={{ width: "100%", padding: "9px", border: `1px solid ${BORDER}`, borderRadius: "8px" }} />
+      </div>
+
+      <div>
+        <label><b>Recovery Amount</b></label>
+        <input type="number" value={writeOffForm.recoveryAmount} onChange={(e) => setWriteOffForm({ ...writeOffForm, recoveryAmount: e.target.value })} style={{ width: "100%", padding: "9px", border: `1px solid ${BORDER}`, borderRadius: "8px" }} />
+      </div>
+
+      <div>
+        <label><b>Recovery JE Number</b></label>
+        <input value={writeOffForm.recoveryJournalEntryNumber} onChange={(e) => setWriteOffForm({ ...writeOffForm, recoveryJournalEntryNumber: e.target.value })} style={{ width: "100%", padding: "9px", border: `1px solid ${BORDER}`, borderRadius: "8px" }} />
+      </div>
+    </div>
+
+    <div style={{ marginTop: "12px" }}>
+      <label><b>Write-Off / Rejection Notes</b></label>
+      <textarea value={writeOffForm.notes} onChange={(e) => setWriteOffForm({ ...writeOffForm, notes: e.target.value, rejectionNotes: e.target.value })} placeholder="Enter supporting notes, rejection notes, or recovery details..." style={{ width: "100%", minHeight: "75px", padding: "10px", borderRadius: "8px", border: `1px solid ${BORDER}` }} />
+    </div>
+
+    <button type="button" onClick={requestWriteOff} style={{ marginTop: "10px", padding: "10px 14px", border: "none", borderRadius: "8px", backgroundColor: ROYAL_BLUE, color: "white", fontWeight: "bold", cursor: "pointer" }}>
+      Submit Write-Off Request
+    </button>
   </div>
 </Section>
 
