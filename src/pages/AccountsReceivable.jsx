@@ -28,7 +28,7 @@ function AccountsReceivable() {
 
   const loadReceivables = async () => {
     try {
-      const [dashboardRes, agingRes, queueRes] = await Promise.all([
+      const [dashboardRes, agingRes, queueRes, reminderRes] = await Promise.all([
   api.get("/api/accounts-receivable/collections-dashboard"),
   api.get("/api/accounts-receivable/aging"),
   api.get("/api/accounts-receivable/collections/work-queue"),
