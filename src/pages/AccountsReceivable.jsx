@@ -4,6 +4,7 @@ import api from "../api";
 function AccountsReceivable() {
   const [dashboard, setDashboard] = useState(null);
   const [workQueue, setWorkQueue] = useState(null);
+  const [reminderQueue, setReminderQueue] = useState(null);
   const [aging, setAging] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCustomerId, setSelectedCustomerId] = useState("");
@@ -31,11 +32,13 @@ function AccountsReceivable() {
   api.get("/api/accounts-receivable/collections-dashboard"),
   api.get("/api/accounts-receivable/aging"),
   api.get("/api/accounts-receivable/collections/work-queue"),
+  api.get("/api/accounts-receivable/collections/reminders"),
 ]);
 
       setDashboard(dashboardRes.data.data);
       setAging(agingRes.data.data);
       setWorkQueue(queueRes.data.data);
+      setReminderQueue(reminderRes.data.data);
     } catch (error) {
       console.error("Accounts receivable error:", error);
       alert(error?.response?.data?.message || "Could not load receivables.");
@@ -118,6 +121,28 @@ const updateWorkflow = async () => {
   }
 };
 
+const sendReminder = async (item) => {
+  try {
+    await api.post(
+      `/api/accounts-receivable/collections/invoices/${item.invoiceNumber}/reminder`,
+      {
+        reminderType: item.reminderType,
+        channel: item.reminderChannel,
+      }
+    );
+
+    alert("Reminder logged successfully.");
+    await loadReceivables();
+
+    if (selectedCustomerId) {
+      await loadCustomerProfile(selectedCustomerId);
+    }
+  } catch (error) {
+    console.error("Reminder error:", error);
+    alert(error?.response?.data?.message || "Could not log reminder.");
+  }
+};
+
   useEffect(() => {
     loadReceivables();
   }, []);
@@ -171,6 +196,88 @@ const updateWorkflow = async () => {
           <p style={{ color: MUTED }}>No collection recommendations available.</p>
         )}
       </Section>
+
+      <Section title="Automated Reminder Engine">
+  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "12px", marginBottom: "16px" }}>
+    <Card><h3>{reminderQueue?.summary?.totalReminders || 0}</h3><p><b>Total Reminders</b></p></Card>
+    <Card><h3>{reminderQueue?.summary?.friendlyReminders || 0}</h3><p><b>Friendly</b></p></Card>
+    <Card><h3>{reminderQueue?.summary?.overdueReminders || 0}</h3><p><b>Overdue</b></p></Card>
+    <Card><h3>{reminderQueue?.summary?.collectionsReminders || 0}</h3><p><b>Collections</b></p></Card>
+    <Card><h3>{reminderQueue?.summary?.finalNotices || 0}</h3><p><b>Final Notices</b></p></Card>
+    <Card><h3>{reminderQueue?.summary?.brokenPromiseReminders || 0}</h3><p><b>Broken Promise</b></p></Card>
+  </div>
+
+  <div style={{ overflowX: "auto", border: `1px solid ${BORDER}`, borderRadius: "12px" }}>
+    <table border="1" cellPadding="9" style={{ minWidth: "1150px", width: "100%", borderCollapse: "collapse", borderColor: BORDER }}>
+      <thead style={{ backgroundColor: "#eef4ff" }}>
+        <tr>
+          <th>Customer</th>
+          <th>Invoice</th>
+          <th>Days</th>
+          <th>Balance</th>
+          <th>Reminder Type</th>
+          <th>Channel</th>
+          <th>Message</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+
+      <tbody>
+        {(reminderQueue?.reminders || []).length > 0 ? (
+          reminderQueue.reminders.slice(0, 15).map((item) => (
+            <tr key={`reminder-${item.invoiceNumber}`}>
+              <td>
+                <button
+                  type="button"
+                  onClick={() => loadCustomerProfile(item.customerEkonId)}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    color: ROYAL_BLUE,
+                    fontWeight: "bold",
+                    cursor: "pointer",
+                    textDecoration: "underline",
+                  }}
+                >
+                  {item.customerName}
+                </button>
+              </td>
+              <td>{item.invoiceNumber}</td>
+              <td>{item.daysOutstanding}</td>
+              <td>{money(item.balanceDue)}</td>
+              <td><b>{item.reminderType}</b></td>
+              <td>{item.reminderChannel}</td>
+              <td>{item.reminderMessage}</td>
+              <td>
+                <button
+                  type="button"
+                  onClick={() => sendReminder(item)}
+                  style={{
+                    padding: "7px 10px",
+                    border: "none",
+                    borderRadius: "8px",
+                    backgroundColor: ROYAL_BLUE,
+                    color: "white",
+                    fontWeight: "bold",
+                    cursor: "pointer",
+                  }}
+                >
+                  Log Reminder
+                </button>
+              </td>
+            </tr>
+          ))
+        ) : (
+          <tr>
+            <td colSpan="8" style={{ textAlign: "center", color: MUTED }}>
+              No reminder queue items found.
+            </td>
+          </tr>
+        )}
+      </tbody>
+    </table>
+  </div>
+</Section>
 
       <Section title="Automated Collections Work Queue">
   <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "12px", marginBottom: "16px" }}>
