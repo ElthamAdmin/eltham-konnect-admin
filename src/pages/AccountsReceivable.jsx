@@ -5,6 +5,7 @@ function AccountsReceivable() {
   const [dashboard, setDashboard] = useState(null);
   const [workQueue, setWorkQueue] = useState(null);
   const [reminderQueue, setReminderQueue] = useState(null);
+  const [performance, setPerformance] = useState(null);
   const [aging, setAging] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCustomerId, setSelectedCustomerId] = useState("");
@@ -33,12 +34,14 @@ function AccountsReceivable() {
   api.get("/api/accounts-receivable/aging"),
   api.get("/api/accounts-receivable/collections/work-queue"),
   api.get("/api/accounts-receivable/collections/reminders"),
+  api.get("/api/accounts-receivable/collections/performance"),
 ]);
 
       setDashboard(dashboardRes.data.data);
       setAging(agingRes.data.data);
       setWorkQueue(queueRes.data.data);
       setReminderQueue(reminderRes.data.data);
+      setPerformance(performanceRes.data.data);
     } catch (error) {
       console.error("Accounts receivable error:", error);
       alert(error?.response?.data?.message || "Could not load receivables.");
@@ -196,6 +199,79 @@ const sendReminder = async (item) => {
           <p style={{ color: MUTED }}>No collection recommendations available.</p>
         )}
       </Section>
+
+      <Section title="Collection Performance & KPIs">
+  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "12px", marginBottom: "16px" }}>
+    <Card><h3>{money(performance?.kpis?.totalCollected)}</h3><p><b>Total Collected</b></p></Card>
+    <Card><h3>{money(performance?.kpis?.totalOutstanding)}</h3><p><b>Total Outstanding</b></p></Card>
+    <Card><h3>{performance?.kpis?.collectionRate || 0}%</h3><p><b>Collection Rate</b></p></Card>
+    <Card><h3>{performance?.kpis?.promiseFulfillmentRate || 0}%</h3><p><b>Promise Success</b></p></Card>
+    <Card><h3>{performance?.kpis?.brokenPromiseRate || 0}%</h3><p><b>Broken Promise Rate</b></p></Card>
+    <Card><h3>{performance?.kpis?.reminderActions || 0}</h3><p><b>Reminder Actions</b></p></Card>
+  </div>
+
+  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(420px, 1fr))", gap: "16px" }}>
+    <div>
+      <h3>Collector Leaderboard</h3>
+      <table border="1" cellPadding="9" style={{ width: "100%", borderCollapse: "collapse", borderColor: BORDER }}>
+        <thead style={{ backgroundColor: "#eef4ff" }}>
+          <tr>
+            <th>Collector</th>
+            <th>Open</th>
+            <th>Collected</th>
+            <th>Outstanding</th>
+            <th>Score</th>
+          </tr>
+        </thead>
+        <tbody>
+          {(performance?.collectors || []).length > 0 ? (
+            performance.collectors.map((collector) => (
+              <tr key={collector.collector}>
+                <td><b>{collector.collector}</b></td>
+                <td>{collector.openInvoices}</td>
+                <td>{money(collector.collectedAmount)}</td>
+                <td>{money(collector.outstandingBalance)}</td>
+                <td><b>{collector.performanceScore}</b></td>
+              </tr>
+            ))
+          ) : (
+            <tr><td colSpan="5" style={{ textAlign: "center", color: MUTED }}>No collector performance found.</td></tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+
+    <div>
+      <h3>Branch Collections</h3>
+      <table border="1" cellPadding="9" style={{ width: "100%", borderCollapse: "collapse", borderColor: BORDER }}>
+        <thead style={{ backgroundColor: "#eef4ff" }}>
+          <tr>
+            <th>Branch</th>
+            <th>Open</th>
+            <th>Collected</th>
+            <th>Outstanding</th>
+            <th>Rate</th>
+          </tr>
+        </thead>
+        <tbody>
+          {(performance?.branches || []).length > 0 ? (
+            performance.branches.map((branch) => (
+              <tr key={branch.branch}>
+                <td><b>{branch.branch}</b></td>
+                <td>{branch.openInvoices}</td>
+                <td>{money(branch.collectedAmount)}</td>
+                <td>{money(branch.outstandingBalance)}</td>
+                <td><b>{branch.collectionRate}%</b></td>
+              </tr>
+            ))
+          ) : (
+            <tr><td colSpan="5" style={{ textAlign: "center", color: MUTED }}>No branch performance found.</td></tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</Section>
 
       <Section title="Automated Reminder Engine">
   <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "12px", marginBottom: "16px" }}>
