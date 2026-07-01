@@ -3,7 +3,15 @@ import api from "../api";
 
 function GeneralLedger() {
   const [transactions, setTransactions] = useState([]);
-  const [searchTerm, setSearchTerm] = useState("");
+const [health, setHealth] = useState(null);
+const [searchTerm, setSearchTerm] = useState("");
+const [filters, setFilters] = useState({
+  accountCode: "",
+  sourceModule: "",
+  entryNumber: "",
+  startDate: "",
+  endDate: "",
+});
 
   const ROYAL_BLUE = "#0B3D91";
   const WHITE = "#ffffff";
@@ -11,14 +19,25 @@ function GeneralLedger() {
   const MUTED = "#64748b";
 
   const fetchLedger = async () => {
-    try {
-      const res = await api.get("/api/general-ledger");
-      setTransactions(res.data.data || []);
-    } catch (error) {
-      console.error("Error loading general ledger:", error);
-      alert(error?.response?.data?.message || "Could not load general ledger.");
-    }
-  };
+  try {
+    const params = new URLSearchParams();
+
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value) params.append(key, value);
+    });
+
+    const [ledgerRes, healthRes] = await Promise.all([
+      api.get(`/api/general-ledger?${params.toString()}`),
+      api.get("/api/general-ledger/health"),
+    ]);
+
+    setTransactions(ledgerRes.data.data || []);
+    setHealth(healthRes.data.data || null);
+  } catch (error) {
+    console.error("Error loading general ledger:", error);
+    alert(error?.response?.data?.message || "Could not load general ledger.");
+  }
+};
 
   useEffect(() => {
     fetchLedger();
@@ -54,41 +73,179 @@ function GeneralLedger() {
       </div>
 
       <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-          gap: "14px",
-          marginBottom: "18px",
-        }}
-      >
-        <div style={cardStyle(BORDER, WHITE)}>
-          <h2 style={{ margin: 0, color: ROYAL_BLUE }}>{filteredTransactions.length}</h2>
-          <p style={{ marginBottom: 0, fontWeight: "bold" }}>Ledger Lines</p>
-        </div>
+  style={{
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+    gap: "14px",
+    marginBottom: "18px",
+  }}
+>
+  <div style={cardStyle(BORDER, WHITE)}>
+    <h2 style={{ margin: 0, color: ROYAL_BLUE }}>{filteredTransactions.length}</h2>
+    <p style={{ marginBottom: 0, fontWeight: "bold" }}>Ledger Lines</p>
+  </div>
 
-        <div style={cardStyle(BORDER, WHITE)}>
-          <h2 style={{ margin: 0, color: "#16a34a" }}>{money(totals.debit)}</h2>
-          <p style={{ marginBottom: 0, fontWeight: "bold" }}>Total Debits</p>
-        </div>
+  <div style={cardStyle(BORDER, WHITE)}>
+    <h2 style={{ margin: 0, color: "#16a34a" }}>{money(totals.debit)}</h2>
+    <p style={{ marginBottom: 0, fontWeight: "bold" }}>Filtered Debits</p>
+  </div>
 
-        <div style={cardStyle(BORDER, WHITE)}>
-          <h2 style={{ margin: 0, color: "#dc2626" }}>{money(totals.credit)}</h2>
-          <p style={{ marginBottom: 0, fontWeight: "bold" }}>Total Credits</p>
-        </div>
-      </div>
+  <div style={cardStyle(BORDER, WHITE)}>
+    <h2 style={{ margin: 0, color: "#dc2626" }}>{money(totals.credit)}</h2>
+    <p style={{ marginBottom: 0, fontWeight: "bold" }}>Filtered Credits</p>
+  </div>
+
+  <div style={cardStyle(BORDER, WHITE)}>
+    <h2
+      style={{
+        margin: 0,
+        color: Number((totals.debit - totals.credit).toFixed(2)) === 0 ? "#16a34a" : "#dc2626",
+      }}
+    >
+      {money(Number((totals.debit - totals.credit).toFixed(2)))}
+    </h2>
+    <p style={{ marginBottom: 0, fontWeight: "bold" }}>Filtered Difference</p>
+  </div>
+
+  <div style={cardStyle(BORDER, WHITE)}>
+    <h2 style={{ margin: 0, color: health?.isBalanced ? "#16a34a" : "#dc2626" }}>
+      {health?.healthStatus || "—"}
+    </h2>
+    <p style={{ marginBottom: 0, fontWeight: "bold" }}>GL Health</p>
+  </div>
+
+  <div style={cardStyle(BORDER, WHITE)}>
+    <h2 style={{ margin: 0, color: "#f59e0b" }}>{health?.unbalancedEntryCount || 0}</h2>
+    <p style={{ marginBottom: 0, fontWeight: "bold" }}>Unbalanced Entries</p>
+  </div>
+</div>
 
       <div style={{ ...cardStyle(BORDER, WHITE), marginBottom: "16px" }}>
-        <input
-          placeholder="Search ledger by account, entry number, reference, memo, or source module"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
+        <div
           style={{
-            width: "100%",
-            padding: "10px",
-            borderRadius: "8px",
-            border: `1px solid ${BORDER}`,
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+            gap: "12px",
           }}
-        />
+        >
+          <input
+            placeholder="Search ledger"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            style={{
+              padding: "10px",
+              borderRadius: "8px",
+              border: `1px solid ${BORDER}`,
+            }}
+          />
+
+          <input
+            placeholder="Account Code"
+            value={filters.accountCode}
+            onChange={(e) =>
+              setFilters({ ...filters, accountCode: e.target.value })
+            }
+            style={{
+              padding: "10px",
+              borderRadius: "8px",
+              border: `1px solid ${BORDER}`,
+            }}
+          />
+
+          <input
+            placeholder="Source Module"
+            value={filters.sourceModule}
+            onChange={(e) =>
+              setFilters({ ...filters, sourceModule: e.target.value })
+            }
+            style={{
+              padding: "10px",
+              borderRadius: "8px",
+              border: `1px solid ${BORDER}`,
+            }}
+          />
+
+          <input
+            placeholder="Journal Entry"
+            value={filters.entryNumber}
+            onChange={(e) =>
+              setFilters({ ...filters, entryNumber: e.target.value })
+            }
+            style={{
+              padding: "10px",
+              borderRadius: "8px",
+              border: `1px solid ${BORDER}`,
+            }}
+          />
+
+          <input
+            type="date"
+            value={filters.startDate}
+            onChange={(e) =>
+              setFilters({ ...filters, startDate: e.target.value })
+            }
+            style={{
+              padding: "10px",
+              borderRadius: "8px",
+              border: `1px solid ${BORDER}`,
+            }}
+          />
+
+          <input
+            type="date"
+            value={filters.endDate}
+            onChange={(e) =>
+              setFilters({ ...filters, endDate: e.target.value })
+            }
+            style={{
+              padding: "10px",
+              borderRadius: "8px",
+              border: `1px solid ${BORDER}`,
+            }}
+          />
+
+          <button
+            type="button"
+            onClick={fetchLedger}
+            style={{
+              backgroundColor: ROYAL_BLUE,
+              color: WHITE,
+              border: "none",
+              padding: "10px",
+              borderRadius: "8px",
+              fontWeight: "bold",
+              cursor: "pointer",
+            }}
+          >
+            Apply Filters
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setFilters({
+                accountCode: "",
+                sourceModule: "",
+                entryNumber: "",
+                startDate: "",
+                endDate: "",
+              });
+              setSearchTerm("");
+              setTimeout(fetchLedger, 0);
+            }}
+            style={{
+              backgroundColor: "#64748b",
+              color: WHITE,
+              border: "none",
+              padding: "10px",
+              borderRadius: "8px",
+              fontWeight: "bold",
+              cursor: "pointer",
+            }}
+          >
+            Clear
+          </button>
+        </div>
       </div>
 
       <div style={cardStyle(BORDER, WHITE)}>
