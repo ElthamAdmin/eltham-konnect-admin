@@ -6,6 +6,7 @@ function ChartOfAccounts() {
   const [showForm, setShowForm] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("All");
+  const [health, setHealth] = useState(null);
 
   const [formData, setFormData] = useState({
     accountCode: "",
@@ -25,14 +26,19 @@ function ChartOfAccounts() {
   const MUTED = "#64748b";
 
   const fetchAccounts = async () => {
-    try {
-      const res = await api.get("/api/chart-of-accounts");
-      setAccounts(res.data.data || []);
-    } catch (error) {
-      console.error("Error loading chart of accounts:", error);
-      alert(error?.response?.data?.message || "Could not load chart of accounts.");
-    }
-  };
+  try {
+    const [accountsRes, healthRes] = await Promise.all([
+      api.get("/api/chart-of-accounts"),
+      api.get("/api/chart-of-accounts/health"),
+    ]);
+
+    setAccounts(accountsRes.data.data || []);
+    setHealth(healthRes.data.data || null);
+  } catch (error) {
+    console.error("Error loading chart of accounts:", error);
+    alert(error?.response?.data?.message || "Could not load chart of accounts.");
+  }
+};
 
   useEffect(() => {
     fetchAccounts();
@@ -201,20 +207,52 @@ function ChartOfAccounts() {
       </div>
 
       <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(165px, 1fr))",
-          gap: "14px",
-          marginBottom: "18px",
-        }}
-      >
-        {Object.entries(summary).map(([category, count]) => (
-          <div key={category} style={cardStyle}>
-            <h2 style={{ margin: 0, color: categoryColor(category) }}>{count}</h2>
-            <p style={{ marginBottom: 0, fontWeight: "bold" }}>{category}</p>
-          </div>
-        ))}
-      </div>
+  style={{
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(165px, 1fr))",
+    gap: "14px",
+    marginBottom: "18px",
+  }}
+>
+  <div style={cardStyle}>
+    <h2 style={{ margin: 0, color: health?.healthStatus === "Healthy" ? "#16a34a" : "#dc2626" }}>
+      {health?.healthStatus || "—"}
+    </h2>
+    <p style={{ marginBottom: 0, fontWeight: "bold" }}>Chart Health</p>
+  </div>
+
+  <div style={cardStyle}>
+    <h2 style={{ margin: 0, color: ROYAL_BLUE }}>{health?.totalAccounts || 0}</h2>
+    <p style={{ marginBottom: 0, fontWeight: "bold" }}>Total Accounts</p>
+  </div>
+
+  <div style={cardStyle}>
+    <h2 style={{ margin: 0, color: "#16a34a" }}>{health?.activeAccounts || 0}</h2>
+    <p style={{ marginBottom: 0, fontWeight: "bold" }}>Active</p>
+  </div>
+
+  <div style={cardStyle}>
+    <h2 style={{ margin: 0, color: "#dc2626" }}>{health?.inactiveAccounts || 0}</h2>
+    <p style={{ marginBottom: 0, fontWeight: "bold" }}>Inactive</p>
+  </div>
+
+  <div style={cardStyle}>
+    <h2 style={{ margin: 0, color: "#7c3aed" }}>{health?.systemAccounts || 0}</h2>
+    <p style={{ marginBottom: 0, fontWeight: "bold" }}>System Accounts</p>
+  </div>
+
+  <div style={cardStyle}>
+    <h2 style={{ margin: 0, color: "#f59e0b" }}>{health?.healthIssues || 0}</h2>
+    <p style={{ marginBottom: 0, fontWeight: "bold" }}>Health Issues</p>
+  </div>
+
+  {Object.entries(summary).map(([category, count]) => (
+    <div key={category} style={cardStyle}>
+      <h2 style={{ margin: 0, color: categoryColor(category) }}>{count}</h2>
+      <p style={{ marginBottom: 0, fontWeight: "bold" }}>{category}</p>
+    </div>
+  ))}
+</div>
 
       {showForm && (
         <div style={{ ...cardStyle, marginBottom: "20px" }}>
