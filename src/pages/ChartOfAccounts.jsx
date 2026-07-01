@@ -27,16 +27,26 @@ function ChartOfAccounts() {
 
   const fetchAccounts = async () => {
   try {
-    const [accountsRes, healthRes] = await Promise.all([
-      api.get("/api/chart-of-accounts"),
-      api.get("/api/chart-of-accounts/health"),
-    ]);
-
+    const accountsRes = await api.get("/api/chart-of-accounts");
     setAccounts(accountsRes.data.data || []);
-    setHealth(healthRes.data.data || null);
   } catch (error) {
     console.error("Error loading chart of accounts:", error);
     alert(error?.response?.data?.message || "Could not load chart of accounts.");
+  }
+
+  try {
+    const healthRes = await api.get("/api/chart-of-accounts/health");
+    setHealth(healthRes.data.data || null);
+  } catch (error) {
+    console.error("Chart health warning:", error);
+    setHealth({
+      healthStatus: "Needs Review",
+      totalAccounts: 0,
+      activeAccounts: 0,
+      inactiveAccounts: 0,
+      systemAccounts: 0,
+      healthIssues: 1,
+    });
   }
 };
 
