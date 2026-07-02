@@ -11,6 +11,8 @@ const [statusFilter, setStatusFilter] = useState("All");
 const [sourceFilter, setSourceFilter] = useState("All");
 const [startDate, setStartDate] = useState("");
 const [endDate, setEndDate] = useState("");
+const [selectedEntry, setSelectedEntry] = useState(null);
+const [reverseReason, setReverseReason] = useState("");
 
   const [formData, setFormData] = useState({
     entryDate: new Date().toISOString().slice(0, 10),
@@ -94,57 +96,103 @@ setHealth(healthRes.data.data || null);
   }, [formData.lines]);
 
   const saveJournalEntry = async () => {
-    try {
-      if (!formData.entryDate || !formData.memo) {
-        alert("Entry date and memo are required.");
-        return;
-      }
-
-      const lines = formData.lines
-        .filter((line) => line.accountCode && (Number(line.debit || 0) > 0 || Number(line.credit || 0) > 0))
-        .map((line) => ({
-          ...line,
-          accountName: getAccountName(line.accountCode),
-        }));
-
-      if (lines.length < 2) {
-        alert("At least two valid journal lines are required.");
-        return;
-      }
-
-      const debitTotal = lines.reduce((sum, line) => sum + Number(line.debit || 0), 0);
-      const creditTotal = lines.reduce((sum, line) => sum + Number(line.credit || 0), 0);
-
-      if (Number(debitTotal.toFixed(2)) !== Number(creditTotal.toFixed(2))) {
-        alert("Journal entry is not balanced. Debits must equal credits.");
-        return;
-      }
-
-      await api.post("/api/journal-entries", {
-        ...formData,
-        lines,
-      });
-
-      alert("Journal entry posted successfully.");
-
-      setFormData({
-        entryDate: new Date().toISOString().slice(0, 10),
-        memo: "",
-        reference: "",
-        sourceModule: "Manual",
-        lines: [
-          { accountCode: "", debit: 0, credit: 0, description: "" },
-          { accountCode: "", debit: 0, credit: 0, description: "" },
-        ],
-      });
-
-      setShowForm(false);
-      await fetchData();
-    } catch (error) {
-      console.error("Error posting journal entry:", error);
-      alert(error?.response?.data?.message || "Could not post journal entry.");
+  try {
+    if (!formData.entryDate || !formData.memo) {
+      alert("Entry date and memo are required.");
+      return;
     }
-  };
+
+    const lines = formData.lines
+      .filter((line) => line.accountCode && (Number(line.debit || 0) > 0 || Number(line.credit || 0) > 0))
+      .map((line) => ({
+        ...line,
+        accountName: getAccountName(line.accountCode),
+      }));
+
+    if (lines.length < 2) {
+      alert("At least two valid journal lines are required.");
+      return;
+    }
+
+    const debitTotal = lines.reduce((sum, line) => sum + Number(line.debit || 0), 0);
+    const creditTotal = lines.reduce((sum, line) => sum + Number(line.credit || 0), 0);
+
+    if (Number(debitTotal.toFixed(2)) !== Number(creditTotal.toFixed(2))) {
+      alert("Journal entry is not balanced. Debits must equal credits.");
+      return;
+    }
+
+    await api.post("/api/journal-entries", {
+      ...formData,
+      lines,
+    });
+
+    alert("Journal entry posted successfully.");
+
+    setFormData({
+      entryDate: new Date().toISOString().slice(0, 10),
+      memo: "",
+      reference: "",
+      sourceModule: "Manual",
+      lines: [
+        { accountCode: "", debit: 0, credit: 0, description: "" },
+        { accountCode: "", debit: 0, credit: 0, description: "" },
+      ],
+    });
+
+    setShowForm(false);
+    await fetchData();
+  } catch (error) {
+    console.error("Error posting journal entry:", error);
+    alert(error?.response?.data?.message || "Could not post journal entry.");
+  }
+};
+
+const openJournalEntry = async (entryNumber) => {
+  try {
+    const res = await api.get(`/api/journal-entries/${entryNumber}`);
+    setSelectedEntry(res.data.data || null);
+    setReverseReason("");
+  } catch (error) {
+    console.error("Error loading journal entry:", error);
+    alert(error?.response?.data?.message || "Could not load journal entry.");
+  }
+};
+
+const reverseEntry = async () => {
+  try {
+    if (!selectedEntry?.entryNumber) {
+      alert("No journal entry selected.");
+      return;
+    }
+
+    if (selectedEntry.status === "Reversed") {
+      alert("This journal entry is already reversed.");
+      return;
+    }
+
+    if (!reverseReason.trim()) {
+      alert("Please enter a reversal reason.");
+      return;
+    }
+
+    if (!window.confirm(`Reverse journal entry ${selectedEntry.entryNumber}? This cannot be undone.`)) {
+      return;
+    }
+
+    await api.post(`/api/journal-entries/${selectedEntry.entryNumber}/reverse`, {
+      reversalReason: reverseReason.trim(),
+    });
+
+    alert("Journal entry reversed successfully.");
+    setSelectedEntry(null);
+    setReverseReason("");
+    await fetchData();
+  } catch (error) {
+    console.error("Reverse journal entry error:", error);
+    alert(error?.response?.data?.message || "Could not reverse journal entry.");
+  }
+};
 
   const filteredEntries = entries.filter((entry) => {
   const matchesSearch = `${entry.entryNumber} ${entry.entryDate} ${entry.memo} ${entry.reference} ${entry.sourceModule}`
@@ -182,6 +230,23 @@ const statusColor = (status) => {
   if (status === "Reversed") return "#dc2626";
   return MUTED;
 };
+
+const statusBadge = (status) => (
+  <span
+    style={{
+      color: statusColor(status),
+      fontWeight: "bold",
+      whiteSpace: "nowrap",
+    }}
+  >
+    {status === "Posted" && "● "}
+    {status === "Draft" && "● "}
+    {status === "Pending Approval" && "● "}
+    {status === "Approved" && "● "}
+    {status === "Reversed" && "● "}
+    {status}
+  </span>
+);
 
   const cardStyle = {
     backgroundColor: WHITE,
@@ -418,8 +483,121 @@ const statusColor = (status) => {
   </div>
 </div>
 
+{selectedEntry && (
+  <div style={{ ...cardStyle, marginBottom: "16px" }}>
+    <div style={{ display: "flex", justifyContent: "space-between", gap: "12px", flexWrap: "wrap" }}>
+      <div>
+        <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>
+          Journal Detail — {selectedEntry.entryNumber}
+        </h2>
+        <p style={{ color: MUTED, marginTop: 0 }}>
+          {selectedEntry.locked ? "🔒 Locked posted journal" : "Open journal"} · {selectedEntry.sourceModule || "Manual"}
+        </p>
+      </div>
+
+      <button
+        type="button"
+        onClick={() => setSelectedEntry(null)}
+        style={{
+          backgroundColor: "#64748b",
+          color: WHITE,
+          border: "none",
+          padding: "9px 12px",
+          borderRadius: "8px",
+          cursor: "pointer",
+          fontWeight: "bold",
+          height: "fit-content",
+        }}
+      >
+        Close Detail
+      </button>
+    </div>
+
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+        gap: "12px",
+        marginBottom: "14px",
+      }}
+    >
+      <div><strong>Date:</strong> {selectedEntry.entryDate}</div>
+      <div><strong>Status:</strong> {statusBadge(selectedEntry.status)}</div>
+      <div><strong>Reference:</strong> {selectedEntry.reference || "—"}</div>
+      <div><strong>Created By:</strong> {selectedEntry.createdBy || "—"}</div>
+      <div><strong>Posted By:</strong> {selectedEntry.postedBy || "—"}</div>
+      <div><strong>Posted At:</strong> {selectedEntry.postedAt ? new Date(selectedEntry.postedAt).toLocaleString() : "—"}</div>
+      <div><strong>Total Debit:</strong> {money(selectedEntry.totalDebit)}</div>
+      <div><strong>Total Credit:</strong> {money(selectedEntry.totalCredit)}</div>
+    </div>
+
+    <p><strong>Memo:</strong> {selectedEntry.memo || "—"}</p>
+
+    <div style={{ overflowX: "auto", border: `1px solid ${BORDER}`, borderRadius: "12px", marginTop: "12px" }}>
+      <table border="1" cellPadding="10" style={{ minWidth: "900px", width: "100%", borderCollapse: "collapse" }}>
+        <thead style={{ backgroundColor: "#eef4ff" }}>
+          <tr>
+            <th>Account Code</th>
+            <th>Account Name</th>
+            <th>Debit</th>
+            <th>Credit</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          {(selectedEntry.lines || []).map((line, index) => (
+            <tr key={index}>
+              <td style={{ fontWeight: "bold" }}>{line.accountCode}</td>
+              <td>{line.accountName}</td>
+              <td>{Number(line.debit || 0) > 0 ? money(line.debit) : "—"}</td>
+              <td>{Number(line.credit || 0) > 0 ? money(line.credit) : "—"}</td>
+              <td>{line.description || "—"}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+
+    {selectedEntry.status !== "Reversed" && (
+      <div style={{ marginTop: "14px", display: "grid", gridTemplateColumns: "1fr auto", gap: "10px" }}>
+        <input
+          placeholder="Reason for reversal"
+          value={reverseReason}
+          onChange={(e) => setReverseReason(e.target.value)}
+          style={inputStyle}
+        />
+
+        <button
+          type="button"
+          onClick={reverseEntry}
+          style={{
+            backgroundColor: "#dc2626",
+            color: WHITE,
+            border: "none",
+            padding: "10px 14px",
+            borderRadius: "8px",
+            cursor: "pointer",
+            fontWeight: "bold",
+          }}
+        >
+          Reverse Entry
+        </button>
+      </div>
+    )}
+
+    {selectedEntry.status === "Reversed" && (
+      <p style={{ color: "#dc2626", fontWeight: "bold" }}>
+        Reversed by {selectedEntry.reversedBy || "—"} on{" "}
+        {selectedEntry.reversedAt ? new Date(selectedEntry.reversedAt).toLocaleString() : "—"}.
+        Reversal Entry: {selectedEntry.reversalEntryNumber || "—"}.
+      </p>
+    )}
+  </div>
+)}
+
 <div style={cardStyle}>
-        <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>General Ledger Entries</h2>
+  <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>General Ledger Entries</h2>
 
         <div style={{ overflowX: "auto", overflowY: "auto", maxHeight: "70vh", border: `1px solid ${BORDER}`, borderRadius: "12px" }}>
           <table border="1" cellPadding="10" style={{ minWidth: "1300px", width: "100%", borderCollapse: "collapse" }}>
@@ -434,6 +612,7 @@ const statusColor = (status) => {
                 <th>Total Credit</th>
                 <th>Status</th>
                 <th>Lines</th>
+<th>Actions</th>
               </tr>
             </thead>
 
@@ -442,35 +621,64 @@ const statusColor = (status) => {
                 filteredEntries.map((entry) => (
                   <tr key={entry._id}>
                     <td>{entry.entryDate}</td>
-                    <td>{entry.entryNumber}</td>
+                    <td>
+  <button
+    type="button"
+    onClick={() => openJournalEntry(entry.entryNumber)}
+    style={{
+      background: "none",
+      border: "none",
+      color: ROYAL_BLUE,
+      fontWeight: "bold",
+      cursor: "pointer",
+      textDecoration: "underline",
+      padding: 0,
+    }}
+  >
+    {entry.entryNumber}
+  </button>
+</td>
                     <td>{entry.memo}</td>
                     <td>{entry.reference || "—"}</td>
                     <td>{entry.sourceModule || "—"}</td>
                     <td>{money(entry.totalDebit)}</td>
                     <td>{money(entry.totalCredit)}</td>
+                    <td>{statusBadge(entry.status)}</td>
                     <td>
-  <span
+  {(entry.lines || []).slice(0, 2).map((line, index) => (
+    <div key={index} style={{ marginBottom: "6px" }}>
+      <strong>{line.accountCode}</strong> {line.accountName} —
+      DR {money(line.debit)} / CR {money(line.credit)}
+    </div>
+  ))}
+  {(entry.lines || []).length > 2 && (
+    <span style={{ color: MUTED }}>
+      + {(entry.lines || []).length - 2} more line(s)
+    </span>
+  )}
+</td>
+<td>
+  <button
+    type="button"
+    onClick={() => openJournalEntry(entry.entryNumber)}
     style={{
-      color: statusColor(entry.status),
+      backgroundColor: ROYAL_BLUE,
+      color: WHITE,
+      border: "none",
+      padding: "7px 10px",
+      borderRadius: "8px",
+      cursor: "pointer",
       fontWeight: "bold",
     }}
   >
-    {entry.status}
-  </span>
+    View
+  </button>
 </td>
-                    <td>
-                      {(entry.lines || []).map((line, index) => (
-                        <div key={index} style={{ marginBottom: "6px" }}>
-                          <strong>{line.accountCode}</strong> {line.accountName} —
-                          DR {money(line.debit)} / CR {money(line.credit)}
-                        </div>
-                      ))}
-                    </td>
                   </tr>
                 ))
               ) : (
                 <tr>
-                  <td colSpan="9" style={{ textAlign: "center", color: MUTED }}>
+                  <td colSpan="10" style={{ textAlign: "center", color: MUTED }}>
                     No journal entries found.
                   </td>
                 </tr>
