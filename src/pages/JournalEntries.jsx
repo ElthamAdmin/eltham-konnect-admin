@@ -6,6 +6,11 @@ function JournalEntries() {
   const [accounts, setAccounts] = useState([]);
   const [showForm, setShowForm] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+const [health, setHealth] = useState(null);
+const [statusFilter, setStatusFilter] = useState("All");
+const [sourceFilter, setSourceFilter] = useState("All");
+const [startDate, setStartDate] = useState("");
+const [endDate, setEndDate] = useState("");
 
   const [formData, setFormData] = useState({
     entryDate: new Date().toISOString().slice(0, 10),
@@ -25,13 +30,15 @@ function JournalEntries() {
 
   const fetchData = async () => {
     try {
-      const [entriesRes, accountsRes] = await Promise.all([
-        api.get("/api/journal-entries"),
-        api.get("/api/chart-of-accounts"),
-      ]);
+      const [entriesRes, accountsRes, healthRes] = await Promise.all([
+  api.get("/api/journal-entries"),
+  api.get("/api/chart-of-accounts"),
+  api.get("/api/journal-entries/health"),
+]);
 
-      setEntries(entriesRes.data.data || []);
-      setAccounts(accountsRes.data.data || []);
+setEntries(entriesRes.data.data || []);
+setAccounts(accountsRes.data.data || []);
+setHealth(healthRes.data.data || null);
     } catch (error) {
       console.error("Error loading journal entries:", error);
       alert(error?.response?.data?.message || "Could not load journal entries.");
@@ -139,13 +146,42 @@ function JournalEntries() {
     }
   };
 
-  const filteredEntries = entries.filter((entry) =>
-    `${entry.entryNumber} ${entry.entryDate} ${entry.memo} ${entry.reference} ${entry.sourceModule}`
-      .toLowerCase()
-      .includes(searchTerm.toLowerCase())
-  );
+  const filteredEntries = entries.filter((entry) => {
+  const matchesSearch = `${entry.entryNumber} ${entry.entryDate} ${entry.memo} ${entry.reference} ${entry.sourceModule}`
+    .toLowerCase()
+    .includes(searchTerm.toLowerCase());
+
+  const matchesStatus =
+    statusFilter === "All" || entry.status === statusFilter;
+
+  const matchesSource =
+    sourceFilter === "All" || entry.sourceModule === sourceFilter;
+
+  const entryDate = new Date(entry.entryDate);
+  const matchesStart =
+    !startDate || entryDate >= new Date(startDate);
+
+  const matchesEnd =
+    !endDate || entryDate <= new Date(endDate);
+
+  return matchesSearch && matchesStatus && matchesSource && matchesStart && matchesEnd;
+});
 
   const money = (value) => `JMD ${Number(value || 0).toLocaleString()}`;
+
+const sourceModules = [
+  "All",
+  ...Array.from(new Set(entries.map((entry) => entry.sourceModule || "Manual"))),
+];
+
+const statusColor = (status) => {
+  if (status === "Posted") return "#16a34a";
+  if (status === "Draft") return "#f59e0b";
+  if (status === "Pending Approval") return "#7c3aed";
+  if (status === "Approved") return ROYAL_BLUE;
+  if (status === "Reversed") return "#dc2626";
+  return MUTED;
+};
 
   const cardStyle = {
     backgroundColor: WHITE,
@@ -187,7 +223,49 @@ function JournalEntries() {
         </button>
       </div>
 
-      {showForm && (
+      <div
+  style={{
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+    gap: "14px",
+    marginBottom: "18px",
+  }}
+>
+  <div style={cardStyle}>
+    <h2 style={{ margin: 0, color: ROYAL_BLUE }}>{health?.totalEntries || entries.length}</h2>
+    <p style={{ marginBottom: 0, fontWeight: "bold" }}>Total Entries</p>
+  </div>
+
+  <div style={cardStyle}>
+    <h2 style={{ margin: 0, color: "#16a34a" }}>{health?.postedCount || 0}</h2>
+    <p style={{ marginBottom: 0, fontWeight: "bold" }}>Posted</p>
+  </div>
+
+  <div style={cardStyle}>
+    <h2 style={{ margin: 0, color: "#f59e0b" }}>{health?.draftCount || 0}</h2>
+    <p style={{ marginBottom: 0, fontWeight: "bold" }}>Drafts</p>
+  </div>
+
+  <div style={cardStyle}>
+    <h2 style={{ margin: 0, color: "#dc2626" }}>{health?.reversedCount || 0}</h2>
+    <p style={{ marginBottom: 0, fontWeight: "bold" }}>Reversed</p>
+  </div>
+
+  <div style={cardStyle}>
+    <h2 style={{ margin: 0, color: health?.isHealthy ? "#16a34a" : "#dc2626" }}>
+      {health?.isHealthy ? "Healthy" : "Needs Review"}
+    </h2>
+    <p style={{ marginBottom: 0, fontWeight: "bold" }}>Journal Health</p>
+  </div>
+
+  <div style={cardStyle}>
+    <h2 style={{ margin: 0, color: "#dc2626" }}>{health?.unbalancedCount || 0}</h2>
+    <p style={{ marginBottom: 0, fontWeight: "bold" }}>Unbalanced</p>
+  </div>
+</div>
+
+{showForm && (
+
         <div style={{ ...cardStyle, marginBottom: "20px" }}>
           <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>Post Journal Entry</h2>
 
@@ -263,15 +341,84 @@ function JournalEntries() {
       )}
 
       <div style={{ ...cardStyle, marginBottom: "16px" }}>
-        <input
-          placeholder="Search journal entries"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          style={{ ...inputStyle, width: "100%" }}
-        />
-      </div>
+  <div
+    style={{
+      display: "grid",
+      gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))",
+      gap: "12px",
+    }}
+  >
+    <input
+      placeholder="Search journal entries"
+      value={searchTerm}
+      onChange={(e) => setSearchTerm(e.target.value)}
+      style={inputStyle}
+    />
 
-      <div style={cardStyle}>
+    <select
+      value={statusFilter}
+      onChange={(e) => setStatusFilter(e.target.value)}
+      style={inputStyle}
+    >
+      <option value="All">All Statuses</option>
+      <option value="Draft">Draft</option>
+      <option value="Pending Approval">Pending Approval</option>
+      <option value="Approved">Approved</option>
+      <option value="Posted">Posted</option>
+      <option value="Reversed">Reversed</option>
+    </select>
+
+    <select
+      value={sourceFilter}
+      onChange={(e) => setSourceFilter(e.target.value)}
+      style={inputStyle}
+    >
+      {sourceModules.map((source) => (
+        <option key={source} value={source}>
+          {source === "All" ? "All Sources" : source}
+        </option>
+      ))}
+    </select>
+
+    <input
+      type="date"
+      value={startDate}
+      onChange={(e) => setStartDate(e.target.value)}
+      style={inputStyle}
+    />
+
+    <input
+      type="date"
+      value={endDate}
+      onChange={(e) => setEndDate(e.target.value)}
+      style={inputStyle}
+    />
+
+    <button
+      type="button"
+      onClick={() => {
+        setSearchTerm("");
+        setStatusFilter("All");
+        setSourceFilter("All");
+        setStartDate("");
+        setEndDate("");
+      }}
+      style={{
+        backgroundColor: "#64748b",
+        color: WHITE,
+        border: "none",
+        padding: "10px",
+        borderRadius: "8px",
+        cursor: "pointer",
+        fontWeight: "bold",
+      }}
+    >
+      Clear Filters
+    </button>
+  </div>
+</div>
+
+<div style={cardStyle}>
         <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>General Ledger Entries</h2>
 
         <div style={{ overflowX: "auto", overflowY: "auto", maxHeight: "70vh", border: `1px solid ${BORDER}`, borderRadius: "12px" }}>
@@ -301,7 +448,16 @@ function JournalEntries() {
                     <td>{entry.sourceModule || "—"}</td>
                     <td>{money(entry.totalDebit)}</td>
                     <td>{money(entry.totalCredit)}</td>
-                    <td>{entry.status}</td>
+                    <td>
+  <span
+    style={{
+      color: statusColor(entry.status),
+      fontWeight: "bold",
+    }}
+  >
+    {entry.status}
+  </span>
+</td>
                     <td>
                       {(entry.lines || []).map((line, index) => (
                         <div key={index} style={{ marginBottom: "6px" }}>
