@@ -177,13 +177,32 @@ const [showTree, setShowTree] = useState(true);
     </span>
   );
 
-  const cardStyle = {
-    backgroundColor: WHITE,
-    border: `1px solid ${BORDER}`,
-    borderRadius: "12px",
-    padding: "18px",
-    boxShadow: "0 2px 8px rgba(15,23,42,0.04)",
-  };
+  const balanceColor = (value) => {
+  const amount = Number(value || 0);
+  if (amount > 0) return "#16a34a";
+  if (amount < 0) return "#dc2626";
+  return ROYAL_BLUE;
+};
+
+const systemBadge = (isSystemAccount) => (
+  <span style={{ color: isSystemAccount ? "#7c3aed" : MUTED, fontWeight: "bold" }}>
+    {isSystemAccount ? "SYSTEM" : "Custom"}
+  </span>
+);
+
+const manualBadge = (allowManualEntries) => (
+  <span style={{ color: allowManualEntries === false ? "#dc2626" : "#16a34a", fontWeight: "bold" }}>
+    {allowManualEntries === false ? "System Only" : "Manual Allowed"}
+  </span>
+);
+
+const cardStyle = {
+  backgroundColor: WHITE,
+  border: `1px solid ${BORDER}`,
+  borderRadius: "12px",
+  padding: "18px",
+  boxShadow: "0 2px 8px rgba(15,23,42,0.04)",
+};
 
   const inputStyle = {
     padding: "10px",
@@ -466,8 +485,15 @@ const [showTree, setShowTree] = useState(true);
             </h3>
 
             {(group.accounts || []).length > 0 ? (
-              group.accounts.map((account) => (
-                <AccountTreeNode key={account.accountCode} account={account} money={money} border={BORDER} muted={MUTED} />
+              group.accounts.map((account, index) => (
+                <AccountTreeNode
+  key={account.accountCode}
+  account={account}
+  money={money}
+  border={BORDER}
+  muted={MUTED}
+  path={`${index + 1}`}
+/>
               ))
             ) : (
               <p style={{ color: MUTED }}>No accounts in this category.</p>
@@ -532,15 +558,17 @@ const [showTree, setShowTree] = useState(true);
             >
               <tr>
                 <th>Code</th>
-                <th>Account Name</th>
-                <th>Category</th>
-                <th>Type</th>
-                <th>Parent</th>
-                <th>Opening Balance</th>
-                <th>Current Balance</th>
-                <th>Normal Balance</th>
-                <th>Status</th>
-                <th>Description</th>
+<th>Account Name</th>
+<th>Category</th>
+<th>Type</th>
+<th>Parent</th>
+<th>Opening Balance</th>
+<th>Current Balance</th>
+<th>Normal Balance</th>
+<th>System</th>
+<th>Manual Entries</th>
+<th>Status</th>
+<th>Description</th>
               </tr>
             </thead>
 
@@ -549,22 +577,26 @@ const [showTree, setShowTree] = useState(true);
                 filteredAccounts.map((account) => (
                   <tr key={account._id}>
                     <td style={{ fontWeight: "bold" }}>{account.accountCode}</td>
-                    <td>{account.accountName}</td>
-                    <td>{categoryBadge(account.accountCategory)}</td>
-                    <td>{account.accountType || "—"}</td>
-                    <td>{account.parentAccountCode || "—"}</td>
-                    <td>{money(account.openingBalance)}</td>
-                    <td>{money(account.currentBalance)}</td>
-                    <td>{account.normalBalance}</td>
-                    <td>{account.status}</td>
-                    <td style={{ maxWidth: "280px", color: MUTED }}>
-                      {account.description || "—"}
-                    </td>
+<td>{account.accountName}</td>
+<td>{categoryBadge(account.accountCategory)}</td>
+<td>{account.accountType || "—"}</td>
+<td>{account.parentAccountCode || "—"}</td>
+<td>{money(account.openingBalance)}</td>
+<td style={{ fontWeight: "bold", color: balanceColor(account.currentBalance) }}>
+  {money(account.currentBalance)}
+</td>
+<td>{account.normalBalance}</td>
+<td>{systemBadge(account.isSystemAccount)}</td>
+<td>{manualBadge(account.allowManualEntries)}</td>
+<td>{account.status}</td>
+<td style={{ maxWidth: "280px", color: MUTED }}>
+  {account.description || "—"}
+</td>
                   </tr>
                 ))
               ) : (
                 <tr>
-                  <td colSpan="10" style={{ textAlign: "center", color: MUTED }}>
+                  <td colSpan="12" style={{ textAlign: "center", color: MUTED }}>
                     No chart of accounts records found.
                   </td>
                 </tr>
@@ -582,7 +614,13 @@ const [showTree, setShowTree] = useState(true);
   );
 }
 
-function AccountTreeNode({ account, money, border, muted, level = 0 }) {
+function AccountTreeNode({ account, money, border, muted, level = 0, path = "1" }) {
+  const amount = Number(account.currentBalance || 0);
+
+  const balanceColor = amount > 0 ? "#16a34a" : amount < 0 ? "#dc2626" : "#0B3D91";
+
+  const usageLabel = Number(account.transactionCount || 0) > 0 ? "Used" : "Unused";
+
   return (
     <div
       style={{
@@ -595,7 +633,7 @@ function AccountTreeNode({ account, money, border, muted, level = 0 }) {
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "120px 1.5fr 1fr 1fr 1fr",
+          gridTemplateColumns: "80px 130px 1.5fr 1fr 1fr 1fr 1fr",
           gap: "10px",
           alignItems: "center",
           backgroundColor: "#f8fafc",
@@ -604,16 +642,20 @@ function AccountTreeNode({ account, money, border, muted, level = 0 }) {
           padding: "9px",
         }}
       >
+        <strong>{path}</strong>
         <strong>{account.accountCode}</strong>
         <span>{account.accountName}</span>
         <span style={{ color: muted }}>{account.accountType || "—"}</span>
-        <strong>{money(account.currentBalance)}</strong>
-        <span style={{ color: account.transactionCount > 0 ? "#16a34a" : muted }}>
-          {account.transactionCount || 0} txn
+        <strong style={{ color: balanceColor }}>{money(account.currentBalance)}</strong>
+        <span style={{ color: account.transactionCount > 0 ? "#16a34a" : muted, fontWeight: "bold" }}>
+          {usageLabel} / {account.transactionCount || 0} txn
+        </span>
+        <span style={{ color: account.isSystemAccount ? "#7c3aed" : muted, fontWeight: "bold" }}>
+          {account.isSystemAccount ? "SYSTEM" : "Custom"}
         </span>
       </div>
 
-      {(account.children || []).map((child) => (
+      {(account.children || []).map((child, index) => (
         <AccountTreeNode
           key={child.accountCode}
           account={child}
@@ -621,6 +663,7 @@ function AccountTreeNode({ account, money, border, muted, level = 0 }) {
           border={border}
           muted={muted}
           level={level + 1}
+          path={`${path}.${index + 1}`}
         />
       ))}
     </div>
