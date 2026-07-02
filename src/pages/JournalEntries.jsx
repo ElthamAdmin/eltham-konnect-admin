@@ -194,6 +194,45 @@ const reverseEntry = async () => {
   }
 };
 
+const submitForApproval = async (entryNumber) => {
+  try {
+    await api.post(`/api/journal-entries/${entryNumber}/submit`);
+    await fetchData();
+
+    if (selectedEntry?.entryNumber === entryNumber) {
+      await openJournalEntry(entryNumber);
+    }
+  } catch (error) {
+    alert(error?.response?.data?.message || "Could not submit journal.");
+  }
+};
+
+const approveJournal = async (entryNumber) => {
+  try {
+    await api.post(`/api/journal-entries/${entryNumber}/approve`);
+    await fetchData();
+
+    if (selectedEntry?.entryNumber === entryNumber) {
+      await openJournalEntry(entryNumber);
+    }
+  } catch (error) {
+    alert(error?.response?.data?.message || "Could not approve journal.");
+  }
+};
+
+const postApprovedJournal = async (entryNumber) => {
+  try {
+    await api.post(`/api/journal-entries/${entryNumber}/post`);
+    await fetchData();
+
+    if (selectedEntry?.entryNumber === entryNumber) {
+      await openJournalEntry(entryNumber);
+    }
+  } catch (error) {
+    alert(error?.response?.data?.message || "Could not post journal.");
+  }
+};
+
   const filteredEntries = entries.filter((entry) => {
   const matchesSearch = `${entry.entryNumber} ${entry.entryDate} ${entry.memo} ${entry.reference} ${entry.sourceModule}`
     .toLowerCase()
