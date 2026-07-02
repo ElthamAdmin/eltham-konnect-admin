@@ -7,6 +7,8 @@ function ChartOfAccounts() {
   const [searchTerm, setSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("All");
   const [health, setHealth] = useState(null);
+const [accountTree, setAccountTree] = useState([]);
+const [showTree, setShowTree] = useState(true);
 
   const [formData, setFormData] = useState({
     accountCode: "",
@@ -47,6 +49,14 @@ function ChartOfAccounts() {
       systemAccounts: 0,
       healthIssues: 1,
     });
+  }
+
+  try {
+    const treeRes = await api.get("/api/chart-of-accounts/tree");
+    setAccountTree(treeRes.data.data?.categories || []);
+  } catch (error) {
+    console.error("Account tree warning:", error);
+    setAccountTree([]);
   }
 };
 
@@ -265,129 +275,135 @@ function ChartOfAccounts() {
 </div>
 
       {showForm && (
-        <div style={{ ...cardStyle, marginBottom: "20px" }}>
-          <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>New Account</h2>
+  <div style={{ ...cardStyle, marginBottom: "20px" }}>
+    <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>New Account</h2>
 
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))",
-              gap: "14px",
-            }}
-          >
-            <input
-              name="accountCode"
-              placeholder="Account Code e.g. 1000"
-              value={formData.accountCode}
-              onChange={handleChange}
-              style={inputStyle}
-            />
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))",
+        gap: "14px",
+      }}
+    >
+      <input
+        name="accountCode"
+        placeholder="Account Code e.g. 1000"
+        value={formData.accountCode}
+        onChange={handleChange}
+        style={inputStyle}
+      />
 
-            <input
-              name="accountName"
-              placeholder="Account Name e.g. NCB Business Account"
-              value={formData.accountName}
-              onChange={handleChange}
-              style={inputStyle}
-            />
+      <input
+        name="accountName"
+        placeholder="Account Name e.g. NCB Business Account"
+        value={formData.accountName}
+        onChange={handleChange}
+        style={inputStyle}
+      />
 
-            <select
-              name="accountCategory"
-              value={formData.accountCategory}
-              onChange={handleChange}
-              style={inputStyle}
-            >
-              <option value="Asset">Asset</option>
-              <option value="Liability">Liability</option>
-              <option value="Equity">Equity</option>
-              <option value="Revenue">Revenue</option>
-              <option value="Cost of Sales">Cost of Sales</option>
-              <option value="Expense">Expense</option>
-            </select>
+      <select
+        name="accountCategory"
+        value={formData.accountCategory}
+        onChange={handleChange}
+        style={inputStyle}
+      >
+        <option value="Asset">Asset</option>
+        <option value="Liability">Liability</option>
+        <option value="Equity">Equity</option>
+        <option value="Revenue">Revenue</option>
+        <option value="Cost of Sales">Cost of Sales</option>
+        <option value="Expense">Expense</option>
+      </select>
 
-            <input
-              name="accountType"
-              placeholder="Account Type e.g. Bank, Current Liability"
-              value={formData.accountType}
-              onChange={handleChange}
-              style={inputStyle}
-            />
+      <input
+        name="accountType"
+        placeholder="Account Type e.g. Bank, Current Liability"
+        value={formData.accountType}
+        onChange={handleChange}
+        style={inputStyle}
+      />
 
-            <input
-              name="parentAccountCode"
-              placeholder="Parent Account Code, optional"
-              value={formData.parentAccountCode}
-              onChange={handleChange}
-              style={inputStyle}
-            />
+      <select
+        name="parentAccountCode"
+        value={formData.parentAccountCode}
+        onChange={handleChange}
+        style={inputStyle}
+      >
+        <option value="">No Parent Account</option>
+        {accounts.map((account) => (
+          <option key={account._id} value={account.accountCode}>
+            {account.accountCode} - {account.accountName}
+          </option>
+        ))}
+      </select>
 
-            <input
-              type="number"
-              name="openingBalance"
-              placeholder="Opening Balance"
-              value={formData.openingBalance}
-              onChange={handleChange}
-              style={inputStyle}
-            />
+      <input
+        type="number"
+        name="openingBalance"
+        placeholder="Opening Balance"
+        value={formData.openingBalance}
+        onChange={handleChange}
+        style={inputStyle}
+      />
 
-            <select
-              name="normalBalance"
-              value={formData.normalBalance}
-              onChange={handleChange}
-              style={inputStyle}
-            >
-              <option value="Debit">Debit</option>
-              <option value="Credit">Credit</option>
-            </select>
+      <select
+        name="normalBalance"
+        value={formData.normalBalance}
+        onChange={handleChange}
+        style={inputStyle}
+      >
+        <option value="Debit">Debit</option>
+        <option value="Credit">Credit</option>
+      </select>
 
-            <textarea
-              name="description"
-              placeholder="Description"
-              value={formData.description}
-              onChange={handleChange}
-              style={{
-                ...inputStyle,
-                minHeight: "90px",
-                gridColumn: "1 / -1",
-              }}
-            />
-          </div>
+      <textarea
+        name="description"
+        placeholder="Description"
+        value={formData.description}
+        onChange={handleChange}
+        style={{
+          ...inputStyle,
+          minHeight: "90px",
+          gridColumn: "1 / -1",
+        }}
+      />
+    </div>
 
-          <div style={{ display: "flex", gap: "10px", marginTop: "16px", flexWrap: "wrap" }}>
-            <button
-              onClick={saveAccount}
-              style={{
-                backgroundColor: "#16a34a",
-                color: WHITE,
-                border: "none",
-                padding: "10px 16px",
-                borderRadius: "8px",
-                cursor: "pointer",
-                fontWeight: "bold",
-              }}
-            >
-              Save Account
-            </button>
+    <div style={{ display: "flex", gap: "10px", marginTop: "16px", flexWrap: "wrap" }}>
+      <button
+        onClick={saveAccount}
+        style={{
+          backgroundColor: "#16a34a",
+          color: WHITE,
+          border: "none",
+          padding: "10px 16px",
+          borderRadius: "8px",
+          cursor: "pointer",
+          fontWeight: "bold",
+        }}
+      >
+        Save Account
+      </button>
 
-            <button
-              onClick={resetForm}
-              style={{
-                backgroundColor: "#64748b",
-                color: WHITE,
-                border: "none",
-                padding: "10px 16px",
-                borderRadius: "8px",
-                cursor: "pointer",
-                fontWeight: "bold",
-              }}
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      )}
+      <button
+        onClick={resetForm}
+        style={{
+          backgroundColor: "#64748b",
+          color: WHITE,
+          border: "none",
+          padding: "10px 16px",
+          borderRadius: "8px",
+          cursor: "pointer",
+          fontWeight: "bold",
+        }}
+      >
+        Cancel
+      </button>
+    </div>
+  </div>
+)}
 
-      <div style={{ ...cardStyle, marginBottom: "16px" }}>
+<div style={{ ...cardStyle, marginBottom: "16px" }}>
         <div
           style={{
             display: "grid",
@@ -419,8 +435,73 @@ function ChartOfAccounts() {
         </div>
       </div>
 
-      <div style={cardStyle}>
-        <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>Corporate Account List</h2>
+      {showTree && (
+  <div style={{ ...cardStyle, marginBottom: "16px" }}>
+    <div style={{ display: "flex", justifyContent: "space-between", gap: "12px", flexWrap: "wrap" }}>
+      <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>Account Tree</h2>
+
+      <button
+        type="button"
+        onClick={() => setShowTree(false)}
+        style={{
+          backgroundColor: "#64748b",
+          color: WHITE,
+          border: "none",
+          padding: "8px 12px",
+          borderRadius: "8px",
+          cursor: "pointer",
+          fontWeight: "bold",
+        }}
+      >
+        Hide Tree
+      </button>
+    </div>
+
+    <div style={{ display: "grid", gap: "12px" }}>
+      {accountTree.length > 0 ? (
+        accountTree.map((group) => (
+          <div key={group.category} style={{ border: `1px solid ${BORDER}`, borderRadius: "10px", padding: "12px" }}>
+            <h3 style={{ marginTop: 0, color: categoryColor(group.category) }}>
+              {group.category}
+            </h3>
+
+            {(group.accounts || []).length > 0 ? (
+              group.accounts.map((account) => (
+                <AccountTreeNode key={account.accountCode} account={account} money={money} border={BORDER} muted={MUTED} />
+              ))
+            ) : (
+              <p style={{ color: MUTED }}>No accounts in this category.</p>
+            )}
+          </div>
+        ))
+      ) : (
+        <p style={{ color: MUTED }}>No account tree available.</p>
+      )}
+    </div>
+  </div>
+)}
+
+{!showTree && (
+  <button
+    type="button"
+    onClick={() => setShowTree(true)}
+    style={{
+      marginBottom: "16px",
+      backgroundColor: ROYAL_BLUE,
+      color: WHITE,
+      border: "none",
+      padding: "10px 14px",
+      borderRadius: "8px",
+      cursor: "pointer",
+      fontWeight: "bold",
+    }}
+  >
+    Show Account Tree
+  </button>
+)}
+
+<div style={cardStyle}>
+  <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>Corporate Account List</h2>
 
         <div
           style={{
@@ -497,6 +578,51 @@ function ChartOfAccounts() {
         Suggested numbering: Assets 1000–1999, Liabilities 2000–2999, Equity 3000–3999,
         Revenue 4000–4999, Cost of Sales 5000–5999, Expenses 6000–6999.
       </div>
+    </div>
+  );
+}
+
+function AccountTreeNode({ account, money, border, muted, level = 0 }) {
+  return (
+    <div
+      style={{
+        marginLeft: `${level * 22}px`,
+        borderLeft: level > 0 ? `3px solid ${border}` : "none",
+        paddingLeft: level > 0 ? "12px" : "0",
+        marginBottom: "8px",
+      }}
+    >
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "120px 1.5fr 1fr 1fr 1fr",
+          gap: "10px",
+          alignItems: "center",
+          backgroundColor: "#f8fafc",
+          border: `1px solid ${border}`,
+          borderRadius: "8px",
+          padding: "9px",
+        }}
+      >
+        <strong>{account.accountCode}</strong>
+        <span>{account.accountName}</span>
+        <span style={{ color: muted }}>{account.accountType || "—"}</span>
+        <strong>{money(account.currentBalance)}</strong>
+        <span style={{ color: account.transactionCount > 0 ? "#16a34a" : muted }}>
+          {account.transactionCount || 0} txn
+        </span>
+      </div>
+
+      {(account.children || []).map((child) => (
+        <AccountTreeNode
+          key={child.accountCode}
+          account={child}
+          money={money}
+          border={border}
+          muted={muted}
+          level={level + 1}
+        />
+      ))}
     </div>
   );
 }
