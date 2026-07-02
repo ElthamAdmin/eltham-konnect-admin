@@ -598,32 +598,116 @@ const statusBadge = (status) => (
       </table>
     </div>
 
-    {selectedEntry.status !== "Reversed" && (
-      <div style={{ marginTop: "14px", display: "grid", gridTemplateColumns: "1fr auto", gap: "10px" }}>
-        <input
-          placeholder="Reason for reversal"
-          value={reverseReason}
-          onChange={(e) => setReverseReason(e.target.value)}
-          style={inputStyle}
-        />
+    <div
+  style={{
+    marginTop: "20px",
+    display: "flex",
+    flexWrap: "wrap",
+    gap: "10px",
+    alignItems: "center",
+  }}
+>
+  {selectedEntry.status === "Draft" && (
+    <button
+      onClick={() => submitForApproval(selectedEntry.entryNumber)}
+      style={{
+        backgroundColor: "#7c3aed",
+        color: "#fff",
+        border: "none",
+        padding: "10px 18px",
+        borderRadius: "8px",
+        cursor: "pointer",
+        fontWeight: "bold",
+      }}
+    >
+      Submit For Approval
+    </button>
+  )}
 
-        <button
-          type="button"
-          onClick={reverseEntry}
-          style={{
-            backgroundColor: "#dc2626",
-            color: WHITE,
-            border: "none",
-            padding: "10px 14px",
-            borderRadius: "8px",
-            cursor: "pointer",
-            fontWeight: "bold",
-          }}
-        >
-          Reverse Entry
-        </button>
-      </div>
-    )}
+  {selectedEntry.status === "Pending Approval" && (
+    <button
+      onClick={() => approveJournal(selectedEntry.entryNumber)}
+      style={{
+        backgroundColor: "#2563eb",
+        color: "#fff",
+        border: "none",
+        padding: "10px 18px",
+        borderRadius: "8px",
+        cursor: "pointer",
+        fontWeight: "bold",
+      }}
+    >
+      Approve Journal
+    </button>
+  )}
+
+  {selectedEntry.status === "Approved" && (
+    <button
+      onClick={() => postApprovedJournal(selectedEntry.entryNumber)}
+      style={{
+        backgroundColor: "#16a34a",
+        color: "#fff",
+        border: "none",
+        padding: "10px 18px",
+        borderRadius: "8px",
+        cursor: "pointer",
+        fontWeight: "bold",
+      }}
+    >
+      Post Journal
+    </button>
+  )}
+
+  {selectedEntry.status === "Posted" && (
+    <>
+      <input
+        placeholder="Reason for reversal"
+        value={reverseReason}
+        onChange={(e) => setReverseReason(e.target.value)}
+        style={{
+          flex: 1,
+          minWidth: "250px",
+          ...inputStyle,
+        }}
+      />
+
+      <button
+        onClick={reverseEntry}
+        style={{
+          backgroundColor: "#dc2626",
+          color: "#fff",
+          border: "none",
+          padding: "10px 18px",
+          borderRadius: "8px",
+          cursor: "pointer",
+          fontWeight: "bold",
+        }}
+      >
+        Reverse Journal
+      </button>
+    </>
+  )}
+
+  {selectedEntry.status === "Reversed" && (
+    <div
+      style={{
+        color: "#dc2626",
+        fontWeight: "bold",
+      }}
+    >
+      Reversed by {selectedEntry.reversedBy || "—"} on{" "}
+      {selectedEntry.reversedAt
+        ? new Date(selectedEntry.reversedAt).toLocaleString()
+        : "—"}
+
+      <br />
+
+      Reversal Entry:
+      {" "}
+      {selectedEntry.reversalEntryNumber || "—"}
+    </div>
+  )}
+</div>
 
     {selectedEntry.status === "Reversed" && (
       <p style={{ color: "#dc2626", fontWeight: "bold" }}>
