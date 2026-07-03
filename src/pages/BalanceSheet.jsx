@@ -65,11 +65,7 @@ function BalanceSheet() {
         <Card title="Total Assets" amount={report?.totals?.totalAssets} color={ROYAL_BLUE} />
         <Card title="Total Liabilities" amount={report?.totals?.totalLiabilities} color="#dc2626" />
         <Card title="Total Equity" amount={report?.totals?.totalEquity} color="#7c3aed" />
-        <Card
-          title="Liabilities + Equity"
-          amount={report?.totals?.liabilitiesPlusEquity}
-          color="#16a34a"
-        />
+        <Card title="Liabilities + Equity" amount={report?.totals?.liabilitiesPlusEquity} color="#16a34a" />
         <Card
           title="Difference"
           amount={report?.totals?.difference}
@@ -143,10 +139,12 @@ function BalanceSheet() {
           backgroundColor: "white",
           border: `1px solid ${BORDER}`,
           borderRadius: "12px",
-          padding: "18px",
+          padding: "20px",
           marginBottom: "20px",
           display: "flex",
           justifyContent: "space-between",
+          gap: "14px",
+          flexWrap: "wrap",
           fontSize: "24px",
           fontWeight: "bold",
           color: report?.totals?.isBalanced ? "#16a34a" : "#dc2626",
@@ -199,7 +197,7 @@ function StatementSection({ title, rows = [], totalLabel, total, color }) {
           {rows.length > 0 ? (
             rows.map((row) => (
               <tr key={row.accountCode} style={{ borderBottom: "1px solid #e5e7eb" }}>
-                <td style={{ width: "140px", fontWeight: "bold" }}>{row.accountCode}</td>
+                <td style={{ width: "160px", fontWeight: "bold" }}>{row.accountCode}</td>
                 <td>{row.accountName}</td>
                 <td style={{ textAlign: "right", fontWeight: "bold" }}>{money(row.amount)}</td>
               </tr>
