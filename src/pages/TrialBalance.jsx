@@ -39,7 +39,40 @@ setSummary(res.data);
   }, []);
 
   const money = (value) =>
-    `JMD ${Number(value || 0).toLocaleString()}`;
+  `JMD ${Number(value || 0).toLocaleString()}`;
+
+const amountColor = (value) => {
+  const amount = Number(value || 0);
+  if (amount > 0) return "#16a34a";
+  if (amount < 0) return "#dc2626";
+  return ROYAL_BLUE;
+};
+
+const categoryColor = (category) => {
+  if (category === "Asset") return "#0B3D91";
+  if (category === "Liability") return "#dc2626";
+  if (category === "Equity") return "#7c3aed";
+  if (category === "Revenue") return "#16a34a";
+  if (category === "Cost of Sales") return "#f59e0b";
+  if (category === "Expense") return "#ea580c";
+  return MUTED;
+};
+
+const categoryBadge = (category) => (
+  <span
+    style={{
+      backgroundColor: categoryColor(category),
+      color: "white",
+      padding: "5px 10px",
+      borderRadius: "999px",
+      fontWeight: "bold",
+      fontSize: "12px",
+      whiteSpace: "nowrap",
+    }}
+  >
+    {category || "—"}
+  </span>
+);
 
   const categories = useMemo(() => {
   return [
@@ -69,11 +102,16 @@ const activeRows = useMemo(() => {
   return (
     <div>
       <div style={{ marginBottom: "20px" }}>
-        <h1 style={{ margin: 0 }}>Trial Balance</h1>
+        <h1 style={{ margin: 0 }}>Eltham Konnect</h1>
 
-        <p style={{ marginTop: "6px", color: MUTED }}>
-          Corporate accounting balance verification for EKOS Finance.
-        </p>
+<h2 style={{ margin: "4px 0 0", color: ROYAL_BLUE }}>
+  Trial Balance
+</h2>
+
+<p style={{ marginTop: "6px", color: MUTED }}>
+  For period: <b>{fromDate || "Beginning"}</b> to <b>{toDate || "Today"}</b>
+  {" "}· Generated: <b>{new Date().toLocaleString()}</b>
+</p>
       </div>
 
       <div
@@ -87,8 +125,8 @@ const activeRows = useMemo(() => {
       >
         <Card>
           <h2 style={{ color: "#16a34a", margin: 0 }}>
-            {money(summary?.totalDebit)}
-          </h2>
+  {money(summary?.totalDebit)}
+</h2>
 
           <p style={{ fontWeight: "bold" }}>
             Total Debits
@@ -97,8 +135,8 @@ const activeRows = useMemo(() => {
 
         <Card>
           <h2 style={{ color: "#dc2626", margin: 0 }}>
-            {money(summary?.totalCredit)}
-          </h2>
+  {money(summary?.totalCredit)}
+</h2>
 
           <p style={{ fontWeight: "bold" }}>
             Total Credits
@@ -214,7 +252,7 @@ const activeRows = useMemo(() => {
         cursor: "pointer",
       }}
     >
-      {showAllAccounts ? "Show Active Only" : "Show All Accounts"}
+      {showAllAccounts ? "Hide Zero Balances" : "Show Zero Balances"}
     </button>
 
     <button
@@ -272,8 +310,12 @@ const activeRows = useMemo(() => {
   }}
 >
   <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>
-    Trial Balance Accounts
-  </h2>
+  Trial Balance Accounts
+</h2>
+
+<p style={{ color: MUTED }}>
+  Showing <b>{activeRows.length}</b> of <b>{rows.length}</b> accounts.
+</p>
 
         <div
           style={{
@@ -318,23 +360,19 @@ const activeRows = useMemo(() => {
 
                     <td>{row.accountName}</td>
 
-                    <td>{row.category}</td>
+                    <td>{categoryBadge(row.category)}</td>
 
-                    <td>{row.accountType}</td>
+<td>{row.accountType || "—"}</td>
 
-                    <td>{row.normalBalance}</td>
+<td>{row.normalBalance}</td>
 
-                    <td>
-                      {Number(row.debit || 0) > 0
-                        ? money(row.debit)
-                        : "—"}
-                    </td>
+                    <td style={{ fontWeight: "bold", color: amountColor(row.debit) }}>
+  {Number(row.debit || 0) > 0 ? money(row.debit) : "—"}
+</td>
 
-                    <td>
-                      {Number(row.credit || 0) > 0
-                        ? money(row.credit)
-                        : "—"}
-                    </td>
+<td style={{ fontWeight: "bold", color: amountColor(row.credit) }}>
+  {Number(row.credit || 0) > 0 ? money(row.credit) : "—"}
+</td>
                   </tr>
                 ))
               ) : (
