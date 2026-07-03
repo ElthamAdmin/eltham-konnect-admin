@@ -5,6 +5,7 @@ function AccountingPeriods() {
   const [periods, setPeriods] = useState([]);
   const [currentPeriod, setCurrentPeriod] = useState(null);
   const [formOpen, setFormOpen] = useState(false);
+  const [selectedChecklist, setSelectedChecklist] = useState(null);
 
   const [formData, setFormData] = useState({
     fiscalYear: new Date().getFullYear(),
@@ -56,21 +57,32 @@ function AccountingPeriods() {
     }
   };
 
-  const closePeriod = async (periodNumber) => {
-    if (!window.confirm("Validate and close this accounting period?")) return;
+  const loadCloseChecklist = async (periodNumber) => {
+  try {
+    const res = await api.get(`/api/accounting-periods/${periodNumber}/checklist`);
+    setSelectedChecklist(res.data.data || null);
+    await loadPeriods();
+  } catch (error) {
+    alert(error?.response?.data?.message || "Could not load close checklist.");
+  }
+};
 
-    try {
-      await api.put(`/api/accounting-periods/${periodNumber}/close`, {
-        notes: "Closed from EKOS Accounting Periods screen",
-      });
-      alert("Accounting period closed successfully.");
-      await loadPeriods();
-    } catch (error) {
-      alert(error?.response?.data?.message || "Could not close accounting period.");
-    }
-  };
+const closePeriod = async (periodNumber) => {
+  if (!window.confirm("Close this accounting period after checklist review?")) return;
 
-  const lockPeriod = async (periodNumber) => {
+  try {
+    await api.put(`/api/accounting-periods/${periodNumber}/close`, {
+      notes: "Closed from EKOS close checklist workflow",
+    });
+    alert("Accounting period closed successfully.");
+    setSelectedChecklist(null);
+    await loadPeriods();
+  } catch (error) {
+    alert(error?.response?.data?.message || "Could not close accounting period.");
+  }
+};
+
+const lockPeriod = async (periodNumber) => {
     if (!window.confirm("Lock this accounting period? Posting will no longer be allowed.")) return;
 
     try {
@@ -142,60 +154,143 @@ function AccountingPeriods() {
       </button>
 
       {formOpen && (
-        <div style={panel}>
-          <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>New Accounting Period</h2>
+  <div style={panel}>
+    <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>New Accounting Period</h2>
 
-          <div style={grid}>
-            <input
-              type="number"
-              placeholder="Fiscal Year"
-              value={formData.fiscalYear}
-              onChange={(e) => setFormData({ ...formData, fiscalYear: Number(e.target.value) })}
-              style={input}
-            />
+    <div style={grid}>
+      <input
+        type="number"
+        placeholder="Fiscal Year"
+        value={formData.fiscalYear}
+        onChange={(e) => setFormData({ ...formData, fiscalYear: Number(e.target.value) })}
+        style={input}
+      />
 
-            <select
-              value={formData.periodMonth}
-              onChange={(e) => setFormData({ ...formData, periodMonth: Number(e.target.value) })}
-              style={input}
-            >
-              {Array.from({ length: 12 }, (_, index) => (
-                <option key={index + 1} value={index + 1}>
-                  {index + 1}
-                </option>
-              ))}
-            </select>
+      <select
+        value={formData.periodMonth}
+        onChange={(e) => setFormData({ ...formData, periodMonth: Number(e.target.value) })}
+        style={input}
+      >
+        {Array.from({ length: 12 }, (_, index) => (
+          <option key={index + 1} value={index + 1}>
+            {index + 1}
+          </option>
+        ))}
+      </select>
 
-            <input
-              type="date"
-              value={formData.startDate}
-              onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
-              style={input}
-            />
+      <input
+        type="date"
+        value={formData.startDate}
+        onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
+        style={input}
+      />
 
-            <input
-              type="date"
-              value={formData.endDate}
-              onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
-              style={input}
-            />
+      <input
+        type="date"
+        value={formData.endDate}
+        onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
+        style={input}
+      />
 
-            <textarea
-              placeholder="Notes"
-              value={formData.notes}
-              onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-              style={{ ...input, gridColumn: "1 / -1" }}
-            />
+      <textarea
+        placeholder="Notes"
+        value={formData.notes}
+        onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+        style={{ ...input, gridColumn: "1 / -1" }}
+      />
+    </div>
+
+    <button onClick={savePeriod} style={{ ...button("#16a34a"), marginTop: "14px" }}>
+      Save Accounting Period
+    </button>
+  </div>
+)}
+
+{selectedChecklist && (
+  <div style={panel}>
+    <div style={{ display: "flex", justifyContent: "space-between", gap: "12px", flexWrap: "wrap" }}>
+      <div>
+        <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>
+          Close Checklist — {selectedChecklist?.period?.periodName}
+        </h2>
+        <p style={{ color: MUTED }}>
+          Period Status: <b>{selectedChecklist?.period?.status}</b> · Ready to Close:{" "}
+          <b style={{ color: selectedChecklist?.readyToClose ? "#16a34a" : "#dc2626" }}>
+            {selectedChecklist?.readyToClose ? "Yes" : "No"}
+          </b>
+        </p>
+      </div>
+
+      <button
+        type="button"
+        onClick={() => setSelectedChecklist(null)}
+        style={button("#64748b")}
+      >
+        Close Checklist
+      </button>
+    </div>
+
+    <div style={grid}>
+      {Object.entries(selectedChecklist?.checklist || {}).map(([key, value]) => (
+        <div
+          key={key}
+          style={{
+            border: "1px solid #dbe3ef",
+            borderRadius: "10px",
+            padding: "12px",
+            backgroundColor: value ? "#f0fdf4" : "#fef2f2",
+          }}
+        >
+          <div style={{ fontWeight: "bold", color: value ? "#16a34a" : "#dc2626" }}>
+            {value ? "✓ Passed" : "✕ Required"}
           </div>
-
-          <button onClick={savePeriod} style={{ ...button("#16a34a"), marginTop: "14px" }}>
-            Save Accounting Period
-          </button>
+          <div style={{ marginTop: "6px" }}>
+            {formatChecklistLabel(key)}
+          </div>
         </div>
-      )}
+      ))}
+    </div>
 
-      <div style={panel}>
-        <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>Accounting Periods</h2>
+    {(selectedChecklist?.errors || []).length > 0 && (
+      <div style={{ marginTop: "16px", color: "#dc2626", fontWeight: "bold" }}>
+        <h3>Validation Errors</h3>
+        <ul>
+          {selectedChecklist.errors.map((error, index) => (
+            <li key={index}>{error}</li>
+          ))}
+        </ul>
+      </div>
+    )}
+
+    {(selectedChecklist?.warnings || []).length > 0 && (
+      <div style={{ marginTop: "16px", color: "#f59e0b", fontWeight: "bold" }}>
+        <h3>Validation Warnings</h3>
+        <ul>
+          {selectedChecklist.warnings.map((warning, index) => (
+            <li key={index}>{warning}</li>
+          ))}
+        </ul>
+      </div>
+    )}
+
+    <div style={{ marginTop: "18px", display: "flex", gap: "10px", flexWrap: "wrap" }}>
+      <button
+        type="button"
+        onClick={() => closePeriod(selectedChecklist?.period?.periodNumber)}
+        disabled={!selectedChecklist?.readyToClose}
+        style={{
+          ...button(selectedChecklist?.readyToClose ? "#16a34a" : "#94a3b8"),
+          cursor: selectedChecklist?.readyToClose ? "pointer" : "not-allowed",
+        }}
+      >
+        Close Period
+      </button>
+    </div>
+  </div>
+)}
+
+<div style={panel}>
+  <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>Accounting Periods</h2>
 
         <div style={{ overflowX: "auto" }}>
           <table border="1" cellPadding="10" style={{ minWidth: "1450px", width: "100%", borderCollapse: "collapse" }}>
@@ -240,9 +335,9 @@ function AccountingPeriods() {
                     <td>{period.lockedBy || "—"}</td>
                     <td>{period.reopenedBy || "—"}</td>
                     <td>
-                      <button onClick={() => validatePeriod(period.periodNumber)} style={smallButton(ROYAL_BLUE)}>
-                        Validate
-                      </button>
+                      <button onClick={() => loadCloseChecklist(period.periodNumber)} style={smallButton(ROYAL_BLUE)}>
+  Checklist
+</button>
 
                       <button
                         onClick={() => closePeriod(period.periodNumber)}
@@ -292,6 +387,12 @@ function Card({ title, value, color }) {
       <p style={{ marginBottom: 0, fontWeight: "bold" }}>{title}</p>
     </div>
   );
+}
+
+function formatChecklistLabel(key) {
+  return String(key)
+    .replace(/([A-Z])/g, " $1")
+    .replace(/^./, (char) => char.toUpperCase());
 }
 
 const grid = {
