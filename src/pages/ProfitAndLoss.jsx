@@ -1,25 +1,30 @@
 import { useEffect, useState } from "react";
 import api from "../api";
 
-function ProfitAndLoss() {
+function ProfitLoss() {
   const [report, setReport] = useState(null);
-  const [from, setFrom] = useState("");
-  const [to, setTo] = useState("");
 
-  const ROYAL_BLUE = "#0B3D91";
-  const BORDER = "#dbe3ef";
-  const MUTED = "#64748b";
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
 
   const loadReport = async () => {
     try {
-      const res = await api.get("/api/accounting/profit-loss", {
-        params: { from, to },
-      });
+      const params = new URLSearchParams();
+
+      if (fromDate) params.append("from", fromDate);
+      if (toDate) params.append("to", toDate);
+
+      const res = await api.get(
+        `/api/profit-and-loss?${params.toString()}`
+      );
 
       setReport(res.data.data);
     } catch (error) {
-      console.error("Profit and loss error:", error);
-      alert(error?.response?.data?.message || "Could not load Profit & Loss report.");
+      console.error(error);
+      alert(
+        error?.response?.data?.message ||
+          "Could not load Profit & Loss."
+      );
     }
   };
 
@@ -27,165 +32,247 @@ function ProfitAndLoss() {
     loadReport();
   }, []);
 
-  const money = (value) => `JMD ${Number(value || 0).toLocaleString()}`;
+  const money = (v) =>
+    `JMD ${Number(v || 0).toLocaleString()}`;
 
-  const rows = (items = []) =>
-    items.length > 0 ? (
-      items.map((item) => (
-        <tr key={item.account}>
-          <td>{item.account}</td>
-          <td style={{ textAlign: "right" }}>{money(item.amount)}</td>
-        </tr>
-      ))
-    ) : (
-      <tr>
-        <td style={{ color: MUTED }}>No records</td>
-        <td style={{ textAlign: "right" }}>—</td>
-      </tr>
-    );
+  const Card = ({ title, amount, color }) => (
+    <div
+      style={{
+        background: "white",
+        border: "1px solid #dbe3ef",
+        borderRadius: 12,
+        padding: 20,
+      }}
+    >
+      <h2
+        style={{
+          color,
+          margin: 0,
+        }}
+      >
+        {money(amount)}
+      </h2>
+
+      <p
+        style={{
+          marginTop: 8,
+          fontWeight: "bold",
+        }}
+      >
+        {title}
+      </p>
+    </div>
+  );
 
   return (
     <div>
-      <h1 style={{ margin: 0 }}>Profit & Loss Statement</h1>
-      <p style={{ marginTop: "6px", color: MUTED }}>
-        Corporate income statement generated from the General Ledger.
+
+      <h1>Eltham Konnect</h1>
+
+      <h2
+        style={{
+          color: "#0B3D91",
+          marginTop: 0,
+        }}
+      >
+        Profit & Loss Statement
+      </h2>
+
+      <p>
+        Source of Truth:
+        <b> General Ledger</b>
       </p>
 
       <div
         style={{
-          backgroundColor: "white",
-          border: `1px solid ${BORDER}`,
-          borderRadius: "12px",
-          padding: "16px",
-          margin: "18px 0",
-          display: "flex",
-          gap: "12px",
-          flexWrap: "wrap",
-          alignItems: "center",
+          display: "grid",
+          gridTemplateColumns:
+            "repeat(auto-fit,minmax(220px,1fr))",
+          gap: 15,
+          marginBottom: 20,
         }}
       >
-        <strong>Date Filter:</strong>
-
-        <input
-          type="date"
-          value={from}
-          onChange={(e) => setFrom(e.target.value)}
-          style={inputStyle(BORDER)}
+        <Card
+          title="Revenue"
+          amount={report?.revenue?.total}
+          color="#16a34a"
         />
 
-        <input
-          type="date"
-          value={to}
-          onChange={(e) => setTo(e.target.value)}
-          style={inputStyle(BORDER)}
+        <Card
+          title="Gross Profit"
+          amount={report?.grossProfit}
+          color="#0B3D91"
         />
 
-        <button
-          onClick={loadReport}
-          style={{
-            backgroundColor: ROYAL_BLUE,
-            color: "white",
-            border: "none",
-            padding: "10px 16px",
-            borderRadius: "8px",
-            cursor: "pointer",
-            fontWeight: "bold",
-          }}
-        >
-          Refresh
-        </button>
+        <Card
+          title="Operating Expenses"
+          amount={report?.operatingExpenses?.total}
+          color="#ea580c"
+        />
+
+        <Card
+          title="Net Profit"
+          amount={report?.netProfit}
+          color={
+            Number(report?.netProfit || 0) >= 0
+              ? "#16a34a"
+              : "#dc2626"
+          }
+        />
       </div>
 
       <div
         style={{
-          backgroundColor: "white",
-          border: `1px solid ${BORDER}`,
-          borderRadius: "12px",
-          padding: "18px",
+          display: "flex",
+          gap: 10,
+          marginBottom: 20,
         }}
       >
-        <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>
-          {report?.reportTitle || "Profit and Loss Statement"}
-        </h2>
+        <input
+          type="date"
+          value={fromDate}
+          onChange={(e) =>
+            setFromDate(e.target.value)
+          }
+        />
 
-        <p style={{ color: MUTED }}>
-          Generated: {report?.generatedAt ? new Date(report.generatedAt).toLocaleString() : "—"}
-        </p>
+        <input
+          type="date"
+          value={toDate}
+          onChange={(e) =>
+            setToDate(e.target.value)
+          }
+        />
 
-        <ReportTable title="Revenue" rowsContent={rows(report?.revenue)} totalLabel="Total Revenue" totalAmount={report?.totals?.totalRevenue} />
-
-        <ReportTable title="Cost of Sales" rowsContent={rows(report?.costOfSales)} totalLabel="Total Cost of Sales" totalAmount={report?.totals?.totalCostOfSales} />
-
-        <div style={totalLine("#0B3D91")}>
-          <span>Gross Profit</span>
-          <span>{money(report?.totals?.grossProfit)}</span>
-        </div>
-
-        <ReportTable title="Operating Expenses" rowsContent={rows(report?.expenses)} totalLabel="Total Expenses" totalAmount={report?.totals?.totalExpenses} />
-
-        <div
-          style={{
-            ...totalLine(report?.totals?.netProfit >= 0 ? "#16a34a" : "#dc2626"),
-            fontSize: "20px",
-          }}
-        >
-          <span>Net Profit / Loss</span>
-          <span>{money(report?.totals?.netProfit)}</span>
-        </div>
+        <button onClick={loadReport}>
+          Apply
+        </button>
       </div>
+
+      <Section
+        title="Revenue"
+        rows={report?.revenue?.accounts}
+        total={report?.revenue?.total}
+      />
+
+      <Section
+        title="Cost of Sales"
+        rows={report?.costOfSales?.accounts}
+        total={report?.costOfSales?.total}
+      />
+
+      <Section
+        title="Operating Expenses"
+        rows={report?.operatingExpenses?.accounts}
+        total={report?.operatingExpenses?.total}
+      />
+
+      <SummaryRow
+        label="Gross Profit"
+        value={report?.grossProfit}
+      />
+
+      <SummaryRow
+        label="Net Profit"
+        value={report?.netProfit}
+      />
     </div>
   );
 }
 
-function ReportTable({ title, rowsContent, totalLabel, totalAmount }) {
-  return (
-    <div style={{ marginTop: "22px" }}>
-      <h3>{title}</h3>
+function Section({
+  title,
+  rows = [],
+  total,
+}) {
+  const money = (v) =>
+    `JMD ${Number(v || 0).toLocaleString()}`;
 
-      <table
-        border="1"
-        cellPadding="10"
+  return (
+    <div
+      style={{
+        background: "white",
+        marginBottom: 20,
+        padding: 20,
+        borderRadius: 12,
+        border: "1px solid #dbe3ef",
+      }}
+    >
+      <h3
         style={{
-          width: "100%",
-          borderCollapse: "collapse",
-          borderColor: "#dbe3ef",
+          color: "#0B3D91",
         }}
       >
-        <tbody>{rowsContent}</tbody>
+        {title}
+      </h3>
 
-        <tfoot>
-          <tr style={{ backgroundColor: "#f8fafc", fontWeight: "bold" }}>
-            <td>{totalLabel}</td>
-            <td style={{ textAlign: "right" }}>
-              JMD {Number(totalAmount || 0).toLocaleString()}
+      <table
+        width="100%"
+        cellPadding="8"
+      >
+        <tbody>
+          {rows.map((row) => (
+            <tr key={row.accountCode}>
+              <td>{row.accountCode}</td>
+
+              <td>{row.accountName}</td>
+
+              <td
+                style={{
+                  textAlign: "right",
+                  fontWeight: "bold",
+                }}
+              >
+                {money(row.amount)}
+              </td>
+            </tr>
+          ))}
+
+          <tr
+            style={{
+              fontWeight: "bold",
+              borderTop: "2px solid #ccc",
+            }}
+          >
+            <td colSpan="2">
+              TOTAL
+            </td>
+
+            <td
+              style={{
+                textAlign: "right",
+              }}
+            >
+              {money(total)}
             </td>
           </tr>
-        </tfoot>
+        </tbody>
       </table>
     </div>
   );
 }
 
-function inputStyle(border) {
-  return {
-    padding: "10px",
-    borderRadius: "8px",
-    border: `1px solid ${border}`,
-  };
+function SummaryRow({
+  label,
+  value,
+}) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        justifyContent: "space-between",
+        fontWeight: "bold",
+        fontSize: 22,
+        marginBottom: 10,
+      }}
+    >
+      <span>{label}</span>
+
+      <span>
+        JMD {Number(value || 0).toLocaleString()}
+      </span>
+    </div>
+  );
 }
 
-function totalLine(color) {
-  return {
-    marginTop: "18px",
-    padding: "14px",
-    borderRadius: "10px",
-    backgroundColor: "#f8fafc",
-    border: "1px solid #dbe3ef",
-    display: "flex",
-    justifyContent: "space-between",
-    fontWeight: "bold",
-    color,
-  };
-}
-
-export default ProfitAndLoss;
+export default ProfitLoss;
