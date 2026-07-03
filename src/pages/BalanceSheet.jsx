@@ -35,6 +35,202 @@ function BalanceSheet() {
   const filterRows = (rows = []) =>
     showZeroBalances ? rows : rows.filter((row) => Number(row.amount || 0) !== 0);
 
+  const printableRows = (rows = []) => filterRows(rows);
+
+  const printBalanceSheet = () => {
+    const printWindow = window.open("", "_blank", "width=900,height=700");
+
+    if (!printWindow) {
+      alert("Popup blocked. Please allow popups to print this report.");
+      return;
+    }
+
+    const assets = printableRows(report?.assets?.accounts);
+    const liabilities = printableRows(report?.liabilities?.accounts);
+    const equity = printableRows(report?.equity?.accounts);
+
+    const rowHtml = (rows) =>
+      rows
+        .map(
+          (row) => `
+            <tr>
+              <td>${row.accountCode}</td>
+              <td>${row.accountName}</td>
+              <td class="amount">${money(row.amount)}</td>
+            </tr>
+          `
+        )
+        .join("");
+
+    const sectionHtml = (title, rows, totalLabel, total) => `
+      <h2>${title}</h2>
+      <table>
+        <tbody>
+          ${
+            rows.length > 0
+              ? rowHtml(rows)
+              : `<tr><td colspan="3" class="muted">No accounts to display.</td></tr>`
+          }
+          <tr class="total-row">
+            <td colspan="2">${totalLabel}</td>
+            <td class="amount">${money(total)}</td>
+          </tr>
+        </tbody>
+      </table>
+    `;
+
+    printWindow.document.write(`
+      <!doctype html>
+      <html>
+        <head>
+          <title>Eltham Konnect Balance Sheet</title>
+          <style>
+            body {
+              font-family: Arial, sans-serif;
+              padding: 36px;
+              color: #0f172a;
+            }
+
+            .header {
+              text-align: center;
+              border-bottom: 2px solid #0B3D91;
+              padding-bottom: 16px;
+              margin-bottom: 24px;
+            }
+
+            h1 {
+              margin: 0;
+              font-size: 28px;
+              color: #0B3D91;
+            }
+
+            h2 {
+              margin: 24px 0 8px;
+              color: #0B3D91;
+              font-size: 18px;
+            }
+
+            .subtitle {
+              margin-top: 8px;
+              color: #475569;
+              font-size: 13px;
+            }
+
+            table {
+              width: 100%;
+              border-collapse: collapse;
+              margin-bottom: 18px;
+            }
+
+            td {
+              padding: 8px 6px;
+              border-bottom: 1px solid #e5e7eb;
+              font-size: 13px;
+            }
+
+            .amount {
+              text-align: right;
+              font-weight: bold;
+            }
+
+            .total-row td {
+              background: #eef4ff;
+              font-weight: bold;
+              border-top: 2px solid #0B3D91;
+            }
+
+            .equation {
+              margin-top: 28px;
+              padding: 14px;
+              border: 2px solid ${
+                report?.totals?.isBalanced ? "#16a34a" : "#dc2626"
+              };
+              color: ${report?.totals?.isBalanced ? "#16a34a" : "#dc2626"};
+              font-weight: bold;
+              display: flex;
+              justify-content: space-between;
+            }
+
+            .footer {
+              margin-top: 32px;
+              border-top: 1px solid #cbd5e1;
+              padding-top: 10px;
+              color: #64748b;
+              font-size: 12px;
+              text-align: center;
+            }
+
+            .muted {
+              color: #64748b;
+              text-align: center;
+            }
+
+            @media print {
+              button {
+                display: none;
+              }
+            }
+          </style>
+        </head>
+
+        <body>
+          <div class="header">
+            <h1>ELTHAM KONNECT</h1>
+            <h2>Balance Sheet</h2>
+            <div class="subtitle">
+              As of ${toDate || "Today"} · Generated ${new Date().toLocaleString()}
+            </div>
+            <div class="subtitle">
+              Source of Truth: General Ledger
+            </div>
+          </div>
+
+          ${sectionHtml("Assets", assets, "TOTAL ASSETS", report?.assets?.total)}
+
+          ${sectionHtml("Liabilities", liabilities, "TOTAL LIABILITIES", report?.liabilities?.total)}
+
+          ${sectionHtml("Equity", equity, "TOTAL EQUITY", report?.equity?.total)}
+
+          <div class="equation">
+            <span>ACCOUNTING EQUATION</span>
+            <span>Assets ${
+              report?.totals?.isBalanced ? "=" : "≠"
+            } Liabilities + Equity</span>
+          </div>
+
+          <table>
+            <tbody>
+              <tr>
+                <td>Total Assets</td>
+                <td class="amount">${money(report?.totals?.totalAssets)}</td>
+              </tr>
+              <tr>
+                <td>Total Liabilities + Equity</td>
+                <td class="amount">${money(report?.totals?.liabilitiesPlusEquity)}</td>
+              </tr>
+              <tr>
+                <td>Difference</td>
+                <td class="amount">${money(report?.totals?.difference)}</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div class="footer">
+            Generated by EKOS Corporate Finance
+          </div>
+
+          <script>
+            window.onload = function() {
+              window.print();
+            };
+          </script>
+        </body>
+      </html>
+    `);
+
+    printWindow.document.close();
+  };
+
   return (
     <div>
       <div style={{ marginBottom: "22px" }}>
@@ -104,8 +300,8 @@ function BalanceSheet() {
             {showZeroBalances ? "Hide Zero Balances" : "Show Zero Balances"}
           </button>
 
-          <button type="button" onClick={() => window.print()} style={buttonStyle("#64748b")}>
-            Print
+          <button type="button" onClick={printBalanceSheet} style={buttonStyle("#64748b")}>
+            Print / PDF
           </button>
         </div>
       </div>
