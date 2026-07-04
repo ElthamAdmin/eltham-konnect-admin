@@ -43,7 +43,7 @@ function FiscalYears() {
 
   const validateYear = async (fiscalYear) => {
     try {
-      const res = await api.get(`/api/fiscal-years/${fiscalYear}/validate`);
+      const res = await api.get(`/api/fiscal-years/${fiscalYear}/validate?mode=progress`);
       setSelectedValidation(res.data.data || null);
       alert(res.data.message || "Fiscal year validation completed.");
       await loadYears();
