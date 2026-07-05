@@ -774,6 +774,27 @@ const getSummaryQuery = () => {
     }
   };
 
+    const deleteDraftAdjustmentBatch = async (batchNumber) => {
+    if (
+      !window.confirm(
+        `Delete draft adjustment batch ${batchNumber}? This cannot be undone.`
+      )
+    ) {
+      return;
+    }
+
+    try {
+      const res = await api.delete(`/api/finance/adjustment-batches/${batchNumber}`);
+      alert(res.data.message);
+
+      await fetchAdjustmentBatches();
+      await previewFinancialPosition();
+    } catch (error) {
+      console.error("Error deleting draft adjustment batch:", error);
+      alert(error?.response?.data?.message || "Could not delete draft adjustment batch.");
+    }
+  };
+
     const fetchFinanceData = async () => {
     await Promise.all([
       fetchStaticFinanceData(),
@@ -3626,25 +3647,47 @@ const netCashPosition =
                         <td>{batch.createdBy}</td>
                         <td>{batch.postedBy || "—"}</td>
                         <td>
-                          <button
-                            disabled={batch.status !== "Draft"}
-                            onClick={() => postAdjustmentBatch(batch.batchNumber)}
-                            style={{
-                              backgroundColor:
-                                batch.status === "Draft" ? "#16a34a" : "#94a3b8",
-                              color: WHITE,
-                              border: "none",
-                              padding: "8px 12px",
-                              borderRadius: "8px",
-                              cursor:
-                                batch.status === "Draft"
-                                  ? "pointer"
-                                  : "not-allowed",
-                              fontWeight: "bold",
-                            }}
-                          >
-                            Post
-                          </button>
+                                                    <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                            <button
+                              disabled={batch.status !== "Draft"}
+                              onClick={() => postAdjustmentBatch(batch.batchNumber)}
+                              style={{
+                                backgroundColor:
+                                  batch.status === "Draft" ? "#16a34a" : "#94a3b8",
+                                color: WHITE,
+                                border: "none",
+                                padding: "8px 12px",
+                                borderRadius: "8px",
+                                cursor:
+                                  batch.status === "Draft"
+                                    ? "pointer"
+                                    : "not-allowed",
+                                fontWeight: "bold",
+                              }}
+                            >
+                              Post
+                            </button>
+
+                            <button
+                              disabled={batch.status !== "Draft"}
+                              onClick={() => deleteDraftAdjustmentBatch(batch.batchNumber)}
+                              style={{
+                                backgroundColor:
+                                  batch.status === "Draft" ? "#dc2626" : "#94a3b8",
+                                color: WHITE,
+                                border: "none",
+                                padding: "8px 12px",
+                                borderRadius: "8px",
+                                cursor:
+                                  batch.status === "Draft"
+                                    ? "pointer"
+                                    : "not-allowed",
+                                fontWeight: "bold",
+                              }}
+                            >
+                              Delete Draft
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))
