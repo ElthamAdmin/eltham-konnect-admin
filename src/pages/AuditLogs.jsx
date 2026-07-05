@@ -7,12 +7,35 @@ function AuditLogs() {
   const [moduleFilter, setModuleFilter] = useState("All");
   const [actionFilter, setActionFilter] = useState("All");
   const [userFilter, setUserFilter] = useState("All");
+  const [statusFilter, setStatusFilter] = useState("All");
+  const [financeOnly, setFinanceOnly] = useState(false);
+  const [fiscalYearFilter, setFiscalYearFilter] = useState("");
+  const [accountingPeriodFilter, setAccountingPeriodFilter] = useState("");
+  const [journalEntryFilter, setJournalEntryFilter] = useState("");
+  const [financeReferenceFilter, setFinanceReferenceFilter] = useState("");
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
   const [pageSize, setPageSize] = useState(25);
   const [currentPage, setCurrentPage] = useState(1);
 
-  const fetchLogs = async () => {
+    const fetchLogs = async () => {
     try {
-      const res = await api.get("/api/audit-logs");
+      const params = {};
+
+      if (searchTerm) params.search = searchTerm;
+      if (moduleFilter !== "All") params.module = moduleFilter;
+      if (actionFilter !== "All") params.action = actionFilter;
+      if (userFilter !== "All") params.user = userFilter;
+      if (statusFilter !== "All") params.status = statusFilter;
+      if (financeOnly) params.module = "Finance";
+      if (fiscalYearFilter) params.fiscalYear = fiscalYearFilter;
+      if (accountingPeriodFilter) params.accountingPeriod = accountingPeriodFilter;
+      if (journalEntryFilter) params.journalEntryNumber = journalEntryFilter;
+      if (financeReferenceFilter) params.search = financeReferenceFilter;
+      if (fromDate) params.from = fromDate;
+      if (toDate) params.to = toDate;
+
+      const res = await api.get("/api/audit-logs", { params });
       setLogs(res.data.data || []);
     } catch (error) {
       console.error("Error loading audit logs:", error);
@@ -20,13 +43,28 @@ function AuditLogs() {
     }
   };
 
-  useEffect(() => {
+    useEffect(() => {
     fetchLogs();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  useEffect(() => {
+    useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, moduleFilter, actionFilter, userFilter, pageSize]);
+  }, [
+    searchTerm,
+    moduleFilter,
+    actionFilter,
+    userFilter,
+    statusFilter,
+    financeOnly,
+    fiscalYearFilter,
+    accountingPeriodFilter,
+    journalEntryFilter,
+    financeReferenceFilter,
+    fromDate,
+    toDate,
+    pageSize,
+  ]);
 
   const uniqueModules = useMemo(() => {
     return ["All", ...new Set(logs.map((log) => log.module).filter(Boolean))];
@@ -36,8 +74,12 @@ function AuditLogs() {
     return ["All", ...new Set(logs.map((log) => log.action).filter(Boolean))];
   }, [logs]);
 
-  const uniqueUsers = useMemo(() => {
+    const uniqueUsers = useMemo(() => {
     return ["All", ...new Set(logs.map((log) => log.performedByName).filter(Boolean))];
+  }, [logs]);
+
+  const uniqueStatuses = useMemo(() => {
+    return ["All", ...new Set(logs.map((log) => log.status || "Success").filter(Boolean))];
   }, [logs]);
 
     const filteredLogs = useMemo(() => {
@@ -233,13 +275,13 @@ function AuditLogs() {
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "2fr 1fr 1fr 1fr",
+            gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
             gap: "15px",
           }}
         >
-          <input
+                    <input
             type="text"
-            placeholder="Search by action, module, user, target ID, or description"
+            placeholder="Search by action, module, user, target ID, journal, finance ref, or description"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             style={{ padding: "10px" }}
@@ -249,6 +291,7 @@ function AuditLogs() {
             value={moduleFilter}
             onChange={(e) => setModuleFilter(e.target.value)}
             style={{ padding: "10px" }}
+            disabled={financeOnly}
           >
             {uniqueModules.map((item) => (
               <option key={item} value={item}>
@@ -280,6 +323,127 @@ function AuditLogs() {
               </option>
             ))}
           </select>
+
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            style={{ padding: "10px" }}
+          >
+            {uniqueStatuses.map((item) => (
+              <option key={item} value={item}>
+                {item}
+              </option>
+            ))}
+          </select>
+
+          <input
+            type="number"
+            placeholder="Fiscal Year"
+            value={fiscalYearFilter}
+            onChange={(e) => setFiscalYearFilter(e.target.value)}
+            style={{ padding: "10px" }}
+          />
+
+          <input
+            type="text"
+            placeholder="Accounting Period e.g. PER-2026-07"
+            value={accountingPeriodFilter}
+            onChange={(e) => setAccountingPeriodFilter(e.target.value)}
+            style={{ padding: "10px" }}
+          />
+
+          <input
+            type="text"
+            placeholder="Journal Entry Number"
+            value={journalEntryFilter}
+            onChange={(e) => setJournalEntryFilter(e.target.value)}
+            style={{ padding: "10px" }}
+          />
+
+          <input
+            type="text"
+            placeholder="Finance Reference"
+            value={financeReferenceFilter}
+            onChange={(e) => setFinanceReferenceFilter(e.target.value)}
+            style={{ padding: "10px" }}
+          />
+
+          <input
+            type="date"
+            value={fromDate}
+            onChange={(e) => setFromDate(e.target.value)}
+            style={{ padding: "10px" }}
+          />
+
+          <input
+            type="date"
+            value={toDate}
+            onChange={(e) => setToDate(e.target.value)}
+            style={{ padding: "10px" }}
+          />
+
+          <label
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+              fontWeight: "bold",
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={financeOnly}
+              onChange={(e) => {
+                setFinanceOnly(e.target.checked);
+                if (e.target.checked) setModuleFilter("Finance");
+              }}
+            />
+            Finance Only
+          </label>
+
+          <button
+            onClick={fetchLogs}
+            style={{
+              backgroundColor: "#0B3D91",
+              color: "white",
+              border: "none",
+              padding: "10px 16px",
+              borderRadius: "6px",
+              cursor: "pointer",
+              fontWeight: "bold",
+            }}
+          >
+            Apply Filters
+          </button>
+
+          <button
+            onClick={() => {
+              setSearchTerm("");
+              setModuleFilter("All");
+              setActionFilter("All");
+              setUserFilter("All");
+              setStatusFilter("All");
+              setFinanceOnly(false);
+              setFiscalYearFilter("");
+              setAccountingPeriodFilter("");
+              setJournalEntryFilter("");
+              setFinanceReferenceFilter("");
+              setFromDate("");
+              setToDate("");
+              setTimeout(fetchLogs, 0);
+            }}
+            style={{
+              backgroundColor: "#64748b",
+              color: "white",
+              border: "none",
+              padding: "10px 16px",
+              borderRadius: "6px",
+              cursor: "pointer",
+              fontWeight: "bold",
+            }}
+          >
+            Clear Filters
+          </button>
         </div>
       </div>
 
