@@ -77,7 +77,7 @@ function FiscalYears() {
     }
   };
 
-  const createNextYear = async (fiscalYear) => {
+    const createNextYear = async (fiscalYear) => {
     if (!window.confirm(`Create the next fiscal year after ${fiscalYear}?`)) return;
 
     try {
@@ -86,6 +86,31 @@ function FiscalYears() {
       await loadYears();
     } catch (error) {
       alert(error?.response?.data?.message || "Could not create next fiscal year.");
+    }
+  };
+
+  const executeYearEndClose = async (fiscalYear) => {
+    if (!window.confirm(`Execute year-end close for FY ${fiscalYear}? This will generate opening balances and close the year.`)) return;
+
+    try {
+      await api.post(`/api/fiscal-years/${fiscalYear}/year-end-close`);
+      alert("Year-end close completed successfully.");
+      setSelectedValidation(null);
+      await loadYears();
+    } catch (error) {
+      alert(error?.response?.data?.message || "Could not execute year-end close.");
+    }
+  };
+
+  const generateOpeningBalances = async (fiscalYear) => {
+    if (!window.confirm(`Generate opening balances from FY ${fiscalYear}?`)) return;
+
+    try {
+      await api.post(`/api/fiscal-years/${fiscalYear}/opening-balances`);
+      alert("Opening balances generated successfully.");
+      await loadYears();
+    } catch (error) {
+      alert(error?.response?.data?.message || "Could not generate opening balances.");
     }
   };
 
@@ -347,11 +372,42 @@ function FiscalYears() {
                         Close
                       </button>
 
-                      <button
+                                            <button
                         onClick={() => createNextYear(year.fiscalYear)}
                         style={{ ...smallButton("#16a34a"), marginLeft: "8px" }}
                       >
                         Create Next
+                      </button>
+
+                      <button
+                        onClick={() => generateOpeningBalances(year.fiscalYear)}
+                        disabled={Boolean(year.openingJournalEntry)}
+                        style={{
+                          ...smallButton(year.openingJournalEntry ? "#94a3b8" : "#0ea5e9"),
+                          marginLeft: "8px",
+                          cursor: year.openingJournalEntry ? "not-allowed" : "pointer",
+                        }}
+                      >
+                        Opening Balances
+                      </button>
+
+                      <button
+                        onClick={() => executeYearEndClose(year.fiscalYear)}
+                        disabled={year.status === "Closed" || year.status === "Locked"}
+                        style={{
+                          ...smallButton(
+                            year.status === "Closed" || year.status === "Locked"
+                              ? "#94a3b8"
+                              : "#7c3aed"
+                          ),
+                          marginLeft: "8px",
+                          cursor:
+                            year.status === "Closed" || year.status === "Locked"
+                              ? "not-allowed"
+                              : "pointer",
+                        }}
+                      >
+                        Year-End Close
                       </button>
 
                       <button
