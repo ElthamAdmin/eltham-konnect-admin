@@ -17,6 +17,7 @@ function AuditLogs() {
   const [toDate, setToDate] = useState("");
   const [pageSize, setPageSize] = useState(25);
   const [currentPage, setCurrentPage] = useState(1);
+  const [selectedLog, setSelectedLog] = useState(null);
 
     const fetchLogs = async () => {
     try {
@@ -520,7 +521,11 @@ function AuditLogs() {
             <tbody>
               {paginatedLogs.length > 0 ? (
                 paginatedLogs.map((log) => (
-                  <tr key={log._id}>
+                                    <tr
+                    key={log._id}
+                    onClick={() => setSelectedLog(log)}
+                    style={{ cursor: "pointer" }}
+                  >
                     <td
   style={{
     position: "sticky",
@@ -566,7 +571,171 @@ function AuditLogs() {
         </div>
       </div>
 
-      <div style={{ marginTop: "15px" }}>{paginationControls}</div>
+            <div style={{ marginTop: "15px" }}>{paginationControls}</div>
+
+      {selectedLog && (
+        <AuditDetailsDrawer
+          log={selectedLog}
+          onClose={() => setSelectedLog(null)}
+          formatDateTime={formatDateTime}
+          badgeStyle={badgeStyle}
+        />
+      )}
+    </div>
+  );
+}
+
+function AuditDetailsDrawer({ log, onClose, formatDateTime, badgeStyle }) {
+  const jsonBlock = (title, value) => (
+    <div style={{ marginTop: "16px" }}>
+      <h3>{title}</h3>
+      <pre
+        style={{
+          backgroundColor: "#0f172a",
+          color: "#e5e7eb",
+          padding: "14px",
+          borderRadius: "8px",
+          overflowX: "auto",
+          maxHeight: "260px",
+        }}
+      >
+        {JSON.stringify(value || {}, null, 2)}
+      </pre>
+    </div>
+  );
+
+  const field = (label, value) => (
+    <div>
+      <div style={{ color: "#64748b", fontSize: "12px", fontWeight: "bold" }}>
+        {label}
+      </div>
+      <div style={{ marginTop: "4px", wordBreak: "break-word" }}>
+        {value || "—"}
+      </div>
+    </div>
+  );
+
+  return (
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        backgroundColor: "rgba(15, 23, 42, 0.45)",
+        zIndex: 9999,
+        display: "flex",
+        justifyContent: "flex-end",
+      }}
+      onClick={onClose}
+    >
+      <div
+        style={{
+          width: "min(760px, 95vw)",
+          height: "100vh",
+          backgroundColor: "white",
+          padding: "22px",
+          overflowY: "auto",
+          boxShadow: "-8px 0 24px rgba(15,23,42,0.25)",
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            gap: "12px",
+            alignItems: "center",
+            marginBottom: "18px",
+          }}
+        >
+          <div>
+            <h2 style={{ margin: 0 }}>Audit Details</h2>
+            <p style={{ margin: "6px 0 0", color: "#64748b" }}>
+              {log.auditNumber}
+            </p>
+          </div>
+
+          <button
+            onClick={onClose}
+            style={{
+              backgroundColor: "#dc2626",
+              color: "white",
+              border: "none",
+              padding: "9px 13px",
+              borderRadius: "6px",
+              cursor: "pointer",
+              fontWeight: "bold",
+            }}
+          >
+            Close
+          </button>
+        </div>
+
+        <Section title="Audit Information">
+          {field("Date & Time", formatDateTime(log.createdAt))}
+          {field("User", log.performedByName)}
+          {field("Role", log.performedByRole)}
+          {field("Module", log.module)}
+          {field("Action", log.action)}
+          <div>
+            <div style={{ color: "#64748b", fontSize: "12px", fontWeight: "bold" }}>
+              Status
+            </div>
+            <div style={{ marginTop: "4px" }}>
+              {badgeStyle(log.status || "Success", "status")}
+            </div>
+          </div>
+          {field("Description", log.description)}
+          {field("Target Type", log.targetType)}
+          {field("Target ID", log.targetId)}
+        </Section>
+
+        <Section title="Finance Information">
+          {field("Fiscal Year", log.fiscalYear)}
+          {field("Accounting Period", log.accountingPeriod)}
+          {field("Journal Entry Number", log.journalEntryNumber)}
+          {field("Ledger Number", log.ledgerNumber)}
+          {field("Finance Reference", log.financeReference)}
+          {field("Account Number", log.accountNumber)}
+          {field("Account Name", log.accountName)}
+          {field("Reconciliation Number", log.reconciliationNumber)}
+        </Section>
+
+        <Section title="Technical Information">
+          {field("IP Address", log.ipAddress)}
+          {field("Browser", log.browser)}
+          {field("Device", log.device)}
+          {field("Request Method", log.requestMethod)}
+          {field("Request URL", log.requestUrl)}
+        </Section>
+
+        {jsonBlock("Before Values", log.beforeValues)}
+        {jsonBlock("After Values", log.afterValues)}
+        {jsonBlock("Metadata", log.metadata)}
+      </div>
+    </div>
+  );
+}
+
+function Section({ title, children }) {
+  return (
+    <div
+      style={{
+        border: "1px solid #e5e7eb",
+        borderRadius: "10px",
+        padding: "16px",
+        marginTop: "16px",
+      }}
+    >
+      <h3 style={{ marginTop: 0 }}>{title}</h3>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+          gap: "14px",
+        }}
+      >
+        {children}
+      </div>
     </div>
   );
 }
