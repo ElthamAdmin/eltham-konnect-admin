@@ -23,6 +23,8 @@ function Finance() {
   const [accounts, setAccounts] = useState([]);
   const [transactions, setTransactions] = useState([]);
   const [monthlyChart, setMonthlyChart] = useState([]);
+  const [adjustmentPreview, setAdjustmentPreview] = useState([]);
+  const [adjustmentBatches, setAdjustmentBatches] = useState([]);
   const [summaryFilter, setSummaryFilter] = useState("today");
   const [summaryBranch, setSummaryBranch] = useState("");
   const [isEditingAccount, setIsEditingAccount] = useState(false);
@@ -333,13 +335,22 @@ doc.save(`payslip-${safeEmployeeName}-${safePayPeriod}.pdf`);
     notes: "",
   });
 
-  const [transferForm, setTransferForm] = useState({
+    const [transferForm, setTransferForm] = useState({
     fromAccountNumber: "",
     toAccountNumber: "",
     amount: "",
     reference: "",
     notes: "",
   });
+
+  const [adjustmentForm, setAdjustmentForm] = useState({
+    effectiveDate: "2026-07-05",
+    adjustmentReason: "Financial position correction after June 2026 close",
+    description:
+      "Align EKOS financial account balances with actual July 5, 2026 financial position.",
+  });
+
+  const [actualBalances, setActualBalances] = useState({});
 
   const ROYAL_BLUE = "#0B3D91";
   const GOLD = "#D4AF37";
@@ -652,16 +663,128 @@ const getSummaryQuery = () => {
     }
   };
 
-  const fetchFinanceData = async () => {
-  await Promise.all([
-    fetchStaticFinanceData(),
-    fetchReports(),
-    fetchMonthlyChart(),
-    fetchExpenses(expensePagination.page, expensePagination.limit),
-    fetchPayroll(payrollPagination.page, payrollPagination.limit),
-    fetchTransactions(transactionPagination.page, transactionPagination.limit),
-  ]);
-};
+    const fetchAdjustmentBatches = async () => {
+    try {
+      const res = await api.get("/api/finance/adjustment-batches");
+      setAdjustmentBatches(res.data.data || []);
+    } catch (error) {
+      console.error("Error loading adjustment batches:", error);
+    }
+  };
+
+  const previewFinancialPosition = async () => {
+    try {
+      const payload = {
+        actualBalances: Object.entries(actualBalances).map(
+          ([accountNumber, value]) => ({
+            accountNumber,
+            actualBalance: Number(value.actualBalance || 0),
+            notes: value.notes || "",
+          })
+        ),
+      };
+
+      const res = await api.post("/api/finance/financial-position/preview", payload);
+      setAdjustmentPreview(res.data.data || []);
+    } catch (error) {
+      console.error("Error previewing financial position:", error);
+      alert(error?.response?.data?.message || "Could not preview financial position.");
+    }
+  };
+
+  const seedJulyActualBalances = () => {
+    setActualBalances({
+      "ACC-1773524447392": {
+        actualBalance: 395077.96,
+        notes:
+          "Credit card outstanding balance based on JMD 500,000 limit less JMD 104,922.04 available credit.",
+      },
+      "ACC-1773524133358": {
+        actualBalance: 25050,
+        notes: "Actual cash count for Cash in Hand - Eltham Park.",
+      },
+      "ACC-1773521929700": {
+        actualBalance: 16748.02,
+        notes: "Actual JMD business bank balance as of July 5, 2026.",
+      },
+      "ACC-1773522044240": {
+        actualBalance: 2.75,
+        notes: "Actual USD savings balance as of July 5, 2026.",
+      },
+      "ACC-1773524225902": {
+        actualBalance: 9100,
+        notes: "Actual Brown's Town Dropbox cash balance as of July 5, 2026.",
+      },
+      "ACC-1773524316923": {
+        actualBalance: 4200,
+        notes: "Actual Brown's Town Float balance as of July 5, 2026.",
+      },
+    });
+  };
+
+  const createAdjustmentBatch = async () => {
+    try {
+      if (!adjustmentForm.effectiveDate || !adjustmentForm.adjustmentReason) {
+        alert("Effective date and adjustment reason are required.");
+        return;
+      }
+
+      const payload = {
+        ...adjustmentForm,
+        actualBalances: Object.entries(actualBalances).map(
+          ([accountNumber, value]) => ({
+            accountNumber,
+            actualBalance: Number(value.actualBalance || 0),
+            notes: value.notes || "",
+          })
+        ),
+      };
+
+      const res = await api.post("/api/finance/adjustment-batches", payload);
+
+      alert(res.data.message);
+      await fetchAdjustmentBatches();
+      await previewFinancialPosition();
+    } catch (error) {
+      console.error("Error creating adjustment batch:", error);
+      alert(error?.response?.data?.message || "Could not create adjustment batch.");
+    }
+  };
+
+  const postAdjustmentBatch = async (batchNumber) => {
+    if (
+      !window.confirm(
+        `Post adjustment batch ${batchNumber}? This will create a journal entry and update financial account balances.`
+      )
+    ) {
+      return;
+    }
+
+    try {
+      const res = await api.post(`/api/finance/adjustment-batches/${batchNumber}/post`);
+      alert(res.data.message);
+
+      await fetchStaticFinanceData();
+      await fetchTransactions(1, transactionPagination.limit);
+      await fetchAdjustmentBatches();
+      await previewFinancialPosition();
+    } catch (error) {
+      console.error("Error posting adjustment batch:", error);
+      alert(error?.response?.data?.message || "Could not post adjustment batch.");
+    }
+  };
+
+    const fetchFinanceData = async () => {
+    await Promise.all([
+      fetchStaticFinanceData(),
+      fetchReports(),
+      fetchMonthlyChart(),
+      fetchExpenses(expensePagination.page, expensePagination.limit),
+      fetchPayroll(payrollPagination.page, payrollPagination.limit),
+      fetchTransactions(transactionPagination.page, transactionPagination.limit),
+      fetchAdjustmentBatches(),
+    ]);
+  };
 
   useEffect(() => {
   fetchFinanceData();
@@ -1274,11 +1397,18 @@ const netCashPosition =
         >
           Accounts
         </button>
-        <button
+                <button
           style={tabButtonStyle("transactions")}
           onClick={() => setActiveTab("transactions")}
         >
           Transactions
+        </button>
+
+        <button
+          style={tabButtonStyle("positionAdjustments")}
+          onClick={() => setActiveTab("positionAdjustments")}
+        >
+          Position Adjustments
         </button>
       </div>
 
@@ -3217,6 +3347,310 @@ const netCashPosition =
                   ) : (
                     <tr>
                       <td colSpan="9">No financial accounts found.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </>
+      )}
+
+            {activeTab === "positionAdjustments" && (
+        <>
+          <div style={{ ...cardStyle, marginBottom: "24px" }}>
+            <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>
+              Financial Position Adjustment Wizard
+            </h2>
+            <p style={{ color: MUTED }}>
+              Use this wizard to align EKOS balances with actual cash, bank, and credit card balances without reopening closed periods.
+            </p>
+
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+                gap: "14px",
+                marginBottom: "18px",
+              }}
+            >
+              <input
+                type="date"
+                value={adjustmentForm.effectiveDate}
+                onChange={(e) =>
+                  setAdjustmentForm((prev) => ({
+                    ...prev,
+                    effectiveDate: e.target.value,
+                  }))
+                }
+                style={{ padding: "10px" }}
+              />
+
+              <input
+                type="text"
+                placeholder="Adjustment Reason"
+                value={adjustmentForm.adjustmentReason}
+                onChange={(e) =>
+                  setAdjustmentForm((prev) => ({
+                    ...prev,
+                    adjustmentReason: e.target.value,
+                  }))
+                }
+                style={{ padding: "10px" }}
+              />
+
+              <input
+                type="text"
+                placeholder="Description"
+                value={adjustmentForm.description}
+                onChange={(e) =>
+                  setAdjustmentForm((prev) => ({
+                    ...prev,
+                    description: e.target.value,
+                  }))
+                }
+                style={{ padding: "10px" }}
+              />
+            </div>
+
+            <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+              <button
+                onClick={seedJulyActualBalances}
+                style={{
+                  backgroundColor: GOLD,
+                  color: "black",
+                  border: "none",
+                  padding: "10px 16px",
+                  borderRadius: "8px",
+                  cursor: "pointer",
+                  fontWeight: "bold",
+                }}
+              >
+                Load July 5 Actual Balances
+              </button>
+
+              <button
+                onClick={previewFinancialPosition}
+                style={{
+                  backgroundColor: ROYAL_BLUE,
+                  color: WHITE,
+                  border: "none",
+                  padding: "10px 16px",
+                  borderRadius: "8px",
+                  cursor: "pointer",
+                  fontWeight: "bold",
+                }}
+              >
+                Preview Differences
+              </button>
+
+              <button
+                onClick={createAdjustmentBatch}
+                style={{
+                  backgroundColor: "#16a34a",
+                  color: WHITE,
+                  border: "none",
+                  padding: "10px 16px",
+                  borderRadius: "8px",
+                  cursor: "pointer",
+                  fontWeight: "bold",
+                }}
+              >
+                Create Adjustment Batch
+              </button>
+            </div>
+          </div>
+
+          <div style={{ ...cardStyle, marginBottom: "24px" }}>
+            <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>
+              Account Balance Review
+            </h2>
+
+            <div style={{ overflowX: "auto" }}>
+              <table
+                border="1"
+                cellPadding="10"
+                style={{
+                  minWidth: "1500px",
+                  width: "100%",
+                  borderCollapse: "collapse",
+                }}
+              >
+                <thead style={{ backgroundColor: "#eef4ff" }}>
+                  <tr>
+                    <th>Account Number</th>
+                    <th>Account</th>
+                    <th>Type</th>
+                    <th>Currency</th>
+                    <th>Ledger Balance</th>
+                    <th>Actual Balance</th>
+                    <th>JMD Ledger</th>
+                    <th>JMD Actual</th>
+                    <th>Difference</th>
+                    <th>Notes</th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {(adjustmentPreview.length > 0 ? adjustmentPreview : accounts).map(
+                    (account) => {
+                      const accountNumber = account.accountNumber;
+                      const actualValue =
+                        actualBalances[accountNumber]?.actualBalance ??
+                        account.actualBalance ??
+                        account.currentBalance ??
+                        "";
+
+                      const difference =
+                        account.difference !== undefined
+                          ? Number(account.difference || 0)
+                          : 0;
+
+                      return (
+                        <tr key={accountNumber}>
+                          <td>{accountNumber}</td>
+                          <td>{account.accountName}</td>
+                          <td>{account.accountType}</td>
+                          <td>{account.currency || "JMD"}</td>
+                          <td>
+                            {account.currency || "JMD"}{" "}
+                            {Number(
+                              account.ledgerBalance ??
+                                account.currentBalance ??
+                                0
+                            ).toLocaleString(undefined, {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            })}
+                          </td>
+                          <td>
+                            <input
+                              type="number"
+                              step="0.01"
+                              value={actualValue}
+                              onChange={(e) =>
+                                setActualBalances((prev) => ({
+                                  ...prev,
+                                  [accountNumber]: {
+                                    ...(prev[accountNumber] || {}),
+                                    actualBalance: e.target.value,
+                                  },
+                                }))
+                              }
+                              style={{ padding: "8px", width: "140px" }}
+                            />
+                          </td>
+                          <td>{formatCurrency(account.ledgerBaseBalance)}</td>
+                          <td>{formatCurrency(account.actualBaseBalance)}</td>
+                          <td
+                            style={{
+                              fontWeight: "bold",
+                              color:
+                                Number(difference || 0) === 0
+                                  ? MUTED
+                                  : Number(difference || 0) > 0
+                                  ? "#16a34a"
+                                  : "#dc2626",
+                            }}
+                          >
+                            {formatCurrency(difference)}
+                          </td>
+                          <td>
+                            <input
+                              type="text"
+                              value={
+                                actualBalances[accountNumber]?.notes ||
+                                account.notes ||
+                                ""
+                              }
+                              onChange={(e) =>
+                                setActualBalances((prev) => ({
+                                  ...prev,
+                                  [accountNumber]: {
+                                    ...(prev[accountNumber] || {}),
+                                    notes: e.target.value,
+                                  },
+                                }))
+                              }
+                              style={{ padding: "8px", minWidth: "260px" }}
+                            />
+                          </td>
+                        </tr>
+                      );
+                    }
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div style={cardStyle}>
+            <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>
+              Adjustment Batches
+            </h2>
+
+            <div style={{ overflowX: "auto" }}>
+              <table
+                border="1"
+                cellPadding="10"
+                style={{
+                  minWidth: "1200px",
+                  width: "100%",
+                  borderCollapse: "collapse",
+                }}
+              >
+                <thead style={{ backgroundColor: "#eef4ff" }}>
+                  <tr>
+                    <th>Batch Number</th>
+                    <th>Effective Date</th>
+                    <th>Reason</th>
+                    <th>Status</th>
+                    <th>Journal Entry</th>
+                    <th>Lines</th>
+                    <th>Created By</th>
+                    <th>Posted By</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {adjustmentBatches.length > 0 ? (
+                    adjustmentBatches.map((batch) => (
+                      <tr key={batch._id}>
+                        <td>{batch.batchNumber}</td>
+                        <td>{batch.effectiveDate}</td>
+                        <td>{batch.adjustmentReason}</td>
+                        <td>{statusBadge(batch.status)}</td>
+                        <td>{batch.journalEntryNumber || "—"}</td>
+                        <td>{batch.lines?.length || 0}</td>
+                        <td>{batch.createdBy}</td>
+                        <td>{batch.postedBy || "—"}</td>
+                        <td>
+                          <button
+                            disabled={batch.status !== "Draft"}
+                            onClick={() => postAdjustmentBatch(batch.batchNumber)}
+                            style={{
+                              backgroundColor:
+                                batch.status === "Draft" ? "#16a34a" : "#94a3b8",
+                              color: WHITE,
+                              border: "none",
+                              padding: "8px 12px",
+                              borderRadius: "8px",
+                              cursor:
+                                batch.status === "Draft"
+                                  ? "pointer"
+                                  : "not-allowed",
+                              fontWeight: "bold",
+                            }}
+                          >
+                            Post
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan="9">No adjustment batches found.</td>
                     </tr>
                   )}
                 </tbody>
