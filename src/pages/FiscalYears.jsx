@@ -102,7 +102,7 @@ function FiscalYears() {
     }
   };
 
-  const generateOpeningBalances = async (fiscalYear) => {
+    const generateOpeningBalances = async (fiscalYear) => {
     if (!window.confirm(`Generate opening balances from FY ${fiscalYear}?`)) return;
 
     try {
@@ -111,6 +111,32 @@ function FiscalYears() {
       await loadYears();
     } catch (error) {
       alert(error?.response?.data?.message || "Could not generate opening balances.");
+    }
+  };
+
+  const runEnterpriseYearEnd = async (fiscalYear) => {
+    if (
+      !window.confirm(
+        `Run full enterprise year-end automation for FY ${fiscalYear}? This will validate, close, create next year, generate opening balances, switch current year, and lock the old fiscal year.`
+      )
+    ) {
+      return;
+    }
+
+    try {
+      const res = await api.post(`/api/fiscal-years/${fiscalYear}/run-enterprise-year-end`);
+      const steps = res.data?.data?.completedSteps || [];
+
+      alert(
+        `Enterprise year-end completed successfully.\n\n${steps
+          .map((step) => `✓ ${step}`)
+          .join("\n")}`
+      );
+
+      setSelectedValidation(null);
+      await loadYears();
+    } catch (error) {
+      alert(error?.response?.data?.message || "Could not run enterprise year-end automation.");
     }
   };
 
@@ -391,7 +417,7 @@ function FiscalYears() {
                         Opening Balances
                       </button>
 
-                      <button
+                                            <button
                         onClick={() => executeYearEndClose(year.fiscalYear)}
                         disabled={year.status === "Closed" || year.status === "Locked"}
                         style={{
@@ -408,6 +434,18 @@ function FiscalYears() {
                         }}
                       >
                         Year-End Close
+                      </button>
+
+                      <button
+                        onClick={() => runEnterpriseYearEnd(year.fiscalYear)}
+                        disabled={year.status === "Locked"}
+                        style={{
+                          ...smallButton(year.status === "Locked" ? "#94a3b8" : "#111827"),
+                          marginLeft: "8px",
+                          cursor: year.status === "Locked" ? "not-allowed" : "pointer",
+                        }}
+                      >
+                        Run Enterprise Year-End
                       </button>
 
                       <button
