@@ -40,10 +40,10 @@ function AuditLogs() {
     return ["All", ...new Set(logs.map((log) => log.performedByName).filter(Boolean))];
   }, [logs]);
 
-  const filteredLogs = useMemo(() => {
+    const filteredLogs = useMemo(() => {
     return logs.filter((log) => {
       const matchesSearch =
-        `${log.auditNumber} ${log.module} ${log.action} ${log.description} ${log.targetId} ${log.performedByName}`
+        `${log.auditNumber} ${log.module} ${log.action} ${log.description} ${log.targetId} ${log.performedByName} ${log.journalEntryNumber} ${log.financeReference} ${log.accountingPeriod} ${log.fiscalYear} ${log.accountNumber} ${log.accountName}`
           .toLowerCase()
           .includes(searchTerm.toLowerCase());
 
@@ -86,11 +86,20 @@ function AuditLogs() {
       else if (value === "Points History") backgroundColor = "#db2777";
     }
 
-    if (type === "action") {
+        if (type === "action") {
       if (String(value).includes("CREATE")) backgroundColor = "#16a34a";
       else if (String(value).includes("UPDATE")) backgroundColor = "#0ea5e9";
+      else if (String(value).includes("POSTED")) backgroundColor = "#7c3aed";
+      else if (String(value).includes("APPROVED")) backgroundColor = "#0B3D91";
+      else if (String(value).includes("REVERSED")) backgroundColor = "#dc2626";
       else if (String(value).includes("PAID")) backgroundColor = "#7c3aed";
       else if (String(value).includes("EXPIRE")) backgroundColor = "#dc2626";
+    }
+
+    if (type === "status") {
+      if (value === "Success") backgroundColor = "#16a34a";
+      else if (value === "Failed") backgroundColor = "#dc2626";
+      else backgroundColor = "#64748b";
     }
 
     return (
@@ -299,7 +308,7 @@ function AuditLogs() {
   border="1"
   cellPadding="10"
   style={{
-    minWidth: "1800px",
+    minWidth: "2600px",
     width: "100%",
     borderCollapse: "collapse",
   }}
@@ -332,6 +341,14 @@ function AuditLogs() {
                 <th>Description</th>
                 <th>Target Type</th>
                 <th>Target ID</th>
+                                <th>Status</th>
+                <th>Fiscal Year</th>
+                <th>Accounting Period</th>
+                <th>Journal Entry</th>
+                <th>Finance Ref</th>
+                <th>Account</th>
+                <th>Browser</th>
+                <th>Device</th>
                 <th>IP Address</th>
               </tr>
             </thead>
@@ -360,12 +377,24 @@ function AuditLogs() {
                     <td>{log.description}</td>
                     <td>{log.targetType}</td>
                     <td>{log.targetId}</td>
+                                        <td>{badgeStyle(log.status || "Success", "status")}</td>
+                    <td>{log.fiscalYear || "—"}</td>
+                    <td>{log.accountingPeriod || "—"}</td>
+                    <td>{log.journalEntryNumber || "—"}</td>
+                    <td>{log.financeReference || "—"}</td>
+                    <td>
+                      {log.accountNumber || log.accountName
+                        ? `${log.accountNumber || ""} ${log.accountName || ""}`.trim()
+                        : "—"}
+                    </td>
+                    <td>{log.browser || "—"}</td>
+                    <td>{log.device || "—"}</td>
                     <td>{log.ipAddress}</td>
                   </tr>
                 ))
               ) : (
                 <tr>
-                  <td colSpan="10">No audit logs found.</td>
+                  <td colSpan="18">No audit logs found.</td>
                 </tr>
               )}
             </tbody>
