@@ -107,7 +107,36 @@ function AuditLogs() {
   const safeCurrentPage = Math.min(currentPage, totalPages);
   const startIndex = (safeCurrentPage - 1) * pageSize;
   const endIndex = startIndex + pageSize;
-  const paginatedLogs = filteredLogs.slice(startIndex, endIndex);
+    const paginatedLogs = filteredLogs.slice(startIndex, endIndex);
+
+  const complianceStats = useMemo(() => {
+    const today = new Date().toISOString().slice(0, 10);
+
+    const todayLogs = logs.filter((log) =>
+      String(log.createdAt || "").slice(0, 10) === today
+    );
+
+    const financeLogs = logs.filter((log) => log.module === "Finance");
+
+    return {
+      totalActivity: logs.length,
+      todayActivity: todayLogs.length,
+      financeEvents: financeLogs.length,
+      postedJournals: logs.filter((log) =>
+        String(log.action || "").includes("JOURNAL_POSTED")
+      ).length,
+      failedEvents: logs.filter((log) => log.status === "Failed").length,
+      periodEvents: logs.filter((log) =>
+        String(log.description || "").toLowerCase().includes("period")
+      ).length,
+      yearEndEvents: logs.filter((log) =>
+        String(log.description || "").toLowerCase().includes("year")
+      ).length,
+      activeUsers: new Set(
+        logs.map((log) => log.performedByName).filter(Boolean)
+      ).size,
+    };
+  }, [logs]);
 
   const formatDateTime = (value) => {
     if (!value) return "";
@@ -262,6 +291,24 @@ function AuditLogs() {
         </button>
       </div>
 
+            <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+          gap: "14px",
+          marginBottom: "20px",
+        }}
+      >
+        <ComplianceCard title="Total Activity" value={complianceStats.totalActivity} color="#0B3D91" />
+        <ComplianceCard title="Today's Activity" value={complianceStats.todayActivity} color="#16a34a" />
+        <ComplianceCard title="Finance Events" value={complianceStats.financeEvents} color="#7c3aed" />
+        <ComplianceCard title="Posted Journals" value={complianceStats.postedJournals} color="#0ea5e9" />
+        <ComplianceCard title="Failed Events" value={complianceStats.failedEvents} color="#dc2626" />
+        <ComplianceCard title="Period Events" value={complianceStats.periodEvents} color="#f59e0b" />
+        <ComplianceCard title="Year-End Events" value={complianceStats.yearEndEvents} color="#111827" />
+        <ComplianceCard title="Active Users" value={complianceStats.activeUsers} color="#64748b" />
+      </div>
+
       <div
         style={{
           backgroundColor: "white",
@@ -271,7 +318,7 @@ function AuditLogs() {
           marginBottom: "20px",
         }}
       >
-        <h2 style={{ marginTop: 0 }}>Filters</h2>
+        <h2 style={{ marginTop: 0 }}>Enterprise Audit Filters</h2>
 
         <div
           style={{
@@ -584,6 +631,23 @@ function AuditLogs() {
     </div>
   );
 }
+
+function ComplianceCard({ title, value, color }) {
+  return (
+    <div
+      style={{
+        backgroundColor: "white",
+        border: "1px solid #e5e7eb",
+        borderRadius: "10px",
+        padding: "16px",
+      }}
+    >
+      <h2 style={{ margin: 0, color }}>{value}</h2>
+      <p style={{ marginBottom: 0, fontWeight: "bold" }}>{title}</p>
+    </div>
+  );
+}
+
 
 function AuditDetailsDrawer({ log, onClose, formatDateTime, badgeStyle }) {
   const jsonBlock = (title, value) => (
