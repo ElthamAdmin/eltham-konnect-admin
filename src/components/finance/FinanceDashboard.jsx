@@ -110,18 +110,6 @@ function FinanceDashboard({
   const netMargin =
     Number(totalRevenue) > 0 ? (Number(netProfit) / Number(totalRevenue)) * 100 : 0;
 
-  const totalRevenue =
-    reports?.profitAndLoss?.revenue ?? summary?.totalRevenue ?? 0;
-
-  const costOfSales = reports?.profitAndLoss?.costOfSales ?? 0;
-
-  const grossProfit = reports?.profitAndLoss?.grossProfit ?? 0;
-
-  const operatingExpenses =
-    reports?.profitAndLoss?.operatingExpenses ?? summary?.totalExpenses ?? 0;
-
-  const netProfit =
-    reports?.profitAndLoss?.netProfit ?? summary?.netPosition ?? 0;
 
   return (
     <>
