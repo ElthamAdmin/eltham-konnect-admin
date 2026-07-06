@@ -316,16 +316,32 @@ doc.save(`payslip-${safeEmployeeName}-${safePayPeriod}.pdf`);
     paidFromAccountNumber: "",
   });
 
-  const [accountForm, setAccountForm] = useState({
-  accountName: "",
-  accountType: "Bank",
-  bankName: "",
-  openingBalance: "",
-  currentBalance: "",
-  currency: "JMD",
-  exchangeRate: 1,
-  status: "Active",
-});
+    const [accountForm, setAccountForm] = useState({
+    accountName: "",
+    accountType: "Bank",
+    bankName: "",
+    openingBalance: "",
+    currentBalance: "",
+    currency: "JMD",
+    exchangeRate: 1,
+    status: "Active",
+    accountPurpose: "Operating",
+    financialInstitution: "",
+    branchName: "",
+    accountNickname: "",
+    isDefaultDepositAccount: false,
+    isDefaultExpenseAccount: false,
+    isDefaultPayrollAccount: false,
+    isDefaultCustomerReceiptAccount: false,
+    isBusinessSavings: false,
+    creditLimit: "",
+    availableCredit: "",
+    statementDate: "",
+    paymentDueDate: "",
+    minimumPayment: "",
+    interestRate: "",
+    lastStatementBalance: "",
+  });
 
   const [transactionForm, setTransactionForm] = useState({
     accountNumber: "",
@@ -1082,10 +1098,34 @@ const getSummaryQuery = () => {
     }
   };
 
-  const handleAccountChange = (e) => {
-    setAccountForm({
-      ...accountForm,
-      [e.target.name]: e.target.value,
+    const handleAccountChange = (e) => {
+    const { name, value, type, checked } = e.target;
+
+        setAccountForm({
+      accountName: "",
+      accountType: "Bank",
+      bankName: "",
+      openingBalance: "",
+      currentBalance: "",
+      currency: "JMD",
+      exchangeRate: 1,
+      status: "Active",
+      accountPurpose: "Operating",
+      financialInstitution: "",
+      branchName: "",
+      accountNickname: "",
+      isDefaultDepositAccount: false,
+      isDefaultExpenseAccount: false,
+      isDefaultPayrollAccount: false,
+      isDefaultCustomerReceiptAccount: false,
+      isBusinessSavings: false,
+      creditLimit: "",
+      availableCredit: "",
+      statementDate: "",
+      paymentDueDate: "",
+      minimumPayment: "",
+      interestRate: "",
+      lastStatementBalance: "",
     });
   };
 
@@ -1096,14 +1136,22 @@ const getSummaryQuery = () => {
       return;
     }
 
-    const payload = {
-  ...accountForm,
-  openingBalance: Number(accountForm.openingBalance || 0),
-  currentBalance:
-    accountForm.currentBalance !== ""
-      ? Number(accountForm.currentBalance || 0)
-      : undefined,
-};
+        const payload = {
+      ...accountForm,
+      openingBalance: Number(accountForm.openingBalance || 0),
+      currentBalance:
+        accountForm.currentBalance !== ""
+          ? Number(accountForm.currentBalance || 0)
+          : undefined,
+      exchangeRate: Number(accountForm.exchangeRate || 1),
+      creditLimit: Number(accountForm.creditLimit || 0),
+      availableCredit: Number(accountForm.availableCredit || 0),
+      statementDate: Number(accountForm.statementDate || 0),
+      paymentDueDate: Number(accountForm.paymentDueDate || 0),
+      minimumPayment: Number(accountForm.minimumPayment || 0),
+      interestRate: Number(accountForm.interestRate || 0),
+      lastStatementBalance: Number(accountForm.lastStatementBalance || 0),
+    };
 
     const res = isEditingAccount
       ? await api.put(`/api/financial-accounts/${editingAccountNumber}`, payload)
@@ -1111,16 +1159,32 @@ const getSummaryQuery = () => {
 
     alert(res.data.message);
 
-    setAccountForm({
-  accountName: "",
-  accountType: "Bank",
-  bankName: "",
-  openingBalance: "",
-  currentBalance: "",
-  currency: "JMD",
-  exchangeRate: 1,
-  status: "Active",
-});
+        setAccountForm({
+      accountName: "",
+      accountType: "Bank",
+      bankName: "",
+      openingBalance: "",
+      currentBalance: "",
+      currency: "JMD",
+      exchangeRate: 1,
+      status: "Active",
+      accountPurpose: "Operating",
+      financialInstitution: "",
+      branchName: "",
+      accountNickname: "",
+      isDefaultDepositAccount: false,
+      isDefaultExpenseAccount: false,
+      isDefaultPayrollAccount: false,
+      isDefaultCustomerReceiptAccount: false,
+      isBusinessSavings: false,
+      creditLimit: "",
+      availableCredit: "",
+      statementDate: "",
+      paymentDueDate: "",
+      minimumPayment: "",
+      interestRate: "",
+      lastStatementBalance: "",
+    });
 
     setEditingAccountNumber("");
     setIsEditingAccount(false);
@@ -1132,22 +1196,39 @@ const getSummaryQuery = () => {
   }
 };
 
-  const editAccount = (account) => {
-  setAccountForm({
-    accountName: account.accountName || "",
-    accountType: account.accountType || "Bank",
-    bankName: account.bankName || "",
-    openingBalance: account.openingBalance ?? "",
-    currentBalance: account.currentBalance ?? "",
-    currency: account.currency || "JMD",
-exchangeRate: account.exchangeRate || 1,
-status: account.status || "Active",
-  });
+    const editAccount = (account) => {
+    setAccountForm({
+      accountName: account.accountName || "",
+      accountType: account.accountType || "Bank",
+      bankName: account.bankName || "",
+      openingBalance: account.openingBalance ?? "",
+      currentBalance: account.currentBalance ?? "",
+      currency: account.currency || "JMD",
+      exchangeRate: account.exchangeRate || 1,
+      status: account.status || "Active",
+      accountPurpose: account.accountPurpose || "Operating",
+      financialInstitution: account.financialInstitution || account.bankName || "",
+      branchName: account.branchName || "",
+      accountNickname: account.accountNickname || "",
+      isDefaultDepositAccount: account.isDefaultDepositAccount || false,
+      isDefaultExpenseAccount: account.isDefaultExpenseAccount || false,
+      isDefaultPayrollAccount: account.isDefaultPayrollAccount || false,
+      isDefaultCustomerReceiptAccount:
+        account.isDefaultCustomerReceiptAccount || false,
+      isBusinessSavings: account.isBusinessSavings || false,
+      creditLimit: account.creditLimit ?? "",
+      availableCredit: account.availableCredit ?? "",
+      statementDate: account.statementDate ?? "",
+      paymentDueDate: account.paymentDueDate ?? "",
+      minimumPayment: account.minimumPayment ?? "",
+      interestRate: account.interestRate ?? "",
+      lastStatementBalance: account.lastStatementBalance ?? "",
+    });
 
-  setEditingAccountNumber(account.accountNumber);
-  setIsEditingAccount(true);
-  setActiveTab("accounts");
-};
+    setEditingAccountNumber(account.accountNumber);
+    setIsEditingAccount(true);
+    setActiveTab("accounts");
+  };
 
   const handleTransactionChange = (e) => {
     setTransactionForm({
