@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import api from "../api";
 import { jsPDF } from "jspdf";
 import { autoTable } from "jspdf-autotable";
+import FinanceDashboard from "../components/finance/FinanceDashboard";
 import {
   ResponsiveContainer,
   BarChart,
@@ -1606,255 +1607,26 @@ const totalAvailableCredit = creditCardAccounts.reduce(
         </button>
       </div>
 
-      {activeTab === "dashboard" && (
-        <>
-        <div
-  style={{
-    ...cardStyle,
-    marginBottom: "20px",
-    display: "flex",
-    gap: "12px",
-    flexWrap: "wrap",
-    alignItems: "center",
-  }}
->
-  <strong style={{ color: ROYAL_BLUE }}>Dashboard Filter:</strong>
-
-  <select
-    value={summaryFilter}
-    onChange={(e) => setSummaryFilter(e.target.value)}
-    style={{
-      padding: "10px",
-      borderRadius: "8px",
-      border: `1px solid ${BORDER}`,
-      fontWeight: "bold",
-    }}
-  >
-    <option value="today">Today</option>
-    <option value="thisWeek">This Week</option>
-    <option value="thisMonth">This Month</option>
-    <option value="thisYear">This Year</option>
-    <option value="allTime">All Time</option>
-  </select>
-
-  <select
-    value={summaryBranch}
-    onChange={(e) => setSummaryBranch(e.target.value)}
-    style={{
-      padding: "10px",
-      borderRadius: "8px",
-      border: `1px solid ${BORDER}`,
-      fontWeight: "bold",
-      minWidth: "190px",
-    }}
-  >
-    <option value="">All Branches</option>
-    <option value="Eltham Park">Eltham Park</option>
-    <option value="Browns Town Square">Browns Town Square</option>
-  </select>
-
-  <button
-    onClick={fetchFinanceData}
-    style={{
-      backgroundColor: GOLD,
-      color: "black",
-      border: "none",
-      padding: "10px 16px",
-      borderRadius: "8px",
-      cursor: "pointer",
-      fontWeight: "bold",
-    }}
-  >
-    Refresh
-  </button>
-</div>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-              gap: "20px",
-              marginBottom: "24px",
-            }}
-          >
-            <div style={metricCardStyle}>
-              <div
-                style={{
-                  fontSize: "32px",
-                  fontWeight: "bold",
-                  color: ROYAL_BLUE,
-                  marginBottom: "8px",
-                }}
-              >
-                {formatCurrency(summary?.totalRevenue)}
-              </div>
-              <div style={{ color: "#334155", fontWeight: "bold" }}>
-                Total Revenue
-              </div>
-            </div>
-
-            <div style={metricCardStyle}>
-              <div
-                style={{
-                  fontSize: "32px",
-                  fontWeight: "bold",
-                  color: "#16a34a",
-                  marginBottom: "8px",
-                }}
-              >
-                {summary?.paidInvoices || 0}
-              </div>
-              <div style={{ color: "#334155", fontWeight: "bold" }}>
-                Paid Invoices
-              </div>
-            </div>
-
-            <div style={metricCardStyle}>
-              <div
-                style={{
-                  fontSize: "32px",
-                  fontWeight: "bold",
-                  color: "#dc2626",
-                  marginBottom: "8px",
-                }}
-              >
-                {summary?.unpaidInvoices || 0}
-              </div>
-              <div style={{ color: "#334155", fontWeight: "bold" }}>
-                Unpaid Invoices
-              </div>
-            </div>
-
-            <div style={metricCardStyle}>
-              <div
-                style={{
-                  fontSize: "32px",
-                  fontWeight: "bold",
-                  color: GOLD,
-                  marginBottom: "8px",
-                }}
-              >
-                {formatCurrency(summary?.outstandingRevenue)}
-              </div>
-              <div style={{ color: "#334155", fontWeight: "bold" }}>
-                Outstanding Revenue
-              </div>
-            </div>
-          </div>
-
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-              gap: "20px",
-              marginBottom: "30px",
-            }}
-          >
-            <div style={metricCardStyle}>
-              <div
-                style={{
-                  fontSize: "32px",
-                  fontWeight: "bold",
-                  color: "#f97316",
-                  marginBottom: "8px",
-                }}
-              >
-                {formatCurrency(summary?.totalExpenses)}
-              </div>
-              <div style={{ color: "#334155", fontWeight: "bold" }}>
-                Total Expenses
-              </div>
-            </div>
-
-            <div style={metricCardStyle}>
-              <div
-                style={{
-                  fontSize: "32px",
-                  fontWeight: "bold",
-                  color: "#7c3aed",
-                  marginBottom: "8px",
-                }}
-              >
-                {formatCurrency(summary?.totalPayroll)}
-              </div>
-              <div style={{ color: "#334155", fontWeight: "bold" }}>
-                Total Payroll
-              </div>
-            </div>
-
-            <div style={metricCardStyle}>
-              <div
-                style={{
-                  fontSize: "32px",
-                  fontWeight: "bold",
-                  color:
-                    Number(summary?.netPosition || 0) >= 0
-                      ? "#16a34a"
-                      : "#dc2626",
-                  marginBottom: "8px",
-                }}
-              >
-                {formatCurrency(summary?.netPosition)}
-              </div>
-              <div style={{ color: "#334155", fontWeight: "bold" }}>
-                Net Position
-              </div>
-            </div>
-
-            <div style={metricCardStyle}>
-              <div
-                style={{
-                  fontSize: "32px",
-                  fontWeight: "bold",
-                  color: "#0f172a",
-                  marginBottom: "8px",
-                }}
-              >
-                {formatCurrency(totalCashAndBankBalances)}
-              </div>
-              <div style={{ color: "#334155", fontWeight: "bold" }}>
-                Cash & Bank Balances
-              </div>
-            </div>
-          </div>
-          <div style={cardStyle}>
-  <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>Monthly Finance Graph</h2>
-
-  <div style={{ width: "100%", height: 380 }}>
-    {monthlyChart.length > 0 ? (
-      <ResponsiveContainer>
-        <BarChart
-          data={monthlyChart.map((item) => ({
-            ...item,
-            monthLabel: item.month,
-          }))}
-          margin={{ top: 10, right: 20, left: 10, bottom: 10 }}
-        >
-          <CartesianGrid strokeDasharray="3 3" />
-          <XAxis dataKey="monthLabel" />
-          <YAxis />
-          <Tooltip formatter={(value) => formatCurrency(value)} />
-          <Legend />
-          <Bar dataKey="income" name="Income" fill="#0B3D91" radius={[6, 6, 0, 0]} />
-          <Bar dataKey="expenses" name="Expenses" fill="#D4AF37" radius={[6, 6, 0, 0]} />
-        </BarChart>
-      </ResponsiveContainer>
-    ) : (
-      <div
-        style={{
-          height: "100%",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          color: MUTED,
-          fontWeight: "bold",
-        }}
-      >
-        No monthly chart data found.
-      </div>
-    )}
-  </div>
-</div>
-        </>
+            {activeTab === "dashboard" && (
+        <FinanceDashboard
+          summary={summary}
+          reports={reports}
+          accounts={accounts}
+          monthlyChart={monthlyChart}
+          summaryFilter={summaryFilter}
+          summaryBranch={summaryBranch}
+          setSummaryFilter={setSummaryFilter}
+          setSummaryBranch={setSummaryBranch}
+          fetchFinanceData={fetchFinanceData}
+          formatCurrency={formatCurrency}
+          cardStyle={cardStyle}
+          metricCardStyle={metricCardStyle}
+          ROYAL_BLUE={ROYAL_BLUE}
+          GOLD={GOLD}
+          WHITE={WHITE}
+          BORDER={BORDER}
+          MUTED={MUTED}
+        />
       )}
 
       {activeTab === "expenses" && (
