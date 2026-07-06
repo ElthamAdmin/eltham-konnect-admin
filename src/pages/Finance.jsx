@@ -1359,6 +1359,102 @@ const totalCreditCardBalances = useMemo(
 const netCashPosition =
   totalCashAndBankBalances - totalCreditCardBalances;
 
+  const getDayCountdown = (dayOfMonth) => {
+  const day = Number(dayOfMonth || 0);
+  if (!day) return "—";
+
+  const today = new Date();
+  const target = new Date(today.getFullYear(), today.getMonth(), day);
+
+  if (target < today) {
+    target.setMonth(target.getMonth() + 1);
+  }
+
+  const diffDays = Math.ceil((target - today) / (1000 * 60 * 60 * 24));
+
+  if (diffDays === 0) return "Due Today";
+  if (diffDays === 1) return "1 day";
+  return `${diffDays} days`;
+};
+
+const treasuryHealthBadge = (health) => {
+  const backgroundColor =
+    health === "Near Limit"
+      ? "#dc2626"
+      : health === "High Utilization"
+      ? "#f97316"
+      : health === "Needs Reconciliation"
+      ? "#f59e0b"
+      : health === "Inactive"
+      ? "#64748b"
+      : "#16a34a";
+
+  return (
+    <span
+      style={{
+        padding: "5px 10px",
+        borderRadius: "999px",
+        color: "white",
+        backgroundColor,
+        fontWeight: "bold",
+        fontSize: "12px",
+        display: "inline-block",
+        whiteSpace: "nowrap",
+      }}
+    >
+      {health || "Healthy"}
+    </span>
+  );
+};
+
+const defaultAccountBadges = (account) => {
+  const badges = [];
+
+  if (account.isDefaultDepositAccount) badges.push("Default Deposit");
+  if (account.isDefaultExpenseAccount) badges.push("Default Expense");
+  if (account.isDefaultPayrollAccount) badges.push("Default Payroll");
+  if (account.isDefaultCustomerReceiptAccount) badges.push("Default Receipt");
+  if (account.isBusinessSavings) badges.push("Business Savings");
+
+  if (badges.length === 0) return "—";
+
+  return (
+    <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
+      {badges.map((badge) => (
+        <span
+          key={badge}
+          style={{
+            backgroundColor: "#eef4ff",
+            color: ROYAL_BLUE,
+            border: `1px solid ${BORDER}`,
+            borderRadius: "999px",
+            padding: "4px 8px",
+            fontSize: "12px",
+            fontWeight: "bold",
+          }}
+        >
+          {badge}
+        </span>
+      ))}
+    </div>
+  );
+};
+
+const creditCardAccounts = accounts.filter(
+  (account) => account.accountType === "Credit Card"
+);
+
+const savingsAccounts = accounts.filter(
+  (account) => account.isBusinessSavings || account.accountPurpose === "Savings"
+);
+
+const totalAvailableCredit = creditCardAccounts.reduce(
+  (sum, account) =>
+    sum +
+    Number(account.calculatedAvailableCredit ?? account.availableCredit ?? 0),
+  0
+);
+
   const renderPagination = (
     { page, pages, limit, total },
     onPageChange,
@@ -3504,7 +3600,7 @@ const netCashPosition =
             </button>
           </div>
 
-          <div
+           <div
             style={{
               display: "grid",
               gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
@@ -3541,13 +3637,136 @@ const netCashPosition =
 
             <div style={metricCardStyle}>
               <div style={{ fontSize: "30px", fontWeight: "bold", color: GOLD }}>
-                {accounts.filter((a) => a.isBusinessSavings).length}
+                {formatCurrency(totalAvailableCredit)}
               </div>
               <div style={{ color: "#334155", fontWeight: "bold" }}>
-                Savings Accounts
+                Available Credit
               </div>
             </div>
           </div>
+
+          {creditCardAccounts.length > 0 && (
+            <div style={{ ...cardStyle, marginBottom: "24px" }}>
+              <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>
+                Credit Card Intelligence
+              </h2>
+
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+                  gap: "16px",
+                }}
+              >
+                {creditCardAccounts.map((account) => (
+                  <div
+                    key={account._id}
+                    style={{
+                      border: `1px solid ${BORDER}`,
+                      borderRadius: "14px",
+                      padding: "16px",
+                      backgroundColor: "#f8fbff",
+                    }}
+                  >
+                    <h3 style={{ marginTop: 0, color: ROYAL_BLUE }}>
+                      {account.accountName}
+                    </h3>
+
+                    <div style={{ color: MUTED, marginBottom: "10px" }}>
+                      {account.financialInstitution || account.bankName || "Credit Card"}
+                    </div>
+
+                    <div style={{ display: "grid", gap: "8px" }}>
+                      <strong>
+                        Outstanding: {formatCurrency(account.outstandingBalance)}
+                      </strong>
+                      <strong>
+                        Credit Limit: {formatCurrency(account.creditLimit)}
+                      </strong>
+                      <strong>
+                        Available:{" "}
+                        {formatCurrency(
+                          account.calculatedAvailableCredit ??
+                            account.availableCredit
+                        )}
+                      </strong>
+                      <strong>
+                        Utilization:{" "}
+                        {Number(account.creditUtilization || 0).toFixed(2)}%
+                      </strong>
+                      <strong>
+                        Payment Due:{" "}
+                        {account.paymentDueDate
+                          ? `${account.paymentDueDate}th (${getDayCountdown(
+                              account.paymentDueDate
+                            )})`
+                          : "—"}
+                      </strong>
+                      <strong>
+                        Statement:{" "}
+                        {account.statementDate
+                          ? `${account.statementDate}th (${getDayCountdown(
+                              account.statementDate
+                            )})`
+                          : "—"}
+                      </strong>
+                      <div>{treasuryHealthBadge(account.accountHealth)}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {savingsAccounts.length > 0 && (
+            <div style={{ ...cardStyle, marginBottom: "24px" }}>
+              <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>
+                Savings Accounts
+              </h2>
+
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+                  gap: "16px",
+                }}
+              >
+                {savingsAccounts.map((account) => (
+                  <div
+                    key={account._id}
+                    style={{
+                      border: `1px solid ${BORDER}`,
+                      borderRadius: "14px",
+                      padding: "16px",
+                      backgroundColor: "#fffdf2",
+                    }}
+                  >
+                    <h3 style={{ marginTop: 0, color: ROYAL_BLUE }}>
+                      {account.accountName}
+                    </h3>
+                    <div style={{ color: MUTED, marginBottom: "8px" }}>
+                      {account.currency || "JMD"} Savings
+                    </div>
+                    <strong>
+                      Native Balance:{" "}
+                      {account.currency || "JMD"}{" "}
+                      {Number(account.currentBalance || 0).toLocaleString(
+                        undefined,
+                        {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        }
+                      )}
+                    </strong>
+                    <br />
+                    <strong>
+                      JMD Equivalent: {formatCurrency(account.baseCurrencyBalance)}
+                    </strong>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div style={cardStyle}>
             <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>
@@ -3581,6 +3800,7 @@ const netCashPosition =
                     <th>Due</th>
                     <th>Recon</th>
                     <th>Health</th>
+                    <th>Defaults</th>
                     <th>Status</th>
                     <th>Last Adjustment</th>
                     <th>Action</th>
@@ -3646,6 +3866,7 @@ const netCashPosition =
                         </td>
                         <td>{account.reconciliationStatus || "Never Reconciled"}</td>
                         <td>{account.accountHealth || "Healthy"}</td>
+                        <td>{defaultAccountBadges(account)}</td>
                         <td>{statusBadge(account.status)}</td>
                         <td>{account.lastAdjustmentBatch || "—"}</td>
                         <td>
@@ -3668,7 +3889,7 @@ const netCashPosition =
                     ))
                   ) : (
                     <tr>
-                      <td colSpan="18">No financial accounts found.</td>
+                      <td colSpan="19">No financial accounts found.</td>
                     </tr>
                   )}
                 </tbody>
