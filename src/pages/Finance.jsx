@@ -375,42 +375,119 @@ doc.save(`payslip-${safeEmployeeName}-${safePayPeriod}.pdf`);
   const BORDER = "#dbe3ef";
   const MUTED = "#64748b";
 
-  const EXPENSE_CATEGORIES = [
+    const EXPENSE_CATEGORIES = [
     "KP Package Invoice",
-"OX Package Invoice",
-"KP Pickup Fee",
-"OX Pickup Fee",
-"LTW Software Subscription",
-"KP Software Subscription",
-  "LTW Package Invoice",
-  "LTW Pickup Fee",
-  "Customs / Clearance Expense",
-  "Delivery Expense",
-  "Fuel",
-  "Vehicle Maintenance",
-  "Rent",
-  "Light Bill",
-  "Internet",
-  "Phone Credit",
-  "Utilities",
-  "Wages / Salary",
-  "Staff Treat",
-  "Office Expense",
-  "Packaging Supplies",
-  "Printing / Stationery",
-  "Bank Charges",
-  "Fygaro Fees",
-  "Render Subscription",
-  "Vercel Subscription",
-  "Cloudinary Subscription",
-  "Amazon Prime",
-  "Software Subscription",
-  "Marketing",
-  "Maintenance",
-  "Cleaning Supplies",
-  "Repairs",
-  "Miscellaneous",
-];
+    "LTW Package Invoice",
+    "KP Warehouse Invoice",
+    "LTW Warehouse Invoice",
+    "Amazon Prime Subscription",
+    "Fygaro Subscription",
+    "Render Subscription",
+    "Travel Expense (Taxi Fare)",
+    "Fuel",
+    "Vehicle Maintenance",
+    "Vehicle Insurance",
+    "Vehicle Fitness",
+    "Vehicle Registration",
+    "Bank Charges / Fees",
+    "Rent",
+    "Light",
+    "Internet",
+    "Phone Credit",
+    "Staff Treat",
+    "Office Expense",
+    "Stationery",
+    "Wages / Salary",
+    "Marketing",
+    "Cleaning Supplies",
+    "Miscellaneous",
+    "Inventory Expenses",
+    "Toll Fee",
+    "Parking Fee",
+  ];
+
+  const getExpenseCategoryPreview = (category = "") => {
+    const cogsCategories = [
+      "KP Package Invoice",
+      "LTW Package Invoice",
+      "KP Warehouse Invoice",
+      "LTW Warehouse Invoice",
+      "Inventory Expenses",
+    ];
+
+    if (cogsCategories.includes(category)) {
+      return {
+        classification: "Cost of Goods Sold",
+        group: category.includes("Warehouse")
+          ? "Warehouse Cost"
+          : category.includes("Inventory")
+          ? "Inventory"
+          : "Package Cost",
+      };
+    }
+
+    if (
+      [
+        "Amazon Prime Subscription",
+        "Fygaro Subscription",
+        "Render Subscription",
+      ].includes(category)
+    ) {
+      return { classification: "Operating Expense", group: "Subscriptions" };
+    }
+
+    if (
+      [
+        "Fuel",
+        "Vehicle Maintenance",
+        "Vehicle Insurance",
+        "Vehicle Fitness",
+        "Vehicle Registration",
+        "Toll Fee",
+        "Parking Fee",
+      ].includes(category)
+    ) {
+      return { classification: "Operating Expense", group: "Vehicle" };
+    }
+
+    if (["Light", "Internet"].includes(category)) {
+      return { classification: "Operating Expense", group: "Utilities" };
+    }
+
+    if (category === "Phone Credit") {
+      return { classification: "Operating Expense", group: "Communications" };
+    }
+
+    if (category === "Travel Expense (Taxi Fare)") {
+      return { classification: "Operating Expense", group: "Travel" };
+    }
+
+    if (category === "Rent") {
+      return { classification: "Operating Expense", group: "Occupancy" };
+    }
+
+    if (["Office Expense", "Stationery", "Cleaning Supplies"].includes(category)) {
+      return { classification: "Operating Expense", group: "Office" };
+    }
+
+    if (category === "Wages / Salary") {
+      return { classification: "Operating Expense", group: "Payroll" };
+    }
+
+    if (category === "Marketing") {
+      return { classification: "Operating Expense", group: "Marketing" };
+    }
+
+    if (category === "Bank Charges / Fees") {
+      return { classification: "Operating Expense", group: "Banking" };
+    }
+
+    if (category === "Staff Treat") {
+      return { classification: "Operating Expense", group: "Staff Welfare" };
+    }
+
+    return { classification: "Operating Expense", group: "Miscellaneous" };
+  };
 
   const roundMoney = (value) =>
     Math.round((Number(value || 0) + Number.EPSILON) * 100) / 100;
@@ -1886,19 +1963,56 @@ const totalAvailableCredit = creditCardAccounts.reduce(
                 style={{ padding: "10px" }}
               />
 
-              <select
+                            <select
                 name="category"
                 value={expenseForm.category}
                 onChange={handleExpenseChange}
                 style={{ padding: "10px" }}
               >
                 <option value="">Select Category</option>
-                {EXPENSE_CATEGORIES.map((category) => (
-                  <option key={category} value={category}>
-                    {category}
-                  </option>
-                ))}
+                <optgroup label="Cost of Goods Sold">
+                  {EXPENSE_CATEGORIES.filter((category) =>
+                    getExpenseCategoryPreview(category).classification ===
+                    "Cost of Goods Sold"
+                  ).map((category) => (
+                    <option key={category} value={category}>
+                      {category}
+                    </option>
+                  ))}
+                </optgroup>
+                <optgroup label="Operating Expenses">
+                  {EXPENSE_CATEGORIES.filter((category) =>
+                    getExpenseCategoryPreview(category).classification ===
+                    "Operating Expense"
+                  ).map((category) => (
+                    <option key={category} value={category}>
+                      {category}
+                    </option>
+                  ))}
+                </optgroup>
               </select>
+
+                            {expenseForm.category && (
+                <div
+                  style={{
+                    gridColumn: "span 2",
+                    padding: "12px",
+                    borderRadius: "10px",
+                    border: `1px solid ${BORDER}`,
+                    backgroundColor:
+                      getExpenseCategoryPreview(expenseForm.category)
+                        .classification === "Cost of Goods Sold"
+                        ? "#fff7ed"
+                        : "#f8fbff",
+                    fontWeight: "bold",
+                  }}
+                >
+                  Classification:{" "}
+                  {getExpenseCategoryPreview(expenseForm.category).classification}
+                  {" | "}
+                  Group: {getExpenseCategoryPreview(expenseForm.category).group}
+                </div>
+              )}
 
               <input
                 type="text"
@@ -1997,6 +2111,8 @@ const totalAvailableCredit = creditCardAccounts.reduce(
                     <th>Expense Number</th>
                     <th>Date</th>
                     <th>Category</th>
+                    <th>Classification</th>
+                    <th>Group</th>
                     <th>Description</th>
                     <th>Amount</th>
                     <th>Paid From Account</th>
@@ -2010,7 +2126,16 @@ const totalAvailableCredit = creditCardAccounts.reduce(
                       <tr key={expense._id || expense.id}>
                         <td>{expense.expenseNumber}</td>
                         <td>{expense.date}</td>
-                        <td>{expense.category}</td>
+                                                <td>{expense.category}</td>
+                        <td>
+                          {expense.expenseClassification ||
+                            getExpenseCategoryPreview(expense.category)
+                              .classification}
+                        </td>
+                        <td>
+                          {expense.expenseGroup ||
+                            getExpenseCategoryPreview(expense.category).group}
+                        </td>
                         <td>{expense.description}</td>
                         <td>{formatCurrency(expense.amount)}</td>
                         <td>{expense.paidFromAccountName || ""}</td>
@@ -2037,7 +2162,7 @@ const totalAvailableCredit = creditCardAccounts.reduce(
                     ))
                   ) : (
                     <tr>
-                      <td colSpan="8">No expense records found.</td>
+                      <td colSpan="10">No expense records found.</td>
                     </tr>
                   )}
                 </tbody>
