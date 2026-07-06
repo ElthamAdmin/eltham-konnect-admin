@@ -3202,16 +3202,17 @@ const netCashPosition =
     </div>
   </div>
 )}
-      {activeTab === "accounts" && (
+            {activeTab === "accounts" && (
         <>
           <div style={{ ...cardStyle, marginBottom: "24px" }}>
             <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>
-              Create Financial Account
+              {isEditingAccount ? "Edit Financial Account" : "Create Financial Account"}
             </h2>
+
             <div
               style={{
                 display: "grid",
-                gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+                gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))",
                 gap: "15px",
               }}
             >
@@ -3223,6 +3224,16 @@ const netCashPosition =
                 onChange={handleAccountChange}
                 style={{ padding: "10px" }}
               />
+
+              <input
+                type="text"
+                name="accountNickname"
+                placeholder="Nickname"
+                value={accountForm.accountNickname}
+                onChange={handleAccountChange}
+                style={{ padding: "10px" }}
+              />
+
               <select
                 name="accountType"
                 value={accountForm.accountType}
@@ -3233,63 +3244,248 @@ const netCashPosition =
                 <option value="Cash">Cash</option>
                 <option value="Credit Card">Credit Card</option>
               </select>
+
+              <select
+                name="accountPurpose"
+                value={accountForm.accountPurpose}
+                onChange={handleAccountChange}
+                style={{ padding: "10px" }}
+              >
+                <option value="Operating">Operating</option>
+                <option value="Savings">Savings</option>
+                <option value="Payroll">Payroll</option>
+                <option value="Tax">Tax</option>
+                <option value="Petty Cash">Petty Cash</option>
+                <option value="Float">Float</option>
+                <option value="Dropbox">Dropbox</option>
+                <option value="Investment">Investment</option>
+                <option value="Reserve">Reserve</option>
+                <option value="Credit Card">Credit Card</option>
+              </select>
+
+              <input
+                type="text"
+                name="financialInstitution"
+                placeholder="Financial Institution"
+                value={accountForm.financialInstitution}
+                onChange={handleAccountChange}
+                style={{ padding: "10px" }}
+              />
+
               <input
                 type="text"
                 name="bankName"
-                placeholder="Bank Name (optional)"
+                placeholder="Bank Name / Issuer"
                 value={accountForm.bankName}
                 onChange={handleAccountChange}
                 style={{ padding: "10px" }}
               />
+
+              <select
+                name="branchName"
+                value={accountForm.branchName}
+                onChange={handleAccountChange}
+                style={{ padding: "10px" }}
+              >
+                <option value="">No Branch / Company-wide</option>
+                <option value="Eltham Park">Eltham Park</option>
+                <option value="Brown's Town Square">Brown's Town Square</option>
+                <option value="Browns Town Square">Browns Town Square</option>
+              </select>
+
               <input
                 type="number"
                 name="openingBalance"
                 placeholder="Opening Balance"
                 value={accountForm.openingBalance}
                 onChange={handleAccountChange}
-                style={{ padding: "10px" }}
+                disabled={isEditingAccount}
+                style={{
+                  padding: "10px",
+                  backgroundColor: isEditingAccount ? "#f8fafc" : WHITE,
+                }}
               />
+
               <input
-  type="number"
-  name="currentBalance"
-  placeholder="Current Balance"
-  value={accountForm.currentBalance}
-  onChange={handleAccountChange}
-  style={{ padding: "10px" }}
-/>
+                type="number"
+                name="currentBalance"
+                placeholder="Current Balance"
+                value={accountForm.currentBalance}
+                onChange={handleAccountChange}
+                disabled
+                style={{ padding: "10px", backgroundColor: "#f8fafc" }}
+              />
 
-<select
-  name="currency"
-  value={accountForm.currency}
-  onChange={handleAccountChange}
-  style={{ padding: "10px" }}
->
-  <option value="JMD">JMD</option>
-  <option value="USD">USD</option>
-</select>
+              <select
+                name="currency"
+                value={accountForm.currency}
+                onChange={handleAccountChange}
+                style={{ padding: "10px" }}
+              >
+                <option value="JMD">JMD</option>
+                <option value="USD">USD</option>
+              </select>
 
-{accountForm.currency !== "JMD" && (
-  <input
-    type="number"
-    step="0.01"
-    name="exchangeRate"
-    placeholder="Exchange Rate"
-    value={accountForm.exchangeRate}
-    onChange={handleAccountChange}
-    style={{ padding: "10px" }}
-  />
-)}
+              {accountForm.currency !== "JMD" && (
+                <input
+                  type="number"
+                  step="0.01"
+                  name="exchangeRate"
+                  placeholder="Exchange Rate"
+                  value={accountForm.exchangeRate}
+                  onChange={handleAccountChange}
+                  style={{ padding: "10px" }}
+                />
+              )}
+
+              <select
+                name="status"
+                value={accountForm.status}
+                onChange={handleAccountChange}
+                style={{ padding: "10px" }}
+              >
+                <option value="Active">Active</option>
+                <option value="Inactive">Inactive</option>
+              </select>
             </div>
 
-            <select
-  name="status"
-  value={accountForm.status}
-  onChange={handleAccountChange}
-  style={{ padding: "10px" }}
->
-  <option value="Active">Active</option>
-  <option value="Inactive">Inactive</option>
-</select>
+            {accountForm.accountType === "Credit Card" && (
+              <div
+                style={{
+                  marginTop: "18px",
+                  padding: "14px",
+                  borderRadius: "12px",
+                  border: `1px solid ${BORDER}`,
+                  backgroundColor: "#f8fbff",
+                }}
+              >
+                <h3 style={{ marginTop: 0, color: ROYAL_BLUE }}>
+                  Credit Card Details
+                </h3>
+
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+                    gap: "14px",
+                  }}
+                >
+                  <input
+                    type="number"
+                    name="creditLimit"
+                    placeholder="Credit Limit"
+                    value={accountForm.creditLimit}
+                    onChange={handleAccountChange}
+                    style={{ padding: "10px" }}
+                  />
+
+                  <input
+                    type="number"
+                    name="availableCredit"
+                    placeholder="Available Credit"
+                    value={accountForm.availableCredit}
+                    onChange={handleAccountChange}
+                    style={{ padding: "10px" }}
+                  />
+
+                  <input
+                    type="number"
+                    name="statementDate"
+                    placeholder="Statement Day e.g. 26"
+                    value={accountForm.statementDate}
+                    onChange={handleAccountChange}
+                    style={{ padding: "10px" }}
+                  />
+
+                  <input
+                    type="number"
+                    name="paymentDueDate"
+                    placeholder="Payment Due Day e.g. 20"
+                    value={accountForm.paymentDueDate}
+                    onChange={handleAccountChange}
+                    style={{ padding: "10px" }}
+                  />
+
+                  <input
+                    type="number"
+                    name="minimumPayment"
+                    placeholder="Minimum Payment"
+                    value={accountForm.minimumPayment}
+                    onChange={handleAccountChange}
+                    style={{ padding: "10px" }}
+                  />
+
+                  <input
+                    type="number"
+                    name="interestRate"
+                    placeholder="Interest Rate %"
+                    value={accountForm.interestRate}
+                    onChange={handleAccountChange}
+                    style={{ padding: "10px" }}
+                  />
+
+                  <input
+                    type="number"
+                    name="lastStatementBalance"
+                    placeholder="Last Statement Balance"
+                    value={accountForm.lastStatementBalance}
+                    onChange={handleAccountChange}
+                    style={{ padding: "10px" }}
+                  />
+                </div>
+              </div>
+            )}
+
+            <div
+              style={{
+                marginTop: "18px",
+                padding: "14px",
+                borderRadius: "12px",
+                border: `1px solid ${BORDER}`,
+                backgroundColor: "#fffdf2",
+              }}
+            >
+              <h3 style={{ marginTop: 0, color: ROYAL_BLUE }}>
+                Account Defaults
+              </h3>
+
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+                  gap: "12px",
+                }}
+              >
+                {[
+                  ["isDefaultDepositAccount", "Default Deposit Account"],
+                  ["isDefaultExpenseAccount", "Default Expense Account"],
+                  ["isDefaultPayrollAccount", "Default Payroll Account"],
+                  [
+                    "isDefaultCustomerReceiptAccount",
+                    "Default Customer Receipt Account",
+                  ],
+                  ["isBusinessSavings", "Business Savings Account"],
+                ].map(([name, label]) => (
+                  <label
+                    key={name}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "8px",
+                      fontWeight: "bold",
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      name={name}
+                      checked={Boolean(accountForm[name])}
+                      onChange={handleAccountChange}
+                    />
+                    {label}
+                  </label>
+                ))}
+              </div>
+            </div>
 
             <button
               onClick={addAccount}
@@ -3317,14 +3513,7 @@ const netCashPosition =
             }}
           >
             <div style={metricCardStyle}>
-              <div
-                style={{
-                  fontSize: "32px",
-                  fontWeight: "bold",
-                  color: ROYAL_BLUE,
-                  marginBottom: "8px",
-                }}
-              >
+              <div style={{ fontSize: "30px", fontWeight: "bold", color: ROYAL_BLUE }}>
                 {accounts.length}
               </div>
               <div style={{ color: "#334155", fontWeight: "bold" }}>
@@ -3333,50 +3522,29 @@ const netCashPosition =
             </div>
 
             <div style={metricCardStyle}>
-              <div
-                style={{
-                  fontSize: "32px",
-                  fontWeight: "bold",
-                  color: "#16a34a",
-                  marginBottom: "8px",
-                }}
-              >
-                {accounts.filter((a) => a.accountType === "Bank").length}
+              <div style={{ fontSize: "30px", fontWeight: "bold", color: "#16a34a" }}>
+                {formatCurrency(totalCashAndBankBalances)}
               </div>
               <div style={{ color: "#334155", fontWeight: "bold" }}>
-                Bank Accounts
+                Cash / Bank Position
               </div>
             </div>
 
             <div style={metricCardStyle}>
-              <div
-                style={{
-                  fontSize: "32px",
-                  fontWeight: "bold",
-                  color: GOLD,
-                  marginBottom: "8px",
-                }}
-              >
-                {accounts.filter((a) => a.accountType === "Cash").length}
+              <div style={{ fontSize: "30px", fontWeight: "bold", color: "#dc2626" }}>
+                {formatCurrency(totalCreditCardBalances)}
               </div>
               <div style={{ color: "#334155", fontWeight: "bold" }}>
-                Cash Accounts
+                Credit Card Outstanding
               </div>
             </div>
 
             <div style={metricCardStyle}>
-              <div
-                style={{
-                  fontSize: "32px",
-                  fontWeight: "bold",
-                  color: "#dc2626",
-                  marginBottom: "8px",
-                }}
-              >
-                {accounts.filter((a) => a.accountType === "Credit Card").length}
+              <div style={{ fontSize: "30px", fontWeight: "bold", color: GOLD }}>
+                {accounts.filter((a) => a.isBusinessSavings).length}
               </div>
               <div style={{ color: "#334155", fontWeight: "bold" }}>
-                Credit Card Accounts
+                Savings Accounts
               </div>
             </div>
           </div>
@@ -3385,12 +3553,13 @@ const netCashPosition =
             <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>
               Financial Accounts
             </h2>
+
             <div style={{ overflowX: "auto" }}>
               <table
                 border="1"
                 cellPadding="10"
                 style={{
-                  minWidth: "1100px",
+                  minWidth: "2100px",
                   width: "100%",
                   borderCollapse: "collapse",
                 }}
@@ -3398,57 +3567,108 @@ const netCashPosition =
                 <thead style={{ backgroundColor: "#eef4ff" }}>
                   <tr>
                     <th>Account Number</th>
-                    <th>Account Name</th>
+                    <th>Account</th>
+                    <th>Purpose</th>
                     <th>Type</th>
-                    <th>Bank Name</th>
-                    <th>Opening Balance</th>
-                    <th>Current Balance</th>
+                    <th>Institution</th>
+                    <th>Branch</th>
+                    <th>Native Balance</th>
                     <th>JMD Equivalent</th>
-                    <th>Currency</th>
+                    <th>Credit Limit</th>
+                    <th>Available Credit</th>
+                    <th>Utilization</th>
+                    <th>Statement</th>
+                    <th>Due</th>
+                    <th>Recon</th>
+                    <th>Health</th>
                     <th>Status</th>
+                    <th>Last Adjustment</th>
                     <th>Action</th>
                   </tr>
                 </thead>
+
                 <tbody>
                   {accounts.length > 0 ? (
                     accounts.map((account) => (
                       <tr key={account._id}>
                         <td>{account.accountNumber}</td>
-                        <td>{account.accountName}</td>
+                        <td>
+                          <strong>{account.accountName}</strong>
+                          <br />
+                          <span style={{ color: MUTED }}>
+                            {account.accountNickname || "—"}
+                          </span>
+                        </td>
+                        <td>{account.accountPurpose || "Operating"}</td>
                         <td>{account.accountType}</td>
-                        <td>{account.bankName}</td>
-                        <td>{formatCurrency(account.openingBalance)}</td>
-                        <td>{account.currency || "JMD"}{" "}
-{Number(account.currentBalance || 0).toLocaleString()}</td>
-<td>
-  JMD{" "}
-  {Number(
-    account.baseCurrencyBalance || account.currentBalance || 0
-  ).toLocaleString()}
-</td>
-                        <td>{account.currency}</td>
+                        <td>
+                          {account.financialInstitution || account.bankName || "—"}
+                        </td>
+                        <td>{account.branchName || "—"}</td>
+                        <td>
+                          {account.currency || "JMD"}{" "}
+                          {Number(account.currentBalance || 0).toLocaleString(
+                            undefined,
+                            {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            }
+                          )}
+                        </td>
+                        <td>{formatCurrency(account.baseCurrencyBalance)}</td>
+                        <td>
+                          {account.accountType === "Credit Card"
+                            ? formatCurrency(account.creditLimit)
+                            : "—"}
+                        </td>
+                        <td>
+                          {account.accountType === "Credit Card"
+                            ? formatCurrency(
+                                account.calculatedAvailableCredit ??
+                                  account.availableCredit
+                              )
+                            : "—"}
+                        </td>
+                        <td>
+                          {account.accountType === "Credit Card"
+                            ? `${Number(account.creditUtilization || 0).toFixed(2)}%`
+                            : "—"}
+                        </td>
+                        <td>
+                          {account.statementDate
+                            ? `${account.statementDate}th`
+                            : "—"}
+                        </td>
+                        <td>
+                          {account.paymentDueDate
+                            ? `${account.paymentDueDate}th`
+                            : "—"}
+                        </td>
+                        <td>{account.reconciliationStatus || "Never Reconciled"}</td>
+                        <td>{account.accountHealth || "Healthy"}</td>
                         <td>{statusBadge(account.status)}</td>
-<td>
-  <button
-    onClick={() => editAccount(account)}
-    style={{
-      backgroundColor: ROYAL_BLUE,
-      color: WHITE,
-      border: "none",
-      padding: "8px 12px",
-      borderRadius: "8px",
-      cursor: "pointer",
-      fontWeight: "bold",
-    }}
-  >
-    Edit
-  </button>
-</td>
+                        <td>{account.lastAdjustmentBatch || "—"}</td>
+                        <td>
+                          <button
+                            onClick={() => editAccount(account)}
+                            style={{
+                              backgroundColor: ROYAL_BLUE,
+                              color: WHITE,
+                              border: "none",
+                              padding: "8px 12px",
+                              borderRadius: "8px",
+                              cursor: "pointer",
+                              fontWeight: "bold",
+                            }}
+                          >
+                            Edit
+                          </button>
+                        </td>
                       </tr>
                     ))
                   ) : (
                     <tr>
-                      <td colSpan="9">No financial accounts found.</td>
+                      <td colSpan="18">No financial accounts found.</td>
                     </tr>
                   )}
                 </tbody>
