@@ -110,6 +110,69 @@ function FinanceDashboard({
   const netMargin =
     Number(totalRevenue) > 0 ? (Number(netProfit) / Number(totalRevenue)) * 100 : 0;
 
+      const getLiquidityHealth = () => {
+    if (currentRatio >= 2) return { label: "Excellent Liquidity", color: "#16a34a" };
+    if (currentRatio >= 1.2) return { label: "Healthy Liquidity", color: "#22c55e" };
+    if (currentRatio >= 1) return { label: "Liquidity Watch", color: "#f97316" };
+    return { label: "Weak Liquidity", color: "#dc2626" };
+  };
+
+  const getCreditHealth = () => {
+    if (creditUtilization >= 90) return { label: "Critical Credit Usage", color: "#dc2626" };
+    if (creditUtilization >= 75) return { label: "High Utilization", color: "#f97316" };
+    if (creditUtilization >= 50) return { label: "Moderate Utilization", color: "#f59e0b" };
+    if (creditUtilization >= 30) return { label: "Healthy Utilization", color: "#22c55e" };
+    return { label: "Excellent Credit Position", color: "#16a34a" };
+  };
+
+  const getProfitHealth = () =>
+    Number(netProfit) >= 0
+      ? { label: "Positive Profit", color: "#16a34a" }
+      : { label: "Loss Position", color: "#dc2626" };
+
+  const getWorkingCapitalHealth = () =>
+    Number(workingCapital) >= 0
+      ? { label: "Positive Working Capital", color: "#16a34a" }
+      : { label: "Negative Working Capital", color: "#dc2626" };
+
+  const getCashHealth = () =>
+    Number(totalCashAndBankBalances) > 0
+      ? { label: "Cash Positive", color: "#16a34a" }
+      : { label: "Cash Concern", color: "#dc2626" };
+
+  const liquidityHealth = getLiquidityHealth();
+  const creditHealth = getCreditHealth();
+  const profitHealth = getProfitHealth();
+  const workingCapitalHealth = getWorkingCapitalHealth();
+  const cashHealth = getCashHealth();
+
+  const financialAlerts = [
+    currentRatio < 1 && {
+      type: "warning",
+      message: "Current ratio is below 1. Liquidity is weak.",
+    },
+    workingCapital < 0 && {
+      type: "warning",
+      message: "Working capital is negative.",
+    },
+    creditUtilization >= 75 && {
+      type: "warning",
+      message: "Credit utilization is above 75%.",
+    },
+    netProfit < 0 && {
+      type: "warning",
+      message: "Business is currently in a loss position.",
+    },
+    accountsPayable <= 0 && {
+      type: "success",
+      message: "Accounts payable is clear.",
+    },
+    totalCashAndBankBalances > 0 && {
+      type: "success",
+      message: "Cash and bank balances are positive.",
+    },
+  ].filter(Boolean);
+
 
   return (
     <>
@@ -240,6 +303,48 @@ function FinanceDashboard({
             value={formatCurrency(netCashPosition)}
           />
         </DashboardPanel>
+
+                <DashboardPanel title="Executive Financial Health" ROYAL_BLUE={ROYAL_BLUE} cardStyle={cardStyle}>
+          <HealthRow label="Liquidity" health={liquidityHealth} />
+          <HealthRow label="Working Capital" health={workingCapitalHealth} />
+          <HealthRow label="Credit Position" health={creditHealth} />
+          <HealthRow label="Profitability" health={profitHealth} />
+          <HealthRow label="Cash Position" health={cashHealth} />
+        </DashboardPanel>
+      </div>
+
+            <div style={{ ...cardStyle, marginBottom: "24px" }}>
+        <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>
+          Financial Alerts
+        </h2>
+
+        {financialAlerts.length > 0 ? (
+          <div style={{ display: "grid", gap: "10px" }}>
+            {financialAlerts.map((alert, index) => (
+              <div
+                key={index}
+                style={{
+                  padding: "12px",
+                  borderRadius: "10px",
+                  border: `1px solid ${
+                    alert.type === "warning" ? "#fed7aa" : "#bbf7d0"
+                  }`,
+                  backgroundColor:
+                    alert.type === "warning" ? "#fff7ed" : "#f0fdf4",
+                  color: alert.type === "warning" ? "#9a3412" : "#166534",
+                  fontWeight: "bold",
+                }}
+              >
+                {alert.type === "warning" ? "⚠ " : "✓ "}
+                {alert.message}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div style={{ color: MUTED, fontWeight: "bold" }}>
+            No financial alerts at this time.
+          </div>
+        )}
       </div>
 
       <div style={cardStyle}>
@@ -289,6 +394,36 @@ function DashboardPanel({ title, children, ROYAL_BLUE, cardStyle }) {
     <div style={cardStyle}>
       <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>{title}</h2>
       <div style={{ display: "grid", gap: "10px" }}>{children}</div>
+    </div>
+  );
+}
+
+function HealthRow({ label, health }) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        justifyContent: "space-between",
+        gap: "12px",
+        borderBottom: "1px solid #e5e7eb",
+        paddingBottom: "8px",
+        fontWeight: "bold",
+        alignItems: "center",
+      }}
+    >
+      <span style={{ color: "#475569" }}>{label}</span>
+      <span
+        style={{
+          color: "white",
+          backgroundColor: health.color,
+          padding: "5px 10px",
+          borderRadius: "999px",
+          fontSize: "12px",
+          whiteSpace: "nowrap",
+        }}
+      >
+        {health.label}
+      </span>
     </div>
   );
 }
