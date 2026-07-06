@@ -1407,6 +1407,34 @@ const treasuryHealthBadge = (health) => {
   );
 };
 
+const utilizationBar = (percent = 0) => {
+  const value = Math.min(Math.max(Number(percent || 0), 0), 100);
+
+  return (
+    <div>
+      <div
+        style={{
+          height: "10px",
+          backgroundColor: "#e5e7eb",
+          borderRadius: "999px",
+          overflow: "hidden",
+          margin: "8px 0",
+        }}
+      >
+        <div
+          style={{
+            width: `${value}%`,
+            height: "100%",
+            backgroundColor:
+              value >= 90 ? "#dc2626" : value >= 75 ? "#f97316" : "#16a34a",
+          }}
+        />
+      </div>
+      <strong>{value.toFixed(2)}% used</strong>
+    </div>
+  );
+};
+
 const defaultAccountBadges = (account) => {
   const badges = [];
 
@@ -3676,13 +3704,13 @@ const totalAvailableCredit = creditCardAccounts.reduce(
                       {account.financialInstitution || account.bankName || "Credit Card"}
                     </div>
 
-                    <div style={{ display: "grid", gap: "8px" }}>
+                                        <div style={{ display: "grid", gap: "10px" }}>
+                      {utilizationBar(account.creditUtilization)}
+
                       <strong>
                         Outstanding: {formatCurrency(account.outstandingBalance)}
                       </strong>
-                      <strong>
-                        Credit Limit: {formatCurrency(account.creditLimit)}
-                      </strong>
+
                       <strong>
                         Available:{" "}
                         {formatCurrency(
@@ -3690,10 +3718,11 @@ const totalAvailableCredit = creditCardAccounts.reduce(
                             account.availableCredit
                         )}
                       </strong>
+
                       <strong>
-                        Utilization:{" "}
-                        {Number(account.creditUtilization || 0).toFixed(2)}%
+                        Credit Limit: {formatCurrency(account.creditLimit)}
                       </strong>
+
                       <strong>
                         Payment Due:{" "}
                         {account.paymentDueDate
@@ -3702,14 +3731,16 @@ const totalAvailableCredit = creditCardAccounts.reduce(
                             )})`
                           : "—"}
                       </strong>
+
                       <strong>
-                        Statement:{" "}
+                        Statement Closes:{" "}
                         {account.statementDate
                           ? `${account.statementDate}th (${getDayCountdown(
                               account.statementDate
                             )})`
                           : "—"}
                       </strong>
+
                       <div>{treasuryHealthBadge(account.accountHealth)}</div>
                     </div>
                   </div>
@@ -4190,25 +4221,30 @@ const totalAvailableCredit = creditCardAccounts.reduce(
                               Post
                             </button>
 
-                            <button
-                              disabled={batch.status !== "Draft"}
-                              onClick={() => deleteDraftAdjustmentBatch(batch.batchNumber)}
-                              style={{
-                                backgroundColor:
-                                  batch.status === "Draft" ? "#dc2626" : "#94a3b8",
-                                color: WHITE,
-                                border: "none",
-                                padding: "8px 12px",
-                                borderRadius: "8px",
-                                cursor:
-                                  batch.status === "Draft"
-                                    ? "pointer"
-                                    : "not-allowed",
-                                fontWeight: "bold",
-                              }}
-                            >
-                              Delete Draft
-                            </button>
+                                                        {batch.status === "Draft" && (
+                              <button
+                                onClick={() =>
+                                  deleteDraftAdjustmentBatch(batch.batchNumber)
+                                }
+                                style={{
+                                  backgroundColor: "#dc2626",
+                                  color: WHITE,
+                                  border: "none",
+                                  padding: "8px 12px",
+                                  borderRadius: "8px",
+                                  cursor: "pointer",
+                                  fontWeight: "bold",
+                                }}
+                              >
+                                Delete Draft
+                              </button>
+                            )}
+
+                            {batch.status === "Posted" && (
+                              <span style={{ color: MUTED, fontWeight: "bold" }}>
+                                Posted / Locked
+                              </span>
+                            )}
                           </div>
                         </td>
                       </tr>
