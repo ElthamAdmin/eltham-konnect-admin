@@ -1099,35 +1099,13 @@ const getSummaryQuery = () => {
   };
 
     const handleAccountChange = (e) => {
-    const { name, value, type, checked } = e.target;
+  const { name, value, type, checked } = e.target;
 
-        setAccountForm({
-      accountName: "",
-      accountType: "Bank",
-      bankName: "",
-      openingBalance: "",
-      currentBalance: "",
-      currency: "JMD",
-      exchangeRate: 1,
-      status: "Active",
-      accountPurpose: "Operating",
-      financialInstitution: "",
-      branchName: "",
-      accountNickname: "",
-      isDefaultDepositAccount: false,
-      isDefaultExpenseAccount: false,
-      isDefaultPayrollAccount: false,
-      isDefaultCustomerReceiptAccount: false,
-      isBusinessSavings: false,
-      creditLimit: "",
-      availableCredit: "",
-      statementDate: "",
-      paymentDueDate: "",
-      minimumPayment: "",
-      interestRate: "",
-      lastStatementBalance: "",
-    });
-  };
+  setAccountForm((prev) => ({
+    ...prev,
+    [name]: type === "checkbox" ? checked : value,
+  }));
+};
 
   const addAccount = async () => {
   try {
