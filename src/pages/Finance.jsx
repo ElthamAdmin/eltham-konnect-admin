@@ -16,6 +16,7 @@ function Finance() {
   const [activeTab, setActiveTab] = useState("dashboard");
   const [invoices, setInvoices] = useState([]);
   const [expenses, setExpenses] = useState([]);
+  const [expenseCategories, setExpenseCategories] = useState([]);
   const [payroll, setPayroll] = useState([]);
   const [hrEmployees, setHrEmployees] = useState([]);
   const [summary, setSummary] = useState(null);
@@ -375,118 +376,20 @@ doc.save(`payslip-${safeEmployeeName}-${safePayPeriod}.pdf`);
   const BORDER = "#dbe3ef";
   const MUTED = "#64748b";
 
-    const EXPENSE_CATEGORIES = [
-    "KP Package Invoice",
-    "LTW Package Invoice",
-    "KP Warehouse Invoice",
-    "LTW Warehouse Invoice",
-    "Amazon Prime Subscription",
-    "Fygaro Subscription",
-    "Render Subscription",
-    "Travel Expense (Taxi Fare)",
-    "Fuel",
-    "Vehicle Maintenance",
-    "Vehicle Insurance",
-    "Vehicle Fitness",
-    "Vehicle Registration",
-    "Bank Charges / Fees",
-    "Rent",
-    "Light",
-    "Internet",
-    "Phone Credit",
-    "Staff Treat",
-    "Office Expense",
-    "Stationery",
-    "Wages / Salary",
-    "Marketing",
-    "Cleaning Supplies",
-    "Miscellaneous",
-    "Inventory Expenses",
-    "Toll Fee",
-    "Parking Fee",
-  ];
+      const getExpenseCategoryPreview = (category = "") => {
+    const match = expenseCategories.find(
+      (item) => item.category === category
+    );
 
-  const getExpenseCategoryPreview = (category = "") => {
-    const cogsCategories = [
-      "KP Package Invoice",
-      "LTW Package Invoice",
-      "KP Warehouse Invoice",
-      "LTW Warehouse Invoice",
-      "Inventory Expenses",
-    ];
-
-    if (cogsCategories.includes(category)) {
-      return {
-        classification: "Cost of Goods Sold",
-        group: category.includes("Warehouse")
-          ? "Warehouse Cost"
-          : category.includes("Inventory")
-          ? "Inventory"
-          : "Package Cost",
-      };
-    }
-
-    if (
-      [
-        "Amazon Prime Subscription",
-        "Fygaro Subscription",
-        "Render Subscription",
-      ].includes(category)
-    ) {
-      return { classification: "Operating Expense", group: "Subscriptions" };
-    }
-
-    if (
-      [
-        "Fuel",
-        "Vehicle Maintenance",
-        "Vehicle Insurance",
-        "Vehicle Fitness",
-        "Vehicle Registration",
-        "Toll Fee",
-        "Parking Fee",
-      ].includes(category)
-    ) {
-      return { classification: "Operating Expense", group: "Vehicle" };
-    }
-
-    if (["Light", "Internet"].includes(category)) {
-      return { classification: "Operating Expense", group: "Utilities" };
-    }
-
-    if (category === "Phone Credit") {
-      return { classification: "Operating Expense", group: "Communications" };
-    }
-
-    if (category === "Travel Expense (Taxi Fare)") {
-      return { classification: "Operating Expense", group: "Travel" };
-    }
-
-    if (category === "Rent") {
-      return { classification: "Operating Expense", group: "Occupancy" };
-    }
-
-    if (["Office Expense", "Stationery", "Cleaning Supplies"].includes(category)) {
-      return { classification: "Operating Expense", group: "Office" };
-    }
-
-    if (category === "Wages / Salary") {
-      return { classification: "Operating Expense", group: "Payroll" };
-    }
-
-    if (category === "Marketing") {
-      return { classification: "Operating Expense", group: "Marketing" };
-    }
-
-    if (category === "Bank Charges / Fees") {
-      return { classification: "Operating Expense", group: "Banking" };
-    }
-
-    if (category === "Staff Treat") {
-      return { classification: "Operating Expense", group: "Staff Welfare" };
-    }
-
-    return { classification: "Operating Expense", group: "Miscellaneous" };
+    return (
+      match || {
+        classification: "Operating Expense",
+        group: "Miscellaneous",
+        accountCode: "",
+        accountName: "Operating Expense",
+        isCOGS: false,
+      }
+    );
   };
 
   const roundMoney = (value) =>
@@ -586,6 +489,15 @@ const fetchReports = async (from = reportFilters.from, to = reportFilters.to) =>
   } catch (error) {
     console.error("Error loading reports:", error);
     alert(error?.response?.data?.message || "Could not load financial reports.");
+  }
+};
+
+const fetchExpenseCategories = async () => {
+  try {
+    const res = await api.get("/api/finance/expense-categories");
+    setExpenseCategories(res.data.data || []);
+  } catch (error) {
+    console.error("Error loading expense categories:", error);
   }
 };
 
@@ -891,6 +803,7 @@ const getSummaryQuery = () => {
     const fetchFinanceData = async () => {
     await Promise.all([
       fetchStaticFinanceData(),
+      fetchExpenseCategories(),
       fetchReports(),
       fetchMonthlyChart(),
       fetchExpenses(expensePagination.page, expensePagination.limit),
@@ -1971,24 +1884,26 @@ const totalAvailableCredit = creditCardAccounts.reduce(
               >
                 <option value="">Select Category</option>
                 <optgroup label="Cost of Goods Sold">
-                  {EXPENSE_CATEGORIES.filter((category) =>
-                    getExpenseCategoryPreview(category).classification ===
-                    "Cost of Goods Sold"
-                  ).map((category) => (
-                    <option key={category} value={category}>
-                      {category}
-                    </option>
-                  ))}
+                                    {expenseCategories
+                    .filter(
+                      (item) => item.classification === "Cost of Goods Sold"
+                    )
+                    .map((item) => (
+                      <option key={item.category} value={item.category}>
+                        {item.category}
+                      </option>
+                    ))}
                 </optgroup>
                 <optgroup label="Operating Expenses">
-                  {EXPENSE_CATEGORIES.filter((category) =>
-                    getExpenseCategoryPreview(category).classification ===
-                    "Operating Expense"
-                  ).map((category) => (
-                    <option key={category} value={category}>
-                      {category}
-                    </option>
-                  ))}
+                                    {expenseCategories
+                    .filter(
+                      (item) => item.classification === "Operating Expense"
+                    )
+                    .map((item) => (
+                      <option key={item.category} value={item.category}>
+                        {item.category}
+                      </option>
+                    ))}
                 </optgroup>
               </select>
 
@@ -2007,10 +1922,14 @@ const totalAvailableCredit = creditCardAccounts.reduce(
                     fontWeight: "bold",
                   }}
                 >
-                  Classification:{" "}
+                                    Classification:{" "}
                   {getExpenseCategoryPreview(expenseForm.category).classification}
                   {" | "}
                   Group: {getExpenseCategoryPreview(expenseForm.category).group}
+                  {" | "}
+                  Posting To:{" "}
+                  {getExpenseCategoryPreview(expenseForm.category).accountCode} —{" "}
+                  {getExpenseCategoryPreview(expenseForm.category).accountName}
                 </div>
               )}
 
