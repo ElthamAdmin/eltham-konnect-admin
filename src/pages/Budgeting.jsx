@@ -436,151 +436,253 @@ frequency: "Monthly",
         </div>
       </div>
 
-      {formOpen && (
+            {formOpen && (
         <div style={panel(BORDER)}>
-          <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>New Budget</h2>
+          <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>
+            Budget Entry Wizard
+          </h2>
 
-          <div style={grid}>
-            <input
-              placeholder="Budget Name"
-              value={formData.budgetName}
-              onChange={(e) => setFormData({ ...formData, budgetName: e.target.value })}
-              style={input(BORDER)}
-            />
+          <p style={{ color: MUTED, fontWeight: "bold", marginTop: "-6px" }}>
+            Create a monthly budget line by branch, cost center, and Chart of
+            Accounts posting category.
+          </p>
 
-            <input
-              type="number"
-              placeholder="Budget Year"
-              value={formData.budgetYear}
-              onChange={(e) => setFormData({ ...formData, budgetYear: Number(e.target.value || new Date().getFullYear()) })}
-              style={input(BORDER)}
-            />
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+              gap: "14px",
+              marginTop: "14px",
+            }}
+          >
+            <WizardField label="Budget Name">
+              <input
+                placeholder="Example: July Utilities Budget"
+                value={formData.budgetName}
+                onChange={(e) =>
+                  setFormData({ ...formData, budgetName: e.target.value })
+                }
+                style={input(BORDER)}
+              />
+            </WizardField>
 
-            <select
-              value={formData.budgetMonth}
-              onChange={(e) => setFormData({ ...formData, budgetMonth: Number(e.target.value) })}
-              style={input(BORDER)}
-            >
-              {Array.from({ length: 12 }, (_, index) => (
-                <option key={index + 1} value={index + 1}>
-                  {index + 1}
-                </option>
-              ))}
-            </select>
+            <WizardField label="Budget Year">
+              <input
+                type="number"
+                placeholder="Budget Year"
+                value={formData.budgetYear}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    budgetYear: Number(
+                      e.target.value || new Date().getFullYear()
+                    ),
+                  })
+                }
+                style={input(BORDER)}
+              />
+            </WizardField>
 
-            <select
-              value={formData.category}
-              onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-              style={input(BORDER)}
-            >
-              <option>Revenue</option>
-              <option>Payroll</option>
-              <option>Rent</option>
-              <option>Utilities</option>
-              <option>Marketing</option>
-              <option>Freight</option>
-              <option>Delivery</option>
-              <option>Supplies</option>
-              <option>Debt Repayment</option>
-              <option>Tax Reserve</option>
-              <option>Equipment</option>
-              <option>Other</option>
-            </select>
+            <WizardField label="Budget Month">
+              <select
+                value={formData.budgetMonth}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    budgetMonth: Number(e.target.value),
+                  })
+                }
+                style={input(BORDER)}
+              >
+                {Array.from({ length: 12 }, (_, index) => (
+                  <option key={index + 1} value={index + 1}>
+                    {new Date(2026, index, 1).toLocaleString("default", {
+                      month: "long",
+                    })}
+                  </option>
+                ))}
+              </select>
+            </WizardField>
 
-                        <select
-              value={formData.branch}
-              onChange={(e) =>
-                setFormData({
-                  ...formData,
-                  branch: e.target.value,
-                  costCenter:
-                    e.target.value === "Eltham Park Mainstore"
-                      ? "Eltham Park Mainstore Operations"
-                      : e.target.value === "Brown's Town Square"
-                      ? "Brown's Town Square Operations"
-                      : formData.costCenter,
-                })
-              }
-              style={input(BORDER)}
-            >
-              {BRANCH_OPTIONS.map((branch) => (
-                <option key={branch} value={branch}>
-                  {branch}
-                </option>
-              ))}
-            </select>
+            <WizardField label="Budget Category">
+              <select
+                value={formData.category}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    category: e.target.value,
+                    budgetType:
+                      e.target.value === "Revenue" ? "Revenue" : formData.budgetType,
+                  })
+                }
+                style={input(BORDER)}
+              >
+                <option>Revenue</option>
+                <option>Payroll</option>
+                <option>Rent</option>
+                <option>Utilities</option>
+                <option>Marketing</option>
+                <option>Freight</option>
+                <option>Delivery</option>
+                <option>Supplies</option>
+                <option>Debt Repayment</option>
+                <option>Tax Reserve</option>
+                <option>Equipment</option>
+                <option>Other</option>
+              </select>
+            </WizardField>
 
-                        <select
-              value={formData.costCenter}
-              onChange={(e) =>
-                setFormData({ ...formData, costCenter: e.target.value })
-              }
-              style={input(BORDER)}
-            >
-              {COST_CENTER_OPTIONS.map((costCenter) => (
-                <option key={costCenter} value={costCenter}>
-                  {costCenter}
-                </option>
-              ))}
-            </select>
+            <WizardField label="Branch">
+              <select
+                value={formData.branch}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    branch: e.target.value,
+                    costCenter:
+                      e.target.value === "Eltham Park Mainstore"
+                        ? "Eltham Park Mainstore Operations"
+                        : e.target.value === "Brown's Town Square"
+                        ? "Brown's Town Square Operations"
+                        : formData.costCenter,
+                  })
+                }
+                style={input(BORDER)}
+              >
+                {BRANCH_OPTIONS.map((branch) => (
+                  <option key={branch} value={branch}>
+                    {branch}
+                  </option>
+                ))}
+              </select>
+            </WizardField>
 
-<select
-  value={formData.linkedChartAccountCode}
-  onChange={(e) =>
-    setFormData({ ...formData, linkedChartAccountCode: e.target.value })
-  }
-  style={input(BORDER)}
->
-  <option value="">No Linked Chart Account</option>
-  {chartAccounts
-    .filter((account) =>
-      ["Revenue", "Cost of Sales", "Expense"].includes(account.accountCategory)
-    )
-    .map((account) => (
-      <option key={account.accountCode} value={account.accountCode}>
-        {account.accountCode} - {account.accountName}
-      </option>
-    ))}
-</select>
+            <WizardField label="Cost Center">
+              <select
+                value={formData.costCenter}
+                onChange={(e) =>
+                  setFormData({ ...formData, costCenter: e.target.value })
+                }
+                style={input(BORDER)}
+              >
+                {COST_CENTER_OPTIONS.map((costCenter) => (
+                  <option key={costCenter} value={costCenter}>
+                    {costCenter}
+                  </option>
+                ))}
+              </select>
+            </WizardField>
 
-<select
-  value={formData.budgetType}
-  onChange={(e) => setFormData({ ...formData, budgetType: e.target.value })}
-  style={input(BORDER)}
->
-  <option value="Operating">Operating</option>
-  <option value="Capital">Capital</option>
-  <option value="Cash Flow">Cash Flow</option>
-  <option value="Revenue">Revenue</option>
-</select>
+            <WizardField label="Linked Chart Account">
+              <select
+                value={formData.linkedChartAccountCode}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    linkedChartAccountCode: e.target.value,
+                  })
+                }
+                style={input(BORDER)}
+              >
+                <option value="">No Linked Chart Account</option>
+                {chartAccounts
+                  .filter((account) =>
+                    ["Revenue", "Cost of Sales", "Expense"].includes(
+                      account.accountCategory
+                    )
+                  )
+                  .map((account) => (
+                    <option key={account.accountCode} value={account.accountCode}>
+                      {account.accountCode} - {account.accountName}
+                    </option>
+                  ))}
+              </select>
+            </WizardField>
 
-<select
-  value={formData.frequency}
-  onChange={(e) => setFormData({ ...formData, frequency: e.target.value })}
-  style={input(BORDER)}
->
-  <option value="Monthly">Monthly</option>
-  <option value="Quarterly">Quarterly</option>
-  <option value="Yearly">Yearly</option>
-</select>
+            <WizardField label="Budget Type">
+              <select
+                value={formData.budgetType}
+                onChange={(e) =>
+                  setFormData({ ...formData, budgetType: e.target.value })
+                }
+                style={input(BORDER)}
+              >
+                <option value="Operating">Operating</option>
+                <option value="Capital">Capital</option>
+                <option value="Cash Flow">Cash Flow</option>
+                <option value="Revenue">Revenue</option>
+              </select>
+            </WizardField>
 
-            <input
-              type="number"
-              placeholder="Planned Amount"
-              value={formData.plannedAmount}
-              onChange={(e) => setFormData({ ...formData, plannedAmount: Number(e.target.value || 0) })}
-              style={input(BORDER)}
-            />
+            <WizardField label="Frequency">
+              <select
+                value={formData.frequency}
+                onChange={(e) =>
+                  setFormData({ ...formData, frequency: e.target.value })
+                }
+                style={input(BORDER)}
+              >
+                <option value="Monthly">Monthly</option>
+                <option value="Quarterly">Quarterly</option>
+                <option value="Yearly">Yearly</option>
+              </select>
+            </WizardField>
 
-            <textarea
-              placeholder="Notes"
-              value={formData.notes}
-              onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-              style={{ ...input(BORDER), gridColumn: "1 / -1" }}
-            />
+            <WizardField label="Planned Amount">
+              <input
+                type="number"
+                placeholder="Planned Amount"
+                value={formData.plannedAmount}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    plannedAmount: Number(e.target.value || 0),
+                  })
+                }
+                style={input(BORDER)}
+              />
+            </WizardField>
+
+            <WizardField label="Notes" fullWidth>
+              <textarea
+                placeholder="Budget assumptions, limits, or management notes..."
+                value={formData.notes}
+                onChange={(e) =>
+                  setFormData({ ...formData, notes: e.target.value })
+                }
+                style={{
+                  ...input(BORDER),
+                  minHeight: "80px",
+                  resize: "vertical",
+                }}
+              />
+            </WizardField>
           </div>
 
-          <button onClick={saveBudget} style={{ ...button("#16a34a"), marginTop: "14px" }}>
+          <div
+            style={{
+              marginTop: "16px",
+              padding: "14px",
+              borderRadius: "12px",
+              backgroundColor: "#f8fbff",
+              border: `1px solid ${BORDER}`,
+              fontWeight: "bold",
+              color: "#334155",
+            }}
+          >
+            This budget will track{" "}
+            <span style={{ color: ROYAL_BLUE }}>{formData.category}</span> for{" "}
+            <span style={{ color: ROYAL_BLUE }}>{formData.branch}</span> under{" "}
+            <span style={{ color: ROYAL_BLUE }}>{formData.costCenter}</span>.
+            {formData.linkedChartAccountCode
+              ? ` Actuals will be matched to Chart Account ${formData.linkedChartAccountCode}.`
+              : " Actuals will be matched using the budget category."}
+          </div>
+
+          <button
+            onClick={saveBudget}
+            style={{ ...button("#16a34a"), marginTop: "14px" }}
+          >
             Save Budget
           </button>
         </div>
@@ -756,6 +858,23 @@ function button(color) {
     cursor: "pointer",
     fontWeight: "bold",
   };
+}
+
+function WizardField({ label, children, fullWidth = false }) {
+  return (
+    <label
+      style={{
+        display: "grid",
+        gap: "6px",
+        fontWeight: "bold",
+        color: "#334155",
+        gridColumn: fullWidth ? "1 / -1" : "auto",
+      }}
+    >
+      <span>{label}</span>
+      {children}
+    </label>
+  );
 }
 
 function InsightCard({ title, value, detail, color }) {
