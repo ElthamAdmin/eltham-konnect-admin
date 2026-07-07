@@ -4,6 +4,7 @@ import api from "../api";
 function Budgeting() {
   const [budgets, setBudgets] = useState([]);
   const [summary, setSummary] = useState({});
+  const [chartAccounts, setChartAccounts] = useState([]);
   const [formOpen, setFormOpen] = useState(false);
 
   const [formData, setFormData] = useState({
@@ -12,6 +13,10 @@ function Budgeting() {
     budgetMonth: new Date().getMonth() + 1,
     category: "Revenue",
     branch: "All Branches",
+    costCenter: "General",
+linkedChartAccountCode: "",
+budgetType: "Operating",
+frequency: "Monthly",
     plannedAmount: 0,
     notes: "",
   });
@@ -33,6 +38,7 @@ function Budgeting() {
 
   useEffect(() => {
     loadBudgets();
+      loadChartAccounts();
   }, []);
 
   const money = (value) => `JMD ${Number(value || 0).toLocaleString()}`;
@@ -56,6 +62,10 @@ function Budgeting() {
         branch: "All Branches",
         plannedAmount: 0,
         notes: "",
+        costCenter: "General",
+linkedChartAccountCode: "",
+budgetType: "Operating",
+frequency: "Monthly",
       });
 
       await loadBudgets();
@@ -64,6 +74,15 @@ function Budgeting() {
       alert(error?.response?.data?.message || "Could not create budget.");
     }
   };
+
+  const loadChartAccounts = async () => {
+  try {
+    const res = await api.get("/api/chart-of-accounts");
+    setChartAccounts(res.data.data || []);
+  } catch (error) {
+    console.error("Chart accounts load error:", error);
+  }
+};
 
   return (
     <div>
@@ -122,6 +141,20 @@ function Budgeting() {
           </h2>
           <p style={{ fontWeight: "bold" }}>Total Variance</p>
         </Card>
+
+        <Card>
+  <h2 style={{ color: "#dc2626", margin: 0 }}>
+    {summary.overBudgetCount || 0}
+  </h2>
+  <p style={{ fontWeight: "bold" }}>Over Budget</p>
+</Card>
+
+<Card>
+  <h2 style={{ color: "#16a34a", margin: 0 }}>
+    {summary.underBudgetCount || 0}
+  </h2>
+  <p style={{ fontWeight: "bold" }}>Under / On Budget</p>
+</Card>
       </div>
 
       {formOpen && (
@@ -183,6 +216,53 @@ function Budgeting() {
             />
 
             <input
+  placeholder="Cost Center"
+  value={formData.costCenter}
+  onChange={(e) => setFormData({ ...formData, costCenter: e.target.value })}
+  style={input(BORDER)}
+/>
+
+<select
+  value={formData.linkedChartAccountCode}
+  onChange={(e) =>
+    setFormData({ ...formData, linkedChartAccountCode: e.target.value })
+  }
+  style={input(BORDER)}
+>
+  <option value="">No Linked Chart Account</option>
+  {chartAccounts
+    .filter((account) =>
+      ["Revenue", "Cost of Sales", "Expense"].includes(account.accountCategory)
+    )
+    .map((account) => (
+      <option key={account.accountCode} value={account.accountCode}>
+        {account.accountCode} - {account.accountName}
+      </option>
+    ))}
+</select>
+
+<select
+  value={formData.budgetType}
+  onChange={(e) => setFormData({ ...formData, budgetType: e.target.value })}
+  style={input(BORDER)}
+>
+  <option value="Operating">Operating</option>
+  <option value="Capital">Capital</option>
+  <option value="Cash Flow">Cash Flow</option>
+  <option value="Revenue">Revenue</option>
+</select>
+
+<select
+  value={formData.frequency}
+  onChange={(e) => setFormData({ ...formData, frequency: e.target.value })}
+  style={input(BORDER)}
+>
+  <option value="Monthly">Monthly</option>
+  <option value="Quarterly">Quarterly</option>
+  <option value="Yearly">Yearly</option>
+</select>
+
+            <input
               type="number"
               placeholder="Planned Amount"
               value={formData.plannedAmount}
@@ -233,6 +313,10 @@ function Budgeting() {
                 <th>Period</th>
                 <th>Category</th>
                 <th>Branch</th>
+                <th>Cost Center</th>
+<th>Chart Account</th>
+<th>Budget Type</th>
+<th>Frequency</th>
                 <th>Planned</th>
                 <th>Actual</th>
                 <th>Variance</th>
@@ -253,7 +337,15 @@ function Budgeting() {
                     </td>
                     <td>{budget.category}</td>
                     <td>{budget.branch}</td>
-                    <td>{money(budget.plannedAmount)}</td>
+<td>{budget.costCenter || "General"}</td>
+<td>
+  {budget.linkedChartAccountCode
+    ? `${budget.linkedChartAccountCode} - ${budget.linkedChartAccountName || ""}`
+    : "—"}
+</td>
+<td>{budget.budgetType || "Operating"}</td>
+<td>{budget.frequency || "Monthly"}</td>
+<td>{money(budget.plannedAmount)}</td>
                     <td>{money(budget.actualAmount)}</td>
                     <td
                       style={{
@@ -270,7 +362,7 @@ function Budgeting() {
                 ))
               ) : (
                 <tr>
-                  <td colSpan="11" style={{ textAlign: "center", color: MUTED }}>
+                  <td colSpan="15" style={{ textAlign: "center", color: MUTED }}>
                     No budgets found.
                   </td>
                 </tr>
