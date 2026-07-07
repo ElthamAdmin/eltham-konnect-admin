@@ -124,9 +124,88 @@ frequency: "Monthly",
     }, {})
   );
 
-  const budgetAlerts = budgets
+    const budgetAlerts = budgets
     .filter((budget) => Number(budget.variance || 0) < 0)
     .slice(0, 5);
+
+  const budgetUtilization =
+    Number(summary.totalPlanned || 0) > 0
+      ? (Number(summary.totalActual || 0) / Number(summary.totalPlanned || 0)) * 100
+      : 0;
+
+  const highestSpendingBranch = [...branchPerformance].sort(
+    (a, b) => Number(b.actual || 0) - Number(a.actual || 0)
+  )[0];
+
+  const highestSpendingCostCenter = [...costCenterPerformance].sort(
+    (a, b) => Number(b.actual || 0) - Number(a.actual || 0)
+  )[0];
+
+  const largestOverspend = [...budgets]
+    .filter((budget) => Number(budget.variance || 0) < 0)
+    .sort((a, b) => Number(a.variance || 0) - Number(b.variance || 0))[0];
+
+  const largestSavings = [...budgets]
+    .filter((budget) => Number(budget.variance || 0) >= 0)
+    .sort((a, b) => Number(b.variance || 0) - Number(a.variance || 0))[0];
+
+  const budgetHealthLabel =
+    budgetUtilization > 110
+      ? "Critical"
+      : budgetUtilization > 100
+      ? "Over Budget"
+      : budgetUtilization >= 85
+      ? "Healthy"
+      : "Under Utilized";
+
+  const budgetHealthColor =
+    budgetUtilization > 110
+      ? "#dc2626"
+      : budgetUtilization > 100
+      ? "#f97316"
+      : budgetUtilization >= 85
+      ? "#16a34a"
+      : "#0B3D91";
+
+  const budgetTrendRows = Object.values(
+    budgets.reduce((map, budget) => {
+      const key = `${budget.budgetYear}-${String(budget.budgetMonth).padStart(2, "0")}`;
+
+      if (!map[key]) {
+        map[key] = {
+          period: key,
+          planned: 0,
+          actual: 0,
+          variance: 0,
+        };
+      }
+
+      map[key].planned += Number(budget.plannedAmount || 0);
+      map[key].actual += Number(budget.actualAmount || 0);
+      map[key].variance += Number(budget.variance || 0);
+
+      return map;
+    }, {})
+  ).sort((a, b) => a.period.localeCompare(b.period));
+
+  const executiveSummary =
+    budgets.length === 0
+      ? "No budget records have been created yet. Add budget lines to begin tracking planned versus actual performance."
+      : `${budgetHealthLabel} budget performance. Utilization is ${budgetUtilization.toFixed(
+          2
+        )}%. ${
+          highestSpendingBranch?.name
+            ? `${highestSpendingBranch.name} is the highest spending branch. `
+            : ""
+        }${
+          highestSpendingCostCenter?.name
+            ? `${highestSpendingCostCenter.name} is the highest spending cost center. `
+            : ""
+        }${
+          largestOverspend?.budgetName
+            ? `${largestOverspend.budgetName} requires attention due to overspending.`
+            : "No major budget overspending detected."
+        }`;
 
   const saveBudget = async () => {
     try {
@@ -287,6 +366,76 @@ frequency: "Monthly",
         )}
       </div>
 
+            <div style={panel(BORDER)}>
+        <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>
+          Executive Budget Dashboard
+        </h2>
+
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+            gap: "14px",
+          }}
+        >
+          <InsightCard
+            title="Budget Utilization"
+            value={`${budgetUtilization.toFixed(2)}%`}
+            detail={budgetHealthLabel}
+            color={budgetHealthColor}
+          />
+
+          <InsightCard
+            title="Highest Spending Branch"
+            value={highestSpendingBranch?.name || "—"}
+            detail={highestSpendingBranch ? money(highestSpendingBranch.actual) : "No data"}
+            color={ROYAL_BLUE}
+          />
+
+          <InsightCard
+            title="Highest Cost Center"
+            value={highestSpendingCostCenter?.name || "—"}
+            detail={highestSpendingCostCenter ? money(highestSpendingCostCenter.actual) : "No data"}
+            color={ROYAL_BLUE}
+          />
+
+          <InsightCard
+            title="Largest Overspend"
+            value={largestOverspend?.budgetName || "—"}
+            detail={largestOverspend ? money(Math.abs(Number(largestOverspend.variance || 0))) : "No overspend"}
+            color="#dc2626"
+          />
+
+          <InsightCard
+            title="Largest Savings"
+            value={largestSavings?.budgetName || "—"}
+            detail={largestSavings ? money(largestSavings.variance) : "No savings"}
+            color="#16a34a"
+          />
+
+          <InsightCard
+            title="Budget Health"
+            value={`${summary.budgetHealthScore || 100}%`}
+            detail={budgetHealthLabel}
+            color={budgetHealthColor}
+          />
+        </div>
+
+        <div
+          style={{
+            marginTop: "16px",
+            padding: "14px",
+            borderRadius: "12px",
+            backgroundColor: "#f8fbff",
+            border: `1px solid ${BORDER}`,
+            fontWeight: "bold",
+            color: "#334155",
+          }}
+        >
+          {executiveSummary}
+        </div>
+      </div>
+
       {formOpen && (
         <div style={panel(BORDER)}>
           <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>New Budget</h2>
@@ -436,6 +585,23 @@ frequency: "Monthly",
           </button>
         </div>
       )}
+
+            <div style={panel(BORDER)}>
+        <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>
+          Monthly Budget Trend
+        </h2>
+
+        <MiniPerformanceTable
+          rows={budgetTrendRows.map((row) => ({
+            name: row.period,
+            planned: row.planned,
+            actual: row.actual,
+            variance: row.variance,
+          }))}
+          money={money}
+          emptyText="No monthly budget trend found."
+        />
+      </div>
 
             <div style={panel(BORDER)}>
         <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>
@@ -590,6 +756,38 @@ function button(color) {
     cursor: "pointer",
     fontWeight: "bold",
   };
+}
+
+function InsightCard({ title, value, detail, color }) {
+  return (
+    <div
+      style={{
+        backgroundColor: "white",
+        border: "1px solid #dbe3ef",
+        borderRadius: "12px",
+        padding: "16px",
+      }}
+    >
+      <div style={{ color: "#64748b", fontWeight: "bold", marginBottom: "8px" }}>
+        {title}
+      </div>
+
+      <div
+        style={{
+          color,
+          fontSize: "22px",
+          fontWeight: "bold",
+          marginBottom: "6px",
+        }}
+      >
+        {value}
+      </div>
+
+      <div style={{ color: "#334155", fontWeight: "bold", fontSize: "13px" }}>
+        {detail}
+      </div>
+    </div>
+  );
 }
 
 function MiniPerformanceTable({ rows, money, emptyText }) {
