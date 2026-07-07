@@ -21,9 +21,29 @@ frequency: "Monthly",
     notes: "",
   });
 
-  const ROYAL_BLUE = "#0B3D91";
+    const ROYAL_BLUE = "#0B3D91";
   const BORDER = "#dbe3ef";
   const MUTED = "#64748b";
+
+  const BRANCH_OPTIONS = [
+    "All Branches",
+    "Eltham Park Mainstore",
+    "Brown's Town Square",
+  ];
+
+  const COST_CENTER_OPTIONS = [
+    "General",
+    "Administration",
+    "Finance",
+    "Operations",
+    "Warehouse",
+    "Marketing",
+    "Customer Service",
+    "HR",
+    "IT",
+    "Eltham Park Mainstore Operations",
+    "Brown's Town Square Operations",
+  ];
 
   const loadBudgets = async () => {
     try {
@@ -208,19 +228,42 @@ frequency: "Monthly",
               <option>Other</option>
             </select>
 
-            <input
-              placeholder="Branch"
+                        <select
               value={formData.branch}
-              onChange={(e) => setFormData({ ...formData, branch: e.target.value })}
+              onChange={(e) =>
+                setFormData({
+                  ...formData,
+                  branch: e.target.value,
+                  costCenter:
+                    e.target.value === "Eltham Park Mainstore"
+                      ? "Eltham Park Mainstore Operations"
+                      : e.target.value === "Brown's Town Square"
+                      ? "Brown's Town Square Operations"
+                      : formData.costCenter,
+                })
+              }
               style={input(BORDER)}
-            />
+            >
+              {BRANCH_OPTIONS.map((branch) => (
+                <option key={branch} value={branch}>
+                  {branch}
+                </option>
+              ))}
+            </select>
 
-            <input
-  placeholder="Cost Center"
-  value={formData.costCenter}
-  onChange={(e) => setFormData({ ...formData, costCenter: e.target.value })}
-  style={input(BORDER)}
-/>
+                        <select
+              value={formData.costCenter}
+              onChange={(e) =>
+                setFormData({ ...formData, costCenter: e.target.value })
+              }
+              style={input(BORDER)}
+            >
+              {COST_CENTER_OPTIONS.map((costCenter) => (
+                <option key={costCenter} value={costCenter}>
+                  {costCenter}
+                </option>
+              ))}
+            </select>
 
 <select
   value={formData.linkedChartAccountCode}
