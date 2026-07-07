@@ -169,6 +169,25 @@ function FinanceDashboard({
   const latestProfit = latestIncome - latestExpenses;
   const previousProfit = previousIncome - previousExpenses;
 
+    const drillDown = (tab, target = "") => {
+    if (target) {
+      sessionStorage.setItem("financeDrillDownTarget", target);
+    }
+
+    setActiveTab(tab);
+
+    setTimeout(() => {
+      const element = document.getElementById(target);
+
+      if (element) {
+        element.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
+      }
+    }, 300);
+  };
+
   const financialAlerts = [
     currentRatio < 1 && {
       type: "warning",
@@ -274,7 +293,7 @@ function FinanceDashboard({
   value={formatCurrency(totalRevenue)}
   color={ROYAL_BLUE}
   metricCardStyle={metricCardStyle}
-  onClick={() => setActiveTab("financialReports")}
+  onClick={() => drillDown("financialReports", "finance-report-revenue")}
 />
 
 <MetricCard
@@ -282,7 +301,7 @@ function FinanceDashboard({
   value={formatCurrency(costOfSales)}
   color="#f97316"
   metricCardStyle={metricCardStyle}
-  onClick={() => setActiveTab("financialReports")}
+  onClick={() => drillDown("financialReports", "finance-report-cogs")}
 />
 
 <MetricCard
@@ -290,7 +309,7 @@ function FinanceDashboard({
   value={formatCurrency(grossProfit)}
   color="#16a34a"
   metricCardStyle={metricCardStyle}
-  onClick={() => setActiveTab("financialReports")}
+  onClick={() => drillDown("financialReports", "finance-report-profit")}
 />
 
 <MetricCard
@@ -298,7 +317,7 @@ function FinanceDashboard({
   value={formatCurrency(operatingExpenses)}
   color="#dc2626"
   metricCardStyle={metricCardStyle}
-  onClick={() => setActiveTab("expenses")}
+  onClick={() => drillDown("expenses", "finance-expense-records")}
 />
 
 <MetricCard
@@ -306,7 +325,7 @@ function FinanceDashboard({
   value={formatCurrency(netProfit)}
   color={Number(netProfit) >= 0 ? "#16a34a" : "#dc2626"}
   metricCardStyle={metricCardStyle}
-  onClick={() => setActiveTab("financialReports")}
+  onClick={() => drillDown("financialReports", "finance-report-profit")}
 />
 
 <MetricCard
@@ -314,7 +333,7 @@ function FinanceDashboard({
   value={formatCurrency(totalCashAndBankBalances)}
   color="#0f172a"
   metricCardStyle={metricCardStyle}
-  onClick={() => setActiveTab("accounts")}
+  onClick={() => drillDown("accounts", "finance-accounts-table")}
 />
 
 <MetricCard
@@ -322,7 +341,7 @@ function FinanceDashboard({
   value={formatCurrency(totalCreditCardBalances)}
   color="#7c3aed"
   metricCardStyle={metricCardStyle}
-  onClick={() => setActiveTab("accounts")}
+  onClick={() => drillDown("accounts", "finance-credit-card-intelligence")}
 />
 
 <MetricCard
@@ -330,7 +349,7 @@ function FinanceDashboard({
   value={formatCurrency(netCashPosition)}
   color={Number(netCashPosition) >= 0 ? "#16a34a" : "#dc2626"}
   metricCardStyle={metricCardStyle}
-  onClick={() => setActiveTab("accounts")}
+  onClick={() => drillDown("accounts", "finance-accounts-table")}
 />
       </div>
 
