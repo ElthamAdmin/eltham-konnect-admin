@@ -146,6 +146,28 @@ function FinanceDashboard({
   const workingCapitalHealth = getWorkingCapitalHealth();
   const cashHealth = getCashHealth();
 
+    const latestMonth = monthlyChart?.[monthlyChart.length - 1] || {};
+  const previousMonth = monthlyChart?.[monthlyChart.length - 2] || {};
+
+  const calculateTrend = (current = 0, previous = 0) => {
+    const currentValue = Number(current || 0);
+    const previousValue = Number(previous || 0);
+
+    if (previousValue === 0 && currentValue === 0) return "0.00%";
+    if (previousValue === 0) return "New Activity";
+
+    const change = ((currentValue - previousValue) / previousValue) * 100;
+    return `${change >= 0 ? "+" : ""}${change.toFixed(2)}%`;
+  };
+
+  const latestIncome = Number(latestMonth.income || 0);
+  const previousIncome = Number(previousMonth.income || 0);
+  const latestExpenses = Number(latestMonth.expenses || 0);
+  const previousExpenses = Number(previousMonth.expenses || 0);
+
+  const latestProfit = latestIncome - latestExpenses;
+  const previousProfit = previousIncome - previousExpenses;
+
   const financialAlerts = [
     currentRatio < 1 && {
       type: "warning",
@@ -347,6 +369,62 @@ function FinanceDashboard({
         )}
       </div>
 
+            <div style={{ ...cardStyle, marginBottom: "24px" }}>
+        <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>
+          Executive Trend Analytics
+        </h2>
+
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+            gap: "16px",
+          }}
+        >
+          <TrendCard
+            title="Revenue Trend"
+            value={calculateTrend(latestIncome, previousIncome)}
+            detail={`${formatCurrency(previousIncome)} → ${formatCurrency(
+              latestIncome
+            )}`}
+          />
+
+          <TrendCard
+            title="Expense Trend"
+            value={calculateTrend(latestExpenses, previousExpenses)}
+            detail={`${formatCurrency(previousExpenses)} → ${formatCurrency(
+              latestExpenses
+            )}`}
+          />
+
+          <TrendCard
+            title="Profit Trend"
+            value={calculateTrend(latestProfit, previousProfit)}
+            detail={`${formatCurrency(previousProfit)} → ${formatCurrency(
+              latestProfit
+            )}`}
+          />
+
+          <TrendCard
+            title="Gross Margin"
+            value={`${grossMargin.toFixed(2)}%`}
+            detail="Current reporting period"
+          />
+
+          <TrendCard
+            title="Net Margin"
+            value={`${netMargin.toFixed(2)}%`}
+            detail="Current reporting period"
+          />
+
+          <TrendCard
+            title="Credit Utilization"
+            value={`${creditUtilization.toFixed(2)}%`}
+            detail={creditHealth.label}
+          />
+        </div>
+      </div>
+
       <div style={cardStyle}>
         <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>Monthly Finance Graph</h2>
 
@@ -442,6 +520,36 @@ function InfoRow({ label, value }) {
     >
       <span style={{ color: "#475569" }}>{label}</span>
       <span>{value}</span>
+    </div>
+  );
+}
+
+function TrendCard({ title, value, detail }) {
+  return (
+    <div
+      style={{
+        border: "1px solid #e5e7eb",
+        borderRadius: "14px",
+        padding: "16px",
+        backgroundColor: "#ffffff",
+      }}
+    >
+      <div style={{ color: "#475569", fontWeight: "bold", marginBottom: "8px" }}>
+        {title}
+      </div>
+      <div
+        style={{
+          fontSize: "24px",
+          fontWeight: "bold",
+          color: "#0B3D91",
+          marginBottom: "6px",
+        }}
+      >
+        {value}
+      </div>
+      <div style={{ color: "#64748b", fontSize: "13px", fontWeight: "bold" }}>
+        {detail}
+      </div>
     </div>
   );
 }
