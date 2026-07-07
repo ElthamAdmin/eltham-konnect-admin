@@ -61,7 +61,72 @@ frequency: "Monthly",
       loadChartAccounts();
   }, []);
 
-  const money = (value) => `JMD ${Number(value || 0).toLocaleString()}`;
+    const money = (value) => `JMD ${Number(value || 0).toLocaleString()}`;
+
+  const getBudgetHealth = (budget) => {
+    const variance = Number(budget.variance || 0);
+    const variancePercent = Math.abs(Number(budget.variancePercent || 0));
+
+    if (budget.category === "Revenue" && variance > 0) {
+      return { label: "Exceeding Target", color: "#16a34a" };
+    }
+
+    if (variance < 0 && variancePercent >= 15) {
+      return { label: "Over Budget", color: "#dc2626" };
+    }
+
+    if (variance < 0 && variancePercent >= 5) {
+      return { label: "Monitor", color: "#f59e0b" };
+    }
+
+    return { label: "On Target", color: "#16a34a" };
+  };
+
+  const branchPerformance = Object.values(
+    budgets.reduce((map, budget) => {
+      const key = budget.branch || "All Branches";
+
+      if (!map[key]) {
+        map[key] = {
+          name: key,
+          planned: 0,
+          actual: 0,
+          variance: 0,
+        };
+      }
+
+      map[key].planned += Number(budget.plannedAmount || 0);
+      map[key].actual += Number(budget.actualAmount || 0);
+      map[key].variance += Number(budget.variance || 0);
+
+      return map;
+    }, {})
+  );
+
+  const costCenterPerformance = Object.values(
+    budgets.reduce((map, budget) => {
+      const key = budget.costCenter || "General";
+
+      if (!map[key]) {
+        map[key] = {
+          name: key,
+          planned: 0,
+          actual: 0,
+          variance: 0,
+        };
+      }
+
+      map[key].planned += Number(budget.plannedAmount || 0);
+      map[key].actual += Number(budget.actualAmount || 0);
+      map[key].variance += Number(budget.variance || 0);
+
+      return map;
+    }, {})
+  );
+
+  const budgetAlerts = budgets
+    .filter((budget) => Number(budget.variance || 0) < 0)
+    .slice(0, 5);
 
   const saveBudget = async () => {
     try {
@@ -175,6 +240,51 @@ frequency: "Monthly",
   </h2>
   <p style={{ fontWeight: "bold" }}>Under / On Budget</p>
 </Card>
+
+<Card>
+  <h2 style={{ color: "#f59e0b", margin: 0 }}>
+    {summary.needsAttentionCount || 0}
+  </h2>
+  <p style={{ fontWeight: "bold" }}>Needs Attention</p>
+</Card>
+
+<Card>
+  <h2 style={{ color: "#16a34a", margin: 0 }}>
+    {summary.budgetHealthScore || 100}%
+  </h2>
+  <p style={{ fontWeight: "bold" }}>Budget Health</p>
+</Card>
+      </div>
+
+            <div style={panel(BORDER)}>
+        <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>
+          Budget Alerts
+        </h2>
+
+        {budgetAlerts.length > 0 ? (
+          <div style={{ display: "grid", gap: "10px" }}>
+            {budgetAlerts.map((budget) => (
+              <div
+                key={budget._id}
+                style={{
+                  padding: "12px",
+                  borderRadius: "10px",
+                  border: "1px solid #fed7aa",
+                  backgroundColor: "#fff7ed",
+                  color: "#9a3412",
+                  fontWeight: "bold",
+                }}
+              >
+                ⚠ {budget.budgetName} is over budget by{" "}
+                {money(Math.abs(Number(budget.variance || 0)))}.
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div style={{ color: MUTED, fontWeight: "bold" }}>
+            No budget alerts at this time.
+          </div>
+        )}
       </div>
 
       {formOpen && (
@@ -327,6 +437,30 @@ frequency: "Monthly",
         </div>
       )}
 
+            <div style={panel(BORDER)}>
+        <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>
+          Branch Budget Performance
+        </h2>
+
+        <MiniPerformanceTable
+          rows={branchPerformance}
+          money={money}
+          emptyText="No branch budget performance found."
+        />
+      </div>
+
+      <div style={panel(BORDER)}>
+        <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>
+          Cost Center Performance
+        </h2>
+
+        <MiniPerformanceTable
+          rows={costCenterPerformance}
+          money={money}
+          emptyText="No cost center performance found."
+        />
+      </div>
+
       <div style={panel(BORDER)}>
         <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>Budget Performance</h2>
 
@@ -363,7 +497,8 @@ frequency: "Monthly",
                 <th>Planned</th>
                 <th>Actual</th>
                 <th>Variance</th>
-                <th>Variance %</th>
+                                <th>Variance %</th>
+                <th>Budget Health</th>
                 <th>Status</th>
                 <th>Notes</th>
               </tr>
@@ -398,14 +533,17 @@ frequency: "Monthly",
                     >
                       {money(budget.variance)}
                     </td>
-                    <td>{Number(budget.variancePercent || 0).toFixed(2)}%</td>
+                                        <td>{Number(budget.variancePercent || 0).toFixed(2)}%</td>
+                    <td>
+                      <StatusBadge health={getBudgetHealth(budget)} />
+                    </td>
                     <td>{budget.status}</td>
                     <td>{budget.notes || "—"}</td>
                   </tr>
                 ))
               ) : (
                 <tr>
-                  <td colSpan="15" style={{ textAlign: "center", color: MUTED }}>
+                  <td colSpan="16" style={{ textAlign: "center", color: MUTED }}>
                     No budgets found.
                   </td>
                 </tr>
@@ -452,6 +590,80 @@ function button(color) {
     cursor: "pointer",
     fontWeight: "bold",
   };
+}
+
+function MiniPerformanceTable({ rows, money, emptyText }) {
+  return (
+    <div style={{ overflowX: "auto" }}>
+      <table
+        border="1"
+        cellPadding="10"
+        style={{
+          width: "100%",
+          borderCollapse: "collapse",
+          borderColor: "#dbe3ef",
+        }}
+      >
+        <thead style={{ backgroundColor: "#eef4ff" }}>
+          <tr>
+            <th>Name</th>
+            <th>Planned</th>
+            <th>Actual</th>
+            <th>Variance</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          {rows.length > 0 ? (
+            rows.map((row) => (
+              <tr key={row.name}>
+                <td style={{ fontWeight: "bold" }}>{row.name}</td>
+                <td>{money(row.planned)}</td>
+                <td>{money(row.actual)}</td>
+                <td
+                  style={{
+                    fontWeight: "bold",
+                    color: Number(row.variance || 0) >= 0 ? "#16a34a" : "#dc2626",
+                  }}
+                >
+                  {money(row.variance)}
+                </td>
+                <td>
+                  {Number(row.variance || 0) >= 0 ? "On / Under Budget" : "Over Budget"}
+                </td>
+              </tr>
+            ))
+          ) : (
+            <tr>
+              <td colSpan="5" style={{ textAlign: "center", color: "#64748b" }}>
+                {emptyText}
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function StatusBadge({ health }) {
+  return (
+    <span
+      style={{
+        display: "inline-block",
+        padding: "5px 10px",
+        borderRadius: "999px",
+        backgroundColor: health.color,
+        color: "white",
+        fontWeight: "bold",
+        fontSize: "12px",
+        whiteSpace: "nowrap",
+      }}
+    >
+      {health.label}
+    </span>
+  );
 }
 
 function Card({ children }) {
