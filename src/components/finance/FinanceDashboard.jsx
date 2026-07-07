@@ -19,6 +19,7 @@ function FinanceDashboard({
   setSummaryFilter,
   setSummaryBranch,
   fetchFinanceData,
+  setActiveTab,
   formatCurrency,
   cardStyle,
   metricCardStyle,
@@ -268,14 +269,69 @@ function FinanceDashboard({
           marginBottom: "24px",
         }}
       >
-        <MetricCard title="Revenue" value={formatCurrency(totalRevenue)} color={ROYAL_BLUE} metricCardStyle={metricCardStyle} />
-        <MetricCard title="Cost of Sales" value={formatCurrency(costOfSales)} color="#f97316" metricCardStyle={metricCardStyle} />
-        <MetricCard title="Gross Profit" value={formatCurrency(grossProfit)} color="#16a34a" metricCardStyle={metricCardStyle} />
-        <MetricCard title="Operating Expenses" value={formatCurrency(operatingExpenses)} color="#dc2626" metricCardStyle={metricCardStyle} />
-        <MetricCard title="Net Profit / Loss" value={formatCurrency(netProfit)} color={Number(netProfit) >= 0 ? "#16a34a" : "#dc2626"} metricCardStyle={metricCardStyle} />
-        <MetricCard title="Cash & Bank" value={formatCurrency(totalCashAndBankBalances)} color="#0f172a" metricCardStyle={metricCardStyle} />
-        <MetricCard title="Credit Card Outstanding" value={formatCurrency(totalCreditCardBalances)} color="#7c3aed" metricCardStyle={metricCardStyle} />
-        <MetricCard title="Net Cash Position" value={formatCurrency(netCashPosition)} color={Number(netCashPosition) >= 0 ? "#16a34a" : "#dc2626"} metricCardStyle={metricCardStyle} />
+        <MetricCard
+  title="Revenue"
+  value={formatCurrency(totalRevenue)}
+  color={ROYAL_BLUE}
+  metricCardStyle={metricCardStyle}
+  onClick={() => setActiveTab("financialReports")}
+/>
+
+<MetricCard
+  title="Cost of Sales"
+  value={formatCurrency(costOfSales)}
+  color="#f97316"
+  metricCardStyle={metricCardStyle}
+  onClick={() => setActiveTab("financialReports")}
+/>
+
+<MetricCard
+  title="Gross Profit"
+  value={formatCurrency(grossProfit)}
+  color="#16a34a"
+  metricCardStyle={metricCardStyle}
+  onClick={() => setActiveTab("financialReports")}
+/>
+
+<MetricCard
+  title="Operating Expenses"
+  value={formatCurrency(operatingExpenses)}
+  color="#dc2626"
+  metricCardStyle={metricCardStyle}
+  onClick={() => setActiveTab("expenses")}
+/>
+
+<MetricCard
+  title="Net Profit / Loss"
+  value={formatCurrency(netProfit)}
+  color={Number(netProfit) >= 0 ? "#16a34a" : "#dc2626"}
+  metricCardStyle={metricCardStyle}
+  onClick={() => setActiveTab("financialReports")}
+/>
+
+<MetricCard
+  title="Cash & Bank"
+  value={formatCurrency(totalCashAndBankBalances)}
+  color="#0f172a"
+  metricCardStyle={metricCardStyle}
+  onClick={() => setActiveTab("accounts")}
+/>
+
+<MetricCard
+  title="Credit Card Outstanding"
+  value={formatCurrency(totalCreditCardBalances)}
+  color="#7c3aed"
+  metricCardStyle={metricCardStyle}
+  onClick={() => setActiveTab("accounts")}
+/>
+
+<MetricCard
+  title="Net Treasury Position"
+  value={formatCurrency(netCashPosition)}
+  color={Number(netCashPosition) >= 0 ? "#16a34a" : "#dc2626"}
+  metricCardStyle={metricCardStyle}
+  onClick={() => setActiveTab("accounts")}
+/>
       </div>
 
             <div
@@ -554,9 +610,29 @@ function TrendCard({ title, value, detail }) {
   );
 }
 
-function MetricCard({ title, value, color, metricCardStyle }) {
+function MetricCard({ title, value, color, metricCardStyle, onClick }) {
   return (
-    <div style={metricCardStyle}>
+    <div
+      onClick={onClick}
+      style={{
+        ...metricCardStyle,
+        cursor: onClick ? "pointer" : "default",
+        transition: "transform 0.15s ease, box-shadow 0.15s ease",
+      }}
+      title={onClick ? "Click to review details" : ""}
+      onMouseEnter={(e) => {
+        if (onClick) {
+          e.currentTarget.style.transform = "translateY(-2px)";
+          e.currentTarget.style.boxShadow = "0 10px 24px rgba(15, 23, 42, 0.14)";
+        }
+      }}
+      onMouseLeave={(e) => {
+        if (onClick) {
+          e.currentTarget.style.transform = "translateY(0)";
+          e.currentTarget.style.boxShadow = "";
+        }
+      }}
+    >
       <div
         style={{
           fontSize: "30px",
@@ -568,6 +644,11 @@ function MetricCard({ title, value, color, metricCardStyle }) {
         {value}
       </div>
       <div style={{ color: "#334155", fontWeight: "bold" }}>{title}</div>
+      {onClick && (
+        <div style={{ color: "#64748b", fontSize: "12px", marginTop: "6px" }}>
+          Click to review
+        </div>
+      )}
     </div>
   );
 }

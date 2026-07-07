@@ -1618,6 +1618,7 @@ const totalAvailableCredit = creditCardAccounts.reduce(
           setSummaryFilter={setSummaryFilter}
           setSummaryBranch={setSummaryBranch}
           fetchFinanceData={fetchFinanceData}
+          setActiveTab={setActiveTab}
           formatCurrency={formatCurrency}
           cardStyle={cardStyle}
           metricCardStyle={metricCardStyle}
