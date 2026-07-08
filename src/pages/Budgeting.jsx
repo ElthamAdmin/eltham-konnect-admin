@@ -14,14 +14,14 @@ function Budgeting() {
     category: "Revenue",
     branch: "All Branches",
     costCenter: "General",
-linkedChartAccountCode: "",
-budgetType: "Operating",
-frequency: "Monthly",
+    linkedChartAccountCode: "",
+    budgetType: "Operating",
+    frequency: "Monthly",
     plannedAmount: 0,
     notes: "",
   });
 
-    const ROYAL_BLUE = "#0B3D91";
+  const ROYAL_BLUE = "#0B3D91";
   const BORDER = "#dbe3ef";
   const MUTED = "#64748b";
 
@@ -45,6 +45,8 @@ frequency: "Monthly",
     "Brown's Town Square Operations",
   ];
 
+  const money = (value) => `JMD ${Number(value || 0).toLocaleString()}`;
+
   const loadBudgets = async () => {
     try {
       const res = await api.get("/api/budgets");
@@ -56,12 +58,19 @@ frequency: "Monthly",
     }
   };
 
+  const loadChartAccounts = async () => {
+    try {
+      const res = await api.get("/api/chart-of-accounts");
+      setChartAccounts(res.data.data || []);
+    } catch (error) {
+      console.error("Chart accounts load error:", error);
+    }
+  };
+
   useEffect(() => {
     loadBudgets();
-      loadChartAccounts();
+    loadChartAccounts();
   }, []);
-
-    const money = (value) => `JMD ${Number(value || 0).toLocaleString()}`;
 
   const getBudgetHealth = (budget) => {
     const variance = Number(budget.variance || 0);
@@ -80,6 +89,40 @@ frequency: "Monthly",
     }
 
     return { label: "On Target", color: "#16a34a" };
+  };
+
+  const getUtilizationPercent = (planned = 0, actual = 0) => {
+    const plannedValue = Number(planned || 0);
+    const actualValue = Number(actual || 0);
+
+    if (plannedValue <= 0) return 0;
+
+    return (actualValue / plannedValue) * 100;
+  };
+
+  const getBudgetIntelligence = (budget) => {
+    const utilization = getUtilizationPercent(
+      budget.plannedAmount,
+      budget.actualAmount
+    );
+
+    if (utilization >= 100) {
+      return { label: "Over Budget", color: "#dc2626" };
+    }
+
+    if (utilization >= 90) {
+      return { label: "At Risk", color: "#f97316" };
+    }
+
+    if (utilization >= 80) {
+      return { label: "Watch", color: "#f59e0b" };
+    }
+
+    if (utilization >= 50) {
+      return { label: "Healthy", color: "#16a34a" };
+    }
+
+    return { label: "Excellent", color: "#0B3D91" };
   };
 
   const branchPerformance = Object.values(
@@ -124,13 +167,15 @@ frequency: "Monthly",
     }, {})
   );
 
-    const budgetAlerts = budgets
+  const budgetAlerts = budgets
     .filter((budget) => Number(budget.variance || 0) < 0)
     .slice(0, 5);
 
   const budgetUtilization =
     Number(summary.totalPlanned || 0) > 0
-      ? (Number(summary.totalActual || 0) / Number(summary.totalPlanned || 0)) * 100
+      ? (Number(summary.totalActual || 0) /
+          Number(summary.totalPlanned || 0)) *
+        100
       : 0;
 
   const highestSpendingBranch = [...branchPerformance].sort(
@@ -165,11 +210,13 @@ frequency: "Monthly",
       ? "#f97316"
       : budgetUtilization >= 85
       ? "#16a34a"
-      : "#0B3D91";
+      : ROYAL_BLUE;
 
   const budgetTrendRows = Object.values(
     budgets.reduce((map, budget) => {
-      const key = `${budget.budgetYear}-${String(budget.budgetMonth).padStart(2, "0")}`;
+      const key = `${budget.budgetYear}-${String(
+        budget.budgetMonth
+      ).padStart(2, "0")}`;
 
       if (!map[key]) {
         map[key] = {
@@ -188,89 +235,13 @@ frequency: "Monthly",
     }, {})
   ).sort((a, b) => a.period.localeCompare(b.period));
 
-    const daysInCurrentMonth = new Date(
+  const daysInCurrentMonth = new Date(
     Number(formData.budgetYear || new Date().getFullYear()),
     Number(formData.budgetMonth || new Date().getMonth() + 1),
     0
   ).getDate();
 
   const todayDay = new Date().getDate();
-
-  const getUtilizationPercent = (planned = 0, actual = 0) => {
-    const plannedValue = Number(planned || 0);
-    const actualValue = Number(actual || 0);
-
-    if (plannedValue <= 0) return 0;
-
-    return (actualValue / plannedValue) * 100;
-  };
-
-  const getBudgetIntelligence = (budget) => {
-    const utilization = getUtilizationPercent(
-      budget.plannedAmount,
-      budget.actualAmount
-    );
-
-    if (utilization >= 100) {
-      return { label: "Over Budget", color: "#dc2626" };
-    }
-
-    if (utilization >= 90) {
-      return { label: "At Risk", color: "#f97316" };
-    }
-
-    if (utilization >= 80) {
-      return { label: "Watch", color: "#f59e0b" };
-    }
-
-    if (utilization >= 50) {
-      return { label: "Healthy", color: "#16a34a" };
-    }
-
-    return { label: "Excellent", color: "#0B3D91" };
-  };
-
-    const daysInCurrentMonth = new Date(
-    Number(formData.budgetYear || new Date().getFullYear()),
-    Number(formData.budgetMonth || new Date().getMonth() + 1),
-    0
-  ).getDate();
-
-  const todayDay = new Date().getDate();
-
-  const getUtilizationPercent = (planned = 0, actual = 0) => {
-    const plannedValue = Number(planned || 0);
-    const actualValue = Number(actual || 0);
-
-    if (plannedValue <= 0) return 0;
-
-    return (actualValue / plannedValue) * 100;
-  };
-
-  const getBudgetIntelligence = (budget) => {
-    const utilization = getUtilizationPercent(
-      budget.plannedAmount,
-      budget.actualAmount
-    );
-
-    if (utilization >= 100) {
-      return { label: "Over Budget", color: "#dc2626" };
-    }
-
-    if (utilization >= 90) {
-      return { label: "At Risk", color: "#f97316" };
-    }
-
-    if (utilization >= 80) {
-      return { label: "Watch", color: "#f59e0b" };
-    }
-
-    if (utilization >= 50) {
-      return { label: "Healthy", color: "#16a34a" };
-    }
-
-    return { label: "Excellent", color: "#0B3D91" };
-  };
 
   const enrichedBudgets = budgets.map((budget) => {
     const utilization = getUtilizationPercent(
@@ -320,55 +291,7 @@ frequency: "Monthly",
     0
   );
 
-  const enrichedBudgets = budgets.map((budget) => {
-    const utilization = getUtilizationPercent(
-      budget.plannedAmount,
-      budget.actualAmount
-    );
-
-    const projectedSpend =
-      todayDay > 0
-        ? (Number(budget.actualAmount || 0) / todayDay) * daysInCurrentMonth
-        : 0;
-
-    return {
-      ...budget,
-      utilization,
-      projectedSpend,
-      remainingBudget:
-        Number(budget.plannedAmount || 0) - Number(budget.actualAmount || 0),
-      intelligence: getBudgetIntelligence(budget),
-    };
-  });
-
-  const intelligenceAlerts = enrichedBudgets
-    .filter(
-      (budget) =>
-        budget.utilization >= 80 ||
-        Number(budget.actualAmount || 0) === 0 ||
-        Number(budget.remainingBudget || 0) < 0
-    )
-    .slice(0, 8);
-
-  const highestUtilizationBudget = [...enrichedBudgets].sort(
-    (a, b) => Number(b.utilization || 0) - Number(a.utilization || 0)
-  )[0];
-
-  const highestProjectedSpendBudget = [...enrichedBudgets].sort(
-    (a, b) => Number(b.projectedSpend || 0) - Number(a.projectedSpend || 0)
-  )[0];
-
-  const totalProjectedSpend = enrichedBudgets.reduce(
-    (sum, budget) => sum + Number(budget.projectedSpend || 0),
-    0
-  );
-
-  const totalRemainingBudget = enrichedBudgets.reduce(
-    (sum, budget) => sum + Number(budget.remainingBudget || 0),
-    0
-  );
-
-    const executiveSummary =
+  const executiveSummary =
     budgets.length === 0
       ? "No budget records have been created yet. Add budget lines to begin tracking planned versus actual performance."
       : `${budgetHealthLabel} budget performance. Utilization is ${budgetUtilization.toFixed(
@@ -410,12 +333,12 @@ frequency: "Monthly",
         budgetMonth: new Date().getMonth() + 1,
         category: "Revenue",
         branch: "All Branches",
+        costCenter: "General",
+        linkedChartAccountCode: "",
+        budgetType: "Operating",
+        frequency: "Monthly",
         plannedAmount: 0,
         notes: "",
-        costCenter: "General",
-linkedChartAccountCode: "",
-budgetType: "Operating",
-frequency: "Monthly",
       });
 
       await loadBudgets();
@@ -425,20 +348,12 @@ frequency: "Monthly",
     }
   };
 
-  const loadChartAccounts = async () => {
-  try {
-    const res = await api.get("/api/chart-of-accounts");
-    setChartAccounts(res.data.data || []);
-  } catch (error) {
-    console.error("Chart accounts load error:", error);
-  }
-};
-
   return (
     <div>
       <h1 style={{ margin: 0 }}>Budgeting</h1>
       <p style={{ marginTop: "6px", color: MUTED }}>
-        Corporate budget planning, actual performance tracking, and variance analysis.
+        Corporate budget planning, actual performance tracking, and variance
+        analysis.
       </p>
 
       <button
@@ -457,33 +372,35 @@ frequency: "Monthly",
         {formOpen ? "Close Form" : "+ Add Budget"}
       </button>
 
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-          gap: "14px",
-          marginBottom: "18px",
-        }}
-      >
+      <div style={summaryGrid}>
         <Card>
-          <h2 style={{ color: ROYAL_BLUE, margin: 0 }}>{summary.totalBudgets || 0}</h2>
+          <h2 style={{ color: ROYAL_BLUE, margin: 0 }}>
+            {summary.totalBudgets || 0}
+          </h2>
           <p style={{ fontWeight: "bold" }}>Budget Lines</p>
         </Card>
 
         <Card>
-          <h2 style={{ color: "#16a34a", margin: 0 }}>{money(summary.totalPlanned)}</h2>
+          <h2 style={{ color: "#16a34a", margin: 0 }}>
+            {money(summary.totalPlanned)}
+          </h2>
           <p style={{ fontWeight: "bold" }}>Total Planned</p>
         </Card>
 
         <Card>
-          <h2 style={{ color: "#f59e0b", margin: 0 }}>{money(summary.totalActual)}</h2>
+          <h2 style={{ color: "#f59e0b", margin: 0 }}>
+            {money(summary.totalActual)}
+          </h2>
           <p style={{ fontWeight: "bold" }}>Total Actual</p>
         </Card>
 
         <Card>
           <h2
             style={{
-              color: Number(summary.totalVariance || 0) >= 0 ? "#16a34a" : "#dc2626",
+              color:
+                Number(summary.totalVariance || 0) >= 0
+                  ? "#16a34a"
+                  : "#dc2626",
               margin: 0,
             }}
           >
@@ -493,38 +410,36 @@ frequency: "Monthly",
         </Card>
 
         <Card>
-  <h2 style={{ color: "#dc2626", margin: 0 }}>
-    {summary.overBudgetCount || 0}
-  </h2>
-  <p style={{ fontWeight: "bold" }}>Over Budget</p>
-</Card>
+          <h2 style={{ color: "#dc2626", margin: 0 }}>
+            {summary.overBudgetCount || 0}
+          </h2>
+          <p style={{ fontWeight: "bold" }}>Over Budget</p>
+        </Card>
 
-<Card>
-  <h2 style={{ color: "#16a34a", margin: 0 }}>
-    {summary.underBudgetCount || 0}
-  </h2>
-  <p style={{ fontWeight: "bold" }}>Under / On Budget</p>
-</Card>
+        <Card>
+          <h2 style={{ color: "#16a34a", margin: 0 }}>
+            {summary.underBudgetCount || 0}
+          </h2>
+          <p style={{ fontWeight: "bold" }}>Under / On Budget</p>
+        </Card>
 
-<Card>
-  <h2 style={{ color: "#f59e0b", margin: 0 }}>
-    {summary.needsAttentionCount || 0}
-  </h2>
-  <p style={{ fontWeight: "bold" }}>Needs Attention</p>
-</Card>
+        <Card>
+          <h2 style={{ color: "#f59e0b", margin: 0 }}>
+            {summary.needsAttentionCount || 0}
+          </h2>
+          <p style={{ fontWeight: "bold" }}>Needs Attention</p>
+        </Card>
 
-<Card>
-  <h2 style={{ color: "#16a34a", margin: 0 }}>
-    {summary.budgetHealthScore || 100}%
-  </h2>
-  <p style={{ fontWeight: "bold" }}>Budget Health</p>
-</Card>
+        <Card>
+          <h2 style={{ color: "#16a34a", margin: 0 }}>
+            {summary.budgetHealthScore || 100}%
+          </h2>
+          <p style={{ fontWeight: "bold" }}>Budget Health</p>
+        </Card>
       </div>
 
-            <div style={panel(BORDER)}>
-        <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>
-          Budget Alerts
-        </h2>
+      <div style={panel(BORDER)}>
+        <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>Budget Alerts</h2>
 
         {budgetAlerts.length > 0 ? (
           <div style={{ display: "grid", gap: "10px" }}>
@@ -552,18 +467,12 @@ frequency: "Monthly",
         )}
       </div>
 
-            <div style={panel(BORDER)}>
+      <div style={panel(BORDER)}>
         <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>
           Executive Budget Dashboard
         </h2>
 
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-            gap: "14px",
-          }}
-        >
+        <div style={summaryGrid}>
           <InsightCard
             title="Budget Utilization"
             value={`${budgetUtilization.toFixed(2)}%`}
@@ -574,21 +483,33 @@ frequency: "Monthly",
           <InsightCard
             title="Highest Spending Branch"
             value={highestSpendingBranch?.name || "—"}
-            detail={highestSpendingBranch ? money(highestSpendingBranch.actual) : "No data"}
+            detail={
+              highestSpendingBranch
+                ? money(highestSpendingBranch.actual)
+                : "No data"
+            }
             color={ROYAL_BLUE}
           />
 
           <InsightCard
             title="Highest Cost Center"
             value={highestSpendingCostCenter?.name || "—"}
-            detail={highestSpendingCostCenter ? money(highestSpendingCostCenter.actual) : "No data"}
+            detail={
+              highestSpendingCostCenter
+                ? money(highestSpendingCostCenter.actual)
+                : "No data"
+            }
             color={ROYAL_BLUE}
           />
 
           <InsightCard
             title="Largest Overspend"
             value={largestOverspend?.budgetName || "—"}
-            detail={largestOverspend ? money(Math.abs(Number(largestOverspend.variance || 0))) : "No overspend"}
+            detail={
+              largestOverspend
+                ? money(Math.abs(Number(largestOverspend.variance || 0)))
+                : "No overspend"
+            }
             color="#dc2626"
           />
 
@@ -622,7 +543,7 @@ frequency: "Monthly",
         </div>
       </div>
 
-            {formOpen && (
+      {formOpen && (
         <div style={panel(BORDER)}>
           <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>
             Budget Entry Wizard
@@ -633,14 +554,7 @@ frequency: "Monthly",
             Accounts posting category.
           </p>
 
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
-              gap: "14px",
-              marginTop: "14px",
-            }}
-          >
+          <div style={wizardGrid}>
             <WizardField label="Budget Name">
               <input
                 placeholder="Example: July Utilities Budget"
@@ -698,7 +612,9 @@ frequency: "Monthly",
                     ...formData,
                     category: e.target.value,
                     budgetType:
-                      e.target.value === "Revenue" ? "Revenue" : formData.budgetType,
+                      e.target.value === "Revenue"
+                        ? "Revenue"
+                        : formData.budgetType,
                   })
                 }
                 style={input(BORDER)}
@@ -778,7 +694,10 @@ frequency: "Monthly",
                     )
                   )
                   .map((account) => (
-                    <option key={account.accountCode} value={account.accountCode}>
+                    <option
+                      key={account.accountCode}
+                      value={account.accountCode}
+                    >
                       {account.accountCode} - {account.accountName}
                     </option>
                   ))}
@@ -874,24 +793,17 @@ frequency: "Monthly",
         </div>
       )}
 
-            <div style={panel(BORDER)}>
+      <div style={panel(BORDER)}>
         <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>
           Executive Budget Intelligence
         </h2>
 
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-            gap: "14px",
-            marginBottom: "16px",
-          }}
-        >
+        <div style={summaryGrid}>
           <InsightCard
             title="Projected Month-End Spend"
             value={money(totalProjectedSpend)}
             detail="Based on current spending pace"
-            color="#0B3D91"
+            color={ROYAL_BLUE}
           />
 
           <InsightCard
@@ -927,7 +839,7 @@ frequency: "Monthly",
         </div>
 
         {intelligenceAlerts.length > 0 ? (
-          <div style={{ display: "grid", gap: "10px" }}>
+          <div style={{ display: "grid", gap: "10px", marginTop: "16px" }}>
             {intelligenceAlerts.map((budget) => (
               <div
                 key={budget._id}
@@ -955,13 +867,13 @@ frequency: "Monthly",
             ))}
           </div>
         ) : (
-          <div style={{ color: MUTED, fontWeight: "bold" }}>
+          <div style={{ color: MUTED, fontWeight: "bold", marginTop: "16px" }}>
             No executive budget intelligence alerts at this time.
           </div>
         )}
       </div>
 
-            <div style={panel(BORDER)}>
+      <div style={panel(BORDER)}>
         <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>
           Monthly Budget Trend
         </h2>
@@ -978,7 +890,7 @@ frequency: "Monthly",
         />
       </div>
 
-            <div style={panel(BORDER)}>
+      <div style={panel(BORDER)}>
         <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>
           Branch Budget Performance
         </h2>
@@ -1018,7 +930,7 @@ frequency: "Monthly",
             border="1"
             cellPadding="10"
             style={{
-              minWidth: "1300px",
+              minWidth: "1500px",
               width: "100%",
               borderCollapse: "collapse",
               borderColor: BORDER,
@@ -1032,14 +944,14 @@ frequency: "Monthly",
                 <th>Category</th>
                 <th>Branch</th>
                 <th>Cost Center</th>
-<th>Chart Account</th>
-<th>Budget Type</th>
-<th>Frequency</th>
+                <th>Chart Account</th>
+                <th>Budget Type</th>
+                <th>Frequency</th>
                 <th>Planned</th>
                 <th>Actual</th>
                 <th>Variance</th>
-                                <th>Variance %</th>
-                                <th>Budget Health</th>
+                <th>Variance %</th>
+                <th>Budget Health</th>
                 <th>Utilization</th>
                 <th>Projected Spend</th>
                 <th>Remaining</th>
@@ -1050,7 +962,7 @@ frequency: "Monthly",
 
             <tbody>
               {budgets.length > 0 ? (
-                budgets.map((budget) => (
+                enrichedBudgets.map((budget) => (
                   <tr key={budget._id}>
                     <td style={{ fontWeight: "bold" }}>{budget.budgetNumber}</td>
                     <td>{budget.budgetName}</td>
@@ -1059,49 +971,36 @@ frequency: "Monthly",
                     </td>
                     <td>{budget.category}</td>
                     <td>{budget.branch}</td>
-<td>{budget.costCenter || "General"}</td>
-<td>
-  {budget.linkedChartAccountCode
-    ? `${budget.linkedChartAccountCode} - ${budget.linkedChartAccountName || ""}`
-    : "—"}
-</td>
-<td>{budget.budgetType || "Operating"}</td>
-<td>{budget.frequency || "Monthly"}</td>
-<td>{money(budget.plannedAmount)}</td>
+                    <td>{budget.costCenter || "General"}</td>
+                    <td>
+                      {budget.linkedChartAccountCode
+                        ? `${budget.linkedChartAccountCode} - ${
+                            budget.linkedChartAccountName || ""
+                          }`
+                        : "—"}
+                    </td>
+                    <td>{budget.budgetType || "Operating"}</td>
+                    <td>{budget.frequency || "Monthly"}</td>
+                    <td>{money(budget.plannedAmount)}</td>
                     <td>{money(budget.actualAmount)}</td>
                     <td
                       style={{
                         fontWeight: "bold",
-                        color: Number(budget.variance || 0) >= 0 ? "#16a34a" : "#dc2626",
+                        color:
+                          Number(budget.variance || 0) >= 0
+                            ? "#16a34a"
+                            : "#dc2626",
                       }}
                     >
                       {money(budget.variance)}
                     </td>
-                                        <td>{Number(budget.variancePercent || 0).toFixed(2)}%</td>
-                                        <td>
-                      <StatusBadge health={getBudgetIntelligence(budget)} />
-                    </td>
+                    <td>{Number(budget.variancePercent || 0).toFixed(2)}%</td>
                     <td>
-                      {getUtilizationPercent(
-                        budget.plannedAmount,
-                        budget.actualAmount
-                      ).toFixed(2)}
-                      %
+                      <StatusBadge health={budget.intelligence} />
                     </td>
-                    <td>
-                      {money(
-                        todayDay > 0
-                          ? (Number(budget.actualAmount || 0) / todayDay) *
-                              daysInCurrentMonth
-                          : 0
-                      )}
-                    </td>
-                    <td>
-                      {money(
-                        Number(budget.plannedAmount || 0) -
-                          Number(budget.actualAmount || 0)
-                      )}
-                    </td>
+                    <td>{Number(budget.utilization || 0).toFixed(2)}%</td>
+                    <td>{money(budget.projectedSpend)}</td>
+                    <td>{money(budget.remainingBudget)}</td>
                     <td>{budget.status}</td>
                     <td>{budget.notes || "—"}</td>
                   </tr>
@@ -1121,10 +1020,18 @@ frequency: "Monthly",
   );
 }
 
-const grid = {
+const summaryGrid = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))",
-  gap: "12px",
+  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+  gap: "14px",
+  marginBottom: "18px",
+};
+
+const wizardGrid = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+  gap: "14px",
+  marginTop: "14px",
 };
 
 function panel(border) {
@@ -1238,13 +1145,16 @@ function MiniPerformanceTable({ rows, money, emptyText }) {
                 <td
                   style={{
                     fontWeight: "bold",
-                    color: Number(row.variance || 0) >= 0 ? "#16a34a" : "#dc2626",
+                    color:
+                      Number(row.variance || 0) >= 0 ? "#16a34a" : "#dc2626",
                   }}
                 >
                   {money(row.variance)}
                 </td>
                 <td>
-                  {Number(row.variance || 0) >= 0 ? "On / Under Budget" : "Over Budget"}
+                  {Number(row.variance || 0) >= 0
+                    ? "On / Under Budget"
+                    : "Over Budget"}
                 </td>
               </tr>
             ))
@@ -1282,7 +1192,14 @@ function StatusBadge({ health }) {
 
 function Card({ children }) {
   return (
-    <div style={{ backgroundColor: "white", border: "1px solid #dbe3ef", borderRadius: "12px", padding: "18px" }}>
+    <div
+      style={{
+        backgroundColor: "white",
+        border: "1px solid #dbe3ef",
+        borderRadius: "12px",
+        padding: "18px",
+      }}
+    >
       {children}
     </div>
   );
