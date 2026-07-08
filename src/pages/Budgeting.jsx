@@ -188,6 +188,138 @@ frequency: "Monthly",
     }, {})
   ).sort((a, b) => a.period.localeCompare(b.period));
 
+    const daysInCurrentMonth = new Date(
+    Number(formData.budgetYear || new Date().getFullYear()),
+    Number(formData.budgetMonth || new Date().getMonth() + 1),
+    0
+  ).getDate();
+
+  const todayDay = new Date().getDate();
+
+  const getUtilizationPercent = (planned = 0, actual = 0) => {
+    const plannedValue = Number(planned || 0);
+    const actualValue = Number(actual || 0);
+
+    if (plannedValue <= 0) return 0;
+
+    return (actualValue / plannedValue) * 100;
+  };
+
+  const getBudgetIntelligence = (budget) => {
+    const utilization = getUtilizationPercent(
+      budget.plannedAmount,
+      budget.actualAmount
+    );
+
+    if (utilization >= 100) {
+      return { label: "Over Budget", color: "#dc2626" };
+    }
+
+    if (utilization >= 90) {
+      return { label: "At Risk", color: "#f97316" };
+    }
+
+    if (utilization >= 80) {
+      return { label: "Watch", color: "#f59e0b" };
+    }
+
+    if (utilization >= 50) {
+      return { label: "Healthy", color: "#16a34a" };
+    }
+
+    return { label: "Excellent", color: "#0B3D91" };
+  };
+
+    const daysInCurrentMonth = new Date(
+    Number(formData.budgetYear || new Date().getFullYear()),
+    Number(formData.budgetMonth || new Date().getMonth() + 1),
+    0
+  ).getDate();
+
+  const todayDay = new Date().getDate();
+
+  const getUtilizationPercent = (planned = 0, actual = 0) => {
+    const plannedValue = Number(planned || 0);
+    const actualValue = Number(actual || 0);
+
+    if (plannedValue <= 0) return 0;
+
+    return (actualValue / plannedValue) * 100;
+  };
+
+  const getBudgetIntelligence = (budget) => {
+    const utilization = getUtilizationPercent(
+      budget.plannedAmount,
+      budget.actualAmount
+    );
+
+    if (utilization >= 100) {
+      return { label: "Over Budget", color: "#dc2626" };
+    }
+
+    if (utilization >= 90) {
+      return { label: "At Risk", color: "#f97316" };
+    }
+
+    if (utilization >= 80) {
+      return { label: "Watch", color: "#f59e0b" };
+    }
+
+    if (utilization >= 50) {
+      return { label: "Healthy", color: "#16a34a" };
+    }
+
+    return { label: "Excellent", color: "#0B3D91" };
+  };
+
+  const enrichedBudgets = budgets.map((budget) => {
+    const utilization = getUtilizationPercent(
+      budget.plannedAmount,
+      budget.actualAmount
+    );
+
+    const projectedSpend =
+      todayDay > 0
+        ? (Number(budget.actualAmount || 0) / todayDay) * daysInCurrentMonth
+        : 0;
+
+    return {
+      ...budget,
+      utilization,
+      projectedSpend,
+      remainingBudget:
+        Number(budget.plannedAmount || 0) - Number(budget.actualAmount || 0),
+      intelligence: getBudgetIntelligence(budget),
+    };
+  });
+
+  const intelligenceAlerts = enrichedBudgets
+    .filter(
+      (budget) =>
+        budget.utilization >= 80 ||
+        Number(budget.actualAmount || 0) === 0 ||
+        Number(budget.remainingBudget || 0) < 0
+    )
+    .slice(0, 8);
+
+  const highestUtilizationBudget = [...enrichedBudgets].sort(
+    (a, b) => Number(b.utilization || 0) - Number(a.utilization || 0)
+  )[0];
+
+  const highestProjectedSpendBudget = [...enrichedBudgets].sort(
+    (a, b) => Number(b.projectedSpend || 0) - Number(a.projectedSpend || 0)
+  )[0];
+
+  const totalProjectedSpend = enrichedBudgets.reduce(
+    (sum, budget) => sum + Number(budget.projectedSpend || 0),
+    0
+  );
+
+  const totalRemainingBudget = enrichedBudgets.reduce(
+    (sum, budget) => sum + Number(budget.remainingBudget || 0),
+    0
+  );
+
   const executiveSummary =
     budgets.length === 0
       ? "No budget records have been created yet. Add budget lines to begin tracking planned versus actual performance."
@@ -200,6 +332,85 @@ frequency: "Monthly",
         }${
           highestSpendingCostCenter?.name
             ? `${highestSpendingCostCenter.name} is the highest spending cost center. `
+            : ""
+        }${
+          highestUtilizationBudget?.budgetName
+            ? `${highestUtilizationBudget.budgetName} has the highest utilization at ${Number(
+                highestUtilizationBudget.utilization || 0
+              ).toFixed(2)}%. `
+            : ""
+        }${
+          largestOverspend?.budgetName
+            ? `${largestOverspend.budgetName} requires attention due to overspending.`
+            : "No major budget overspending detected."
+        }`;
+
+  const enrichedBudgets = budgets.map((budget) => {
+    const utilization = getUtilizationPercent(
+      budget.plannedAmount,
+      budget.actualAmount
+    );
+
+    const projectedSpend =
+      todayDay > 0
+        ? (Number(budget.actualAmount || 0) / todayDay) * daysInCurrentMonth
+        : 0;
+
+    return {
+      ...budget,
+      utilization,
+      projectedSpend,
+      remainingBudget:
+        Number(budget.plannedAmount || 0) - Number(budget.actualAmount || 0),
+      intelligence: getBudgetIntelligence(budget),
+    };
+  });
+
+  const intelligenceAlerts = enrichedBudgets
+    .filter(
+      (budget) =>
+        budget.utilization >= 80 ||
+        Number(budget.actualAmount || 0) === 0 ||
+        Number(budget.remainingBudget || 0) < 0
+    )
+    .slice(0, 8);
+
+  const highestUtilizationBudget = [...enrichedBudgets].sort(
+    (a, b) => Number(b.utilization || 0) - Number(a.utilization || 0)
+  )[0];
+
+  const highestProjectedSpendBudget = [...enrichedBudgets].sort(
+    (a, b) => Number(b.projectedSpend || 0) - Number(a.projectedSpend || 0)
+  )[0];
+
+  const totalProjectedSpend = enrichedBudgets.reduce(
+    (sum, budget) => sum + Number(budget.projectedSpend || 0),
+    0
+  );
+
+  const totalRemainingBudget = enrichedBudgets.reduce(
+    (sum, budget) => sum + Number(budget.remainingBudget || 0),
+    0
+  );
+
+  const executiveSummary =
+    budgets.length === 0
+      ? "No budget records have been created yet. Add budget lines to begin tracking planned versus actual performance."
+      : `${budgetHealthLabel} budget performance. Utilization is ${budgetUtilization.toFixed(
+          2
+        )}%. ${
+          highestSpendingBranch?.name
+            ? `${highestSpendingBranch.name} is the highest spending branch. `
+            : ""
+        }${
+          highestSpendingCostCenter?.name
+            ? `${highestSpendingCostCenter.name} is the highest spending cost center. `
+            : ""
+        }${
+          highestUtilizationBudget?.budgetName
+            ? `${highestUtilizationBudget.budgetName} has the highest utilization at ${Number(
+                highestUtilizationBudget.utilization || 0
+              ).toFixed(2)}%. `
             : ""
         }${
           largestOverspend?.budgetName
@@ -690,6 +901,93 @@ frequency: "Monthly",
 
             <div style={panel(BORDER)}>
         <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>
+          Executive Budget Intelligence
+        </h2>
+
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+            gap: "14px",
+            marginBottom: "16px",
+          }}
+        >
+          <InsightCard
+            title="Projected Month-End Spend"
+            value={money(totalProjectedSpend)}
+            detail="Based on current spending pace"
+            color="#0B3D91"
+          />
+
+          <InsightCard
+            title="Remaining Budget"
+            value={money(totalRemainingBudget)}
+            detail="Budget still available"
+            color={Number(totalRemainingBudget || 0) >= 0 ? "#16a34a" : "#dc2626"}
+          />
+
+          <InsightCard
+            title="Highest Utilization"
+            value={highestUtilizationBudget?.budgetName || "—"}
+            detail={
+              highestUtilizationBudget
+                ? `${Number(highestUtilizationBudget.utilization || 0).toFixed(
+                    2
+                  )}% used`
+                : "No data"
+            }
+            color="#f97316"
+          />
+
+          <InsightCard
+            title="Highest Forecast"
+            value={highestProjectedSpendBudget?.budgetName || "—"}
+            detail={
+              highestProjectedSpendBudget
+                ? money(highestProjectedSpendBudget.projectedSpend)
+                : "No data"
+            }
+            color="#7c3aed"
+          />
+        </div>
+
+        {intelligenceAlerts.length > 0 ? (
+          <div style={{ display: "grid", gap: "10px" }}>
+            {intelligenceAlerts.map((budget) => (
+              <div
+                key={budget._id}
+                style={{
+                  padding: "12px",
+                  borderRadius: "10px",
+                  border: `1px solid ${
+                    budget.utilization >= 100 ? "#fecaca" : "#bfdbfe"
+                  }`,
+                  backgroundColor:
+                    budget.utilization >= 100 ? "#fef2f2" : "#eff6ff",
+                  color: budget.utilization >= 100 ? "#991b1b" : "#1e3a8a",
+                  fontWeight: "bold",
+                }}
+              >
+                {budget.utilization >= 100
+                  ? "⚠ "
+                  : Number(budget.actualAmount || 0) === 0
+                  ? "ℹ "
+                  : "🔎 "}
+                {budget.budgetName}: {Number(budget.utilization || 0).toFixed(2)}
+                % used. Projected month-end spend is{" "}
+                {money(budget.projectedSpend)}.
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div style={{ color: MUTED, fontWeight: "bold" }}>
+            No executive budget intelligence alerts at this time.
+          </div>
+        )}
+      </div>
+
+            <div style={panel(BORDER)}>
+        <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>
           Monthly Budget Trend
         </h2>
 
@@ -766,7 +1064,10 @@ frequency: "Monthly",
                 <th>Actual</th>
                 <th>Variance</th>
                                 <th>Variance %</th>
-                <th>Budget Health</th>
+                                <th>Budget Health</th>
+                <th>Utilization</th>
+                <th>Projected Spend</th>
+                <th>Remaining</th>
                 <th>Status</th>
                 <th>Notes</th>
               </tr>
@@ -802,8 +1103,29 @@ frequency: "Monthly",
                       {money(budget.variance)}
                     </td>
                                         <td>{Number(budget.variancePercent || 0).toFixed(2)}%</td>
+                                        <td>
+                      <StatusBadge health={getBudgetIntelligence(budget)} />
+                    </td>
                     <td>
-                      <StatusBadge health={getBudgetHealth(budget)} />
+                      {getUtilizationPercent(
+                        budget.plannedAmount,
+                        budget.actualAmount
+                      ).toFixed(2)}
+                      %
+                    </td>
+                    <td>
+                      {money(
+                        todayDay > 0
+                          ? (Number(budget.actualAmount || 0) / todayDay) *
+                              daysInCurrentMonth
+                          : 0
+                      )}
+                    </td>
+                    <td>
+                      {money(
+                        Number(budget.plannedAmount || 0) -
+                          Number(budget.actualAmount || 0)
+                      )}
                     </td>
                     <td>{budget.status}</td>
                     <td>{budget.notes || "—"}</td>
@@ -811,7 +1133,7 @@ frequency: "Monthly",
                 ))
               ) : (
                 <tr>
-                  <td colSpan="16" style={{ textAlign: "center", color: MUTED }}>
+                  <td colSpan="19" style={{ textAlign: "center", color: MUTED }}>
                     No budgets found.
                   </td>
                 </tr>
