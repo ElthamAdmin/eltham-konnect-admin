@@ -5,6 +5,8 @@ function BankingReconciliation() {
   const [accounts, setAccounts] = useState([]);
   const [transactions, setTransactions] = useState([]);
   const [reconciliations, setReconciliations] = useState([]);
+  const [importedStatements, setImportedStatements] = useState([]);
+  const [selectedImportNumber, setSelectedImportNumber] = useState("");
   const [formOpen, setFormOpen] = useState(false);
   const [selectedAccountNumber, setSelectedAccountNumber] = useState("");
   const [clearedTransactionNumbers, setClearedTransactionNumbers] = useState([]);
@@ -28,6 +30,12 @@ function BankingReconciliation() {
       setAccounts(res.data.accounts || []);
       setTransactions(res.data.transactions || []);
       setReconciliations(res.data.reconciliations || []);
+            try {
+        const importRes = await api.get("/api/banking/reconciliation/import/history");
+        setImportedStatements(importRes.data.data || []);
+      } catch (importError) {
+        console.error("Imported statements load error:", importError);
+      }
     } catch (error) {
       console.error("Banking error:", error);
       alert(error?.response?.data?.message || "Could not load banking dashboard.");
@@ -110,6 +118,28 @@ function BankingReconciliation() {
   );
 
   const recentTransactions = accountTransactions.slice(0, 50);
+
+    const selectedImportedStatement = useMemo(
+    () =>
+      importedStatements.find(
+        (statement) => statement.importNumber === selectedImportNumber
+      ),
+    [importedStatements, selectedImportNumber]
+  );
+
+  const getMatchColor = (status = "") => {
+    if (status === "Matched") return "#16a34a";
+    if (status === "Suggested") return "#f59e0b";
+    if (status === "Duplicate") return "#7c3aed";
+    if (status === "Ignored") return "#64748b";
+    return "#dc2626";
+  };
+
+  const getMatchedTransaction = (statementLine) =>
+    transactions.find(
+      (transaction) =>
+        transaction.transactionNumber === statementLine.matchedTransactionNumber
+    );
 
   const toggleCleared = (transactionNumber) => {
     setClearedTransactionNumbers((prev) =>
@@ -217,6 +247,131 @@ function BankingReconciliation() {
             <Card><strong>Status</strong><p>{selectedAccount.reconciliationStatus || "Never Reconciled"}</p></Card>
             <Card><strong>Outstanding Deposits</strong><p>{money(selectedAccount.outstandingDeposits)}</p></Card>
             <Card><strong>Outstanding Withdrawals</strong><p>{money(selectedAccount.outstandingWithdrawals)}</p></Card>
+          </div>
+        )}
+      </div>
+
+            <div style={panel(BORDER)}>
+        <h2 style={{ color: ROYAL_BLUE, marginTop: 0 }}>
+          Imported Statement Workspace
+        </h2>
+
+        <select
+          value={selectedImportNumber}
+          onChange={(e) => setSelectedImportNumber(e.target.value)}
+          style={{ ...input(BORDER), width: "100%", marginBottom: "14px" }}
+        >
+          <option value="">Select Imported Statement</option>
+          {importedStatements.map((statement) => (
+            <option key={statement._id} value={statement.importNumber}>
+              {statement.importNumber} — {statement.accountName} —{" "}
+              {statement.statementDate} — {statement.status}
+            </option>
+          ))}
+        </select>
+
+        {selectedImportedStatement ? (
+          <>
+            <div style={summaryGrid}>
+              <Card>
+                <strong>Import No.</strong>
+                <p>{selectedImportedStatement.importNumber}</p>
+              </Card>
+
+              <Card>
+                <strong>Account</strong>
+                <p>{selectedImportedStatement.accountName}</p>
+              </Card>
+
+              <Card>
+                <strong>Total Lines</strong>
+                <p>{selectedImportedStatement.totalLines || 0}</p>
+              </Card>
+
+              <Card>
+                <strong>Matched</strong>
+                <p style={{ color: "#16a34a", fontWeight: "bold" }}>
+                  {selectedImportedStatement.matchedLines || 0}
+                </p>
+              </Card>
+
+              <Card>
+                <strong>Suggested</strong>
+                <p style={{ color: "#f59e0b", fontWeight: "bold" }}>
+                  {selectedImportedStatement.suggestedLines || 0}
+                </p>
+              </Card>
+
+              <Card>
+                <strong>Unmatched</strong>
+                <p style={{ color: "#dc2626", fontWeight: "bold" }}>
+                  {selectedImportedStatement.unmatchedLines || 0}
+                </p>
+              </Card>
+            </div>
+
+            <div style={tableWrap(BORDER)}>
+              <table border="1" cellPadding="10" style={table(BORDER, "1650px")}>
+                <thead style={thead}>
+                  <tr>
+                    <th>Line</th>
+                    <th>Date</th>
+                    <th>Description</th>
+                    <th>Reference</th>
+                    <th>Direction</th>
+                    <th>Amount</th>
+                    <th>Match Status</th>
+                    <th>Confidence</th>
+                    <th>Matched Transaction</th>
+                    <th>Matched JE</th>
+                    <th>Ledger Type</th>
+                    <th>Ledger Notes</th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {selectedImportedStatement.statementLines?.length > 0 ? (
+                    selectedImportedStatement.statementLines.map((line) => {
+                      const matchedTransaction = getMatchedTransaction(line);
+
+                      return (
+                        <tr key={line._id}>
+                          <td>{line.lineNumber}</td>
+                          <td>{String(line.transactionDate || "").slice(0, 10)}</td>
+                          <td>{line.description || "—"}</td>
+                          <td>{line.reference || "—"}</td>
+                          <td>{line.transactionDirection}</td>
+                          <td>{money(line.amount)}</td>
+                          <td
+                            style={{
+                              color: getMatchColor(line.matchStatus),
+                              fontWeight: "bold",
+                            }}
+                          >
+                            {line.matchStatus}
+                          </td>
+                          <td>{Number(line.matchConfidence || 0)}%</td>
+                          <td>{line.matchedTransactionNumber || "—"}</td>
+                          <td>{line.matchedJournalEntryNumber || "—"}</td>
+                          <td>{matchedTransaction?.transactionType || "—"}</td>
+                          <td>{matchedTransaction?.notes || "—"}</td>
+                        </tr>
+                      );
+                    })
+                  ) : (
+                    <tr>
+                      <td colSpan="12" style={{ textAlign: "center", color: MUTED }}>
+                        No imported statement lines found.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </>
+        ) : (
+          <div style={{ color: MUTED, fontWeight: "bold" }}>
+            Select an imported statement to review matched, suggested, and unmatched lines.
           </div>
         )}
       </div>
