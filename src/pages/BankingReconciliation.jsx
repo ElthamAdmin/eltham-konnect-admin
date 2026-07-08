@@ -112,10 +112,38 @@ function BankingReconciliation() {
     };
   }, [clearedTransactionNumbers, reconciliationTransactions, formData]);
 
-  const totalCash = useMemo(
-    () => accounts.reduce((sum, account) => sum + Number(account.baseCurrencyBalance || 0), 0),
-    [accounts]
-  );
+    const treasurySummary = useMemo(() => {
+    const summary = accounts.reduce(
+      (totals, account) => {
+        const balance = Number(account.currentBalance || 0);
+        const creditLimit = Number(account.creditLimit || 0);
+
+        if (account.accountType === "Bank" || account.accountType === "Cash") {
+          totals.cashAndBank += balance;
+        }
+
+        if (account.accountType === "Credit Card") {
+          totals.creditCardOutstanding += balance;
+          totals.totalCreditLimit += creditLimit;
+        }
+
+        return totals;
+      },
+      {
+        cashAndBank: 0,
+        creditCardOutstanding: 0,
+        totalCreditLimit: 0,
+      }
+    );
+
+    summary.availableCredit =
+      summary.totalCreditLimit - summary.creditCardOutstanding;
+
+    summary.netTreasuryPosition =
+      summary.cashAndBank - summary.creditCardOutstanding;
+
+    return summary;
+  }, [accounts]);
 
   const recentTransactions = accountTransactions.slice(0, 50);
 
@@ -221,11 +249,61 @@ function BankingReconciliation() {
         {formOpen ? "Close Reconciliation" : "+ New Reconciliation"}
       </button>
 
-      <div style={summaryGrid}>
-        <Card><h2 style={{ color: ROYAL_BLUE, margin: 0 }}>{money(totalCash)}</h2><p style={{ fontWeight: "bold" }}>Total Cash / Bank Balance</p></Card>
-        <Card><h2 style={{ color: "#16a34a", margin: 0 }}>{accounts.length}</h2><p style={{ fontWeight: "bold" }}>Financial Accounts</p></Card>
-        <Card><h2 style={{ color: "#f59e0b", margin: 0 }}>{transactions.filter((t) => !t.reconciled).length}</h2><p style={{ fontWeight: "bold" }}>Unreconciled Transactions</p></Card>
-        <Card><h2 style={{ color: "#7c3aed", margin: 0 }}>{reconciliations.length}</h2><p style={{ fontWeight: "bold" }}>Reconciliations</p></Card>
+            <div style={summaryGrid}>
+        <Card>
+          <h2 style={{ color: ROYAL_BLUE, margin: 0 }}>
+            {money(treasurySummary.cashAndBank)}
+          </h2>
+          <p style={{ fontWeight: "bold" }}>Cash & Bank</p>
+        </Card>
+
+        <Card>
+          <h2 style={{ color: "#dc2626", margin: 0 }}>
+            {money(treasurySummary.creditCardOutstanding)}
+          </h2>
+          <p style={{ fontWeight: "bold" }}>Credit Card Outstanding</p>
+        </Card>
+
+        <Card>
+          <h2 style={{ color: "#16a34a", margin: 0 }}>
+            {money(treasurySummary.availableCredit)}
+          </h2>
+          <p style={{ fontWeight: "bold" }}>Available Credit</p>
+        </Card>
+
+        <Card>
+          <h2
+            style={{
+              color:
+                Number(treasurySummary.netTreasuryPosition || 0) >= 0
+                  ? "#16a34a"
+                  : "#dc2626",
+              margin: 0,
+            }}
+          >
+            {money(treasurySummary.netTreasuryPosition)}
+          </h2>
+          <p style={{ fontWeight: "bold" }}>Net Treasury Position</p>
+        </Card>
+
+        <Card>
+          <h2 style={{ color: "#16a34a", margin: 0 }}>{accounts.length}</h2>
+          <p style={{ fontWeight: "bold" }}>Financial Accounts</p>
+        </Card>
+
+        <Card>
+          <h2 style={{ color: "#f59e0b", margin: 0 }}>
+            {transactions.filter((t) => !t.reconciled).length}
+          </h2>
+          <p style={{ fontWeight: "bold" }}>Unreconciled Transactions</p>
+        </Card>
+
+        <Card>
+          <h2 style={{ color: "#7c3aed", margin: 0 }}>
+            {reconciliations.length}
+          </h2>
+          <p style={{ fontWeight: "bold" }}>Reconciliations</p>
+        </Card>
       </div>
 
       <div style={panel(BORDER)}>
