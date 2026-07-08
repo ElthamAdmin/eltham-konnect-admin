@@ -320,31 +320,6 @@ frequency: "Monthly",
     0
   );
 
-  const executiveSummary =
-    budgets.length === 0
-      ? "No budget records have been created yet. Add budget lines to begin tracking planned versus actual performance."
-      : `${budgetHealthLabel} budget performance. Utilization is ${budgetUtilization.toFixed(
-          2
-        )}%. ${
-          highestSpendingBranch?.name
-            ? `${highestSpendingBranch.name} is the highest spending branch. `
-            : ""
-        }${
-          highestSpendingCostCenter?.name
-            ? `${highestSpendingCostCenter.name} is the highest spending cost center. `
-            : ""
-        }${
-          highestUtilizationBudget?.budgetName
-            ? `${highestUtilizationBudget.budgetName} has the highest utilization at ${Number(
-                highestUtilizationBudget.utilization || 0
-              ).toFixed(2)}%. `
-            : ""
-        }${
-          largestOverspend?.budgetName
-            ? `${largestOverspend.budgetName} requires attention due to overspending.`
-            : "No major budget overspending detected."
-        }`;
-
   const enrichedBudgets = budgets.map((budget) => {
     const utilization = getUtilizationPercent(
       budget.plannedAmount,
@@ -393,7 +368,7 @@ frequency: "Monthly",
     0
   );
 
-  const executiveSummary =
+    const executiveSummary =
     budgets.length === 0
       ? "No budget records have been created yet. Add budget lines to begin tracking planned versus actual performance."
       : `${budgetHealthLabel} budget performance. Utilization is ${budgetUtilization.toFixed(
