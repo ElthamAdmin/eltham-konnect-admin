@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import api from "../api";
 import LedgerSearchWorkspace from "../components/banking/LedgerSearchWorkspace";
 import SplitMatchWorkspace from "../components/banking/SplitMatchWorkspace";
+import AdjustmentWizard from "../components/banking/AdjustmentWizard";
 
 function BankingReconciliation() {
   const [accounts, setAccounts] = useState([]);
@@ -729,6 +730,18 @@ const toggleSplitTransaction = (transaction) => {
         BORDER={BORDER}
         ROYAL_BLUE={ROYAL_BLUE}
       />
+
+      <AdjustmentWizard
+  selectedImportedStatement={selectedImportedStatement}
+  selectedStatementLine={selectedStatementLine}
+  button={button}
+  BORDER={BORDER}
+  ROYAL_BLUE={ROYAL_BLUE}
+  onCompleted={async () => {
+    setSelectedStatementLine(null);
+    await loadBanking();
+  }}
+/>
 
       {formOpen && (
         <div style={panel(BORDER)}>
