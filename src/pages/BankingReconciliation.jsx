@@ -167,6 +167,12 @@ function BankingReconciliation() {
     return "#dc2626";
   };
 
+    const getMatchedTransaction = (statementLine) =>
+    transactions.find(
+      (transaction) =>
+        transaction.transactionNumber === statementLine.matchedTransactionNumber
+    );
+
   const acceptMatch = async (line) => {
   try {
     await api.post("/api/banking/reconciliation/import/accept-match", {
@@ -591,7 +597,7 @@ const manuallyAssignTransaction = async (transaction) => {
               </table>
             </div>
           </>
-                ) : (
+        ):(
           <div
             style={{
               color: MUTED,
