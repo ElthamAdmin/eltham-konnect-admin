@@ -276,6 +276,53 @@ const manuallyAssignTransaction = async (transaction) => {
   }
 };
 
+const splitSelectedTotal = selectedSplitTransactions.reduce(
+  (sum, transaction) => sum + Number(transaction.amount || 0),
+  0
+);
+
+const splitDifference = selectedStatementLine
+  ? Number(selectedStatementLine.amount || 0) - splitSelectedTotal
+  : 0;
+
+const saveSplitMatch = async () => {
+  try {
+    if (!selectedStatementLine) {
+      alert("Please select a statement line first.");
+      return;
+    }
+
+    if (selectedSplitTransactions.length === 0) {
+      alert("Please select at least one ledger transaction.");
+      return;
+    }
+
+    await api.post("/api/banking/reconciliation/import/split-match", {
+      importNumber: selectedImportedStatement.importNumber,
+      lineId: selectedStatementLine._id,
+      transactionNumbers: selectedSplitTransactions.map(
+        (transaction) => transaction.transactionNumber
+      ),
+    });
+
+    alert("Split match saved successfully.");
+
+    setSplitMatchMode(false);
+    setSelectedStatementLine(null);
+    setSelectedSplitTransactions([]);
+    setLedgerSearchResults([]);
+
+    await loadBanking();
+  } catch (err) {
+    console.error(err);
+
+    alert(
+      err?.response?.data?.message ||
+        "Could not save split match."
+    );
+  }
+};
+
 const openSplitMatch = (line) => {
   setSelectedStatementLine(line);
   setSplitMatchMode(true);
@@ -648,13 +695,13 @@ const toggleSplitTransaction = (transaction) => {
 
       {selectedStatementLine && (
         <div style={panel(BORDER)}>
-          <h2
+                    <h2
             style={{
               color: ROYAL_BLUE,
               marginTop: 0,
             }}
           >
-            Ledger Search Results
+            {splitMatchMode ? "Split Match Workspace" : "Ledger Search Results"}
           </h2>
 
           <p>
@@ -683,7 +730,7 @@ const toggleSplitTransaction = (transaction) => {
                     <th>Type</th>
                     <th>Amount</th>
                     <th>Reference</th>
-                    <th>Action</th>
+                    <th>{splitMatchMode ? "Select" : "Action"}</th>
                   </tr>
                 </thead>
 
@@ -702,20 +749,100 @@ const toggleSplitTransaction = (transaction) => {
 
                       <td>{transaction.reference || "—"}</td>
 
-                      <td>
-                        <button
-                          onClick={() =>
-                            manuallyAssignTransaction(transaction)
-                          }
-                          style={button("#16a34a")}
-                        >
-                          Assign
-                        </button>
+                                            <td>
+                        {splitMatchMode ? (
+                          <input
+                            type="checkbox"
+                            checked={selectedSplitTransactions.some(
+                              (item) =>
+                                item.transactionNumber ===
+                                transaction.transactionNumber
+                            )}
+                            onChange={() => toggleSplitTransaction(transaction)}
+                          />
+                        ) : (
+                          <button
+                            onClick={() =>
+                              manuallyAssignTransaction(transaction)
+                            }
+                            style={button("#16a34a")}
+                          >
+                            Assign
+                          </button>
+                        )}
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
+            </div>
+          )}
+
+                    {splitMatchMode && (
+            <div
+              style={{
+                marginTop: "14px",
+                padding: "14px",
+                border: `1px solid ${BORDER}`,
+                borderRadius: "10px",
+                backgroundColor: "#f8fbff",
+              }}
+            >
+              <h3 style={{ color: ROYAL_BLUE, marginTop: 0 }}>
+                Split Match Summary
+              </h3>
+
+              <div style={summaryGrid}>
+                <Card>
+                  <strong>Statement Amount</strong>
+                  <p>{money(selectedStatementLine?.amount || 0)}</p>
+                </Card>
+
+                <Card>
+                  <strong>Selected Ledger Total</strong>
+                  <p>{money(splitSelectedTotal)}</p>
+                </Card>
+
+                <Card>
+                  <strong>Difference</strong>
+                  <p
+                    style={{
+                      color:
+                        Number(splitDifference || 0) === 0
+                          ? "#16a34a"
+                          : "#dc2626",
+                      fontWeight: "bold",
+                    }}
+                  >
+                    {money(splitDifference)}
+                  </p>
+                </Card>
+
+                <Card>
+                  <strong>Selected Transactions</strong>
+                  <p>{selectedSplitTransactions.length}</p>
+                </Card>
+              </div>
+
+              <button
+                onClick={saveSplitMatch}
+                style={{
+                  ...button("#16a34a"),
+                  marginRight: "8px",
+                }}
+              >
+                Save Split Match
+              </button>
+
+              <button
+                onClick={() => {
+                  setSplitMatchMode(false);
+                  setSelectedSplitTransactions([]);
+                }}
+                style={button("#64748b")}
+              >
+                Cancel Split
+              </button>
             </div>
           )}
         </div>
