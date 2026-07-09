@@ -6,10 +6,13 @@ function BankingReconciliation() {
   const [transactions, setTransactions] = useState([]);
   const [reconciliations, setReconciliations] = useState([]);
   const [importedStatements, setImportedStatements] = useState([]);
-    const [selectedImportNumber, setSelectedImportNumber] = useState("");
+  const [selectedImportNumber, setSelectedImportNumber] = useState("");
   const [ledgerSearchResults, setLedgerSearchResults] = useState([]);
   const [searchingLedger, setSearchingLedger] = useState(false);
   const [selectedStatementLine, setSelectedStatementLine] = useState(null);
+  const [splitMatchMode, setSplitMatchMode] = useState(false);
+
+  const [selectedSplitTransactions, setSelectedSplitTransactions] = useState([]);
 
   const [formOpen, setFormOpen] = useState(false);
   const [selectedAccountNumber, setSelectedAccountNumber] = useState("");
@@ -271,6 +274,30 @@ const manuallyAssignTransaction = async (transaction) => {
         "Manual assignment failed."
     );
   }
+};
+
+const openSplitMatch = (line) => {
+  setSelectedStatementLine(line);
+  setSplitMatchMode(true);
+  setSelectedSplitTransactions([]);
+  setLedgerSearchResults([]);
+  searchLedger(line);
+};
+
+const toggleSplitTransaction = (transaction) => {
+  setSelectedSplitTransactions((previous) => {
+    const exists = previous.find(
+      (item) => item.transactionNumber === transaction.transactionNumber
+    );
+
+    if (exists) {
+      return previous.filter(
+        (item) => item.transactionNumber !== transaction.transactionNumber
+      );
+    }
+
+    return [...previous, transaction];
+  });
 };
 
   const toggleCleared = (transactionNumber) => {
@@ -576,9 +603,19 @@ const manuallyAssignTransaction = async (transaction) => {
   <>
     <button
       onClick={() => searchLedger(line)}
-      style={button("#2563eb")}
+      style={{
+        ...button("#2563eb"),
+        marginRight: "6px",
+      }}
     >
       Search Ledger
+    </button>
+
+    <button
+      onClick={() => openSplitMatch(line)}
+      style={button("#7c3aed")}
+    >
+      Split Match
     </button>
   </>
 )}
