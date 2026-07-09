@@ -6,15 +6,14 @@ function BankingReconciliation() {
   const [transactions, setTransactions] = useState([]);
   const [reconciliations, setReconciliations] = useState([]);
   const [importedStatements, setImportedStatements] = useState([]);
-  const [selectedImportNumber, setSelectedImportNumber] = useState("");
+    const [selectedImportNumber, setSelectedImportNumber] = useState("");
+  const [ledgerSearchResults, setLedgerSearchResults] = useState([]);
+  const [searchingLedger, setSearchingLedger] = useState(false);
+  const [selectedStatementLine, setSelectedStatementLine] = useState(null);
 
-const [ledgerSearchResults, setLedgerSearchResults] = useState([]);
-
-const [searchingLedger, setSearchingLedger] = useState(false);
-
-const [selectedStatementLine, setSelectedStatementLine] = useState(null);
-
-const [clearedTransactionNumbers, setClearedTransactionNumbers] = useState([]);
+  const [formOpen, setFormOpen] = useState(false);
+  const [selectedAccountNumber, setSelectedAccountNumber] = useState("");
+  const [clearedTransactionNumbers, setClearedTransactionNumbers] = useState([]);
 
   const [formData, setFormData] = useState({
     accountNumber: "",
