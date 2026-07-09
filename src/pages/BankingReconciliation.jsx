@@ -163,11 +163,46 @@ function BankingReconciliation() {
     return "#dc2626";
   };
 
-  const getMatchedTransaction = (statementLine) =>
-    transactions.find(
-      (transaction) =>
-        transaction.transactionNumber === statementLine.matchedTransactionNumber
+  const acceptMatch = async (line) => {
+  try {
+    await api.post("/api/banking/reconciliation/import/accept-match", {
+      importNumber: selectedImportedStatement.importNumber,
+      lineId: line._id,
+      transactionNumber: line.matchedTransactionNumber,
+    });
+
+    alert("Statement line matched successfully.");
+
+    await loadBanking();
+  } catch (err) {
+    console.error(err);
+
+    alert(
+      err?.response?.data?.message ||
+        "Could not approve statement match."
     );
+  }
+};
+
+const rejectMatch = async (line) => {
+  try {
+    await api.post("/api/banking/reconciliation/import/reject-match", {
+      importNumber: selectedImportedStatement.importNumber,
+      lineId: line._id,
+    });
+
+    alert("Statement line returned to unmatched.");
+
+    await loadBanking();
+  } catch (err) {
+    console.error(err);
+
+    alert(
+      err?.response?.data?.message ||
+        "Could not reject statement match."
+    );
+  }
+};
 
   const toggleCleared = (transactionNumber) => {
     setClearedTransactionNumbers((prev) =>
@@ -404,6 +439,7 @@ function BankingReconciliation() {
                     <th>Matched JE</th>
                     <th>Ledger Type</th>
                     <th>Ledger Notes</th>
+                    <th>Actions</th>
                   </tr>
                 </thead>
 
@@ -433,6 +469,51 @@ function BankingReconciliation() {
                           <td>{line.matchedJournalEntryNumber || "—"}</td>
                           <td>{matchedTransaction?.transactionType || "—"}</td>
                           <td>{matchedTransaction?.notes || "—"}</td>
+
+<td>
+  {line.matchStatus === "Suggested" && (
+    <>
+      <button
+        onClick={() => acceptMatch(line)}
+        style={{
+          ...button("#16a34a"),
+          marginRight: "6px",
+        }}
+      >
+        ✓ Accept
+      </button>
+
+      <button
+        onClick={() => rejectMatch(line)}
+        style={button("#dc2626")}
+      >
+        Reject
+      </button>
+    </>
+  )}
+
+  {line.matchStatus === "Matched" && (
+    <span
+      style={{
+        color: "#16a34a",
+        fontWeight: "bold",
+      }}
+    >
+      Approved
+    </span>
+  )}
+
+  {line.matchStatus === "Unmatched" && (
+    <span
+      style={{
+        color: "#dc2626",
+        fontWeight: "bold",
+      }}
+    >
+      Needs Manual Match
+    </span>
+  )}
+</td>
                         </tr>
                       );
                     })
