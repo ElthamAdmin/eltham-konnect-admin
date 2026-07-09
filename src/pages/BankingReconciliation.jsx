@@ -7,9 +7,14 @@ function BankingReconciliation() {
   const [reconciliations, setReconciliations] = useState([]);
   const [importedStatements, setImportedStatements] = useState([]);
   const [selectedImportNumber, setSelectedImportNumber] = useState("");
-  const [formOpen, setFormOpen] = useState(false);
-  const [selectedAccountNumber, setSelectedAccountNumber] = useState("");
-  const [clearedTransactionNumbers, setClearedTransactionNumbers] = useState([]);
+
+const [ledgerSearchResults, setLedgerSearchResults] = useState([]);
+
+const [searchingLedger, setSearchingLedger] = useState(false);
+
+const [selectedStatementLine, setSelectedStatementLine] = useState(null);
+
+const [clearedTransactionNumbers, setClearedTransactionNumbers] = useState([]);
 
   const [formData, setFormData] = useState({
     accountNumber: "",
@@ -200,6 +205,65 @@ const rejectMatch = async (line) => {
     alert(
       err?.response?.data?.message ||
         "Could not reject statement match."
+    );
+  }
+};
+
+const searchLedger = async (line) => {
+  try {
+    setSearchingLedger(true);
+
+    setSelectedStatementLine(line);
+
+    const response = await api.get(
+      "/api/banking/reconciliation/import/search-ledger",
+      {
+        params: {
+          accountNumber: selectedImportedStatement.accountNumber,
+          amount: line.amount,
+          transactionDirection: line.transactionDirection,
+          reference: line.reference,
+        },
+      }
+    );
+
+    setLedgerSearchResults(response.data.data || []);
+  } catch (err) {
+    console.error(err);
+
+    alert(
+      err?.response?.data?.message ||
+        "Could not search ledger."
+    );
+  } finally {
+    setSearchingLedger(false);
+  }
+};
+
+const manuallyAssignTransaction = async (transaction) => {
+  try {
+    await api.post(
+      "/api/banking/reconciliation/import/accept-match",
+      {
+        importNumber: selectedImportedStatement.importNumber,
+        lineId: selectedStatementLine._id,
+        transactionNumber: transaction.transactionNumber,
+      }
+    );
+
+    alert("Manual match completed.");
+
+    setLedgerSearchResults([]);
+
+    setSelectedStatementLine(null);
+
+    await loadBanking();
+  } catch (err) {
+    console.error(err);
+
+    alert(
+      err?.response?.data?.message ||
+        "Manual assignment failed."
     );
   }
 };
@@ -504,15 +568,15 @@ const rejectMatch = async (line) => {
   )}
 
   {line.matchStatus === "Unmatched" && (
-    <span
-      style={{
-        color: "#dc2626",
-        fontWeight: "bold",
-      }}
+  <>
+    <button
+      onClick={() => searchLedger(line)}
+      style={button("#2563eb")}
     >
-      Needs Manual Match
-    </span>
-  )}
+      Search Ledger
+    </button>
+  </>
+)}
 </td>
                         </tr>
                       );
@@ -531,6 +595,74 @@ const rejectMatch = async (line) => {
         ) : (
           <div style={{ color: MUTED, fontWeight: "bold" }}>
             Select an imported statement to review matched, suggested, and unmatched lines.
+            {selectedStatementLine && (
+  <div
+    style={{
+      marginTop: 30,
+      border: `1px solid ${BORDER}`,
+      borderRadius: 8,
+      padding: 16,
+    }}
+  >
+    <h3>Ledger Search Results</h3>
+
+    <p>
+      Statement Line:
+      <strong>
+        {" "}
+        {selectedStatementLine.description}
+      </strong>
+    </p>
+
+    {searchingLedger ? (
+      <p>Searching ledger...</p>
+    ) : ledgerSearchResults.length === 0 ? (
+      <p>No matching ledger transactions found.</p>
+    ) : (
+      <table border="1" cellPadding="8" style={table(BORDER)}>
+        <thead style={thead}>
+          <tr>
+            <th>Transaction</th>
+            <th>Date</th>
+            <th>Type</th>
+            <th>Amount</th>
+            <th>Reference</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          {ledgerSearchResults.map((transaction) => (
+            <tr key={transaction._id}>
+              <td>{transaction.transactionNumber}</td>
+
+              <td>
+                {String(transaction.transactionDate).slice(0, 10)}
+              </td>
+
+              <td>{transaction.transactionType}</td>
+
+              <td>{money(transaction.amount)}</td>
+
+              <td>{transaction.reference}</td>
+
+              <td>
+                <button
+                  onClick={() =>
+                    manuallyAssignTransaction(transaction)
+                  }
+                  style={button("#16a34a")}
+                >
+                  Assign
+                </button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    )}
+  </div>
+)}
           </div>
         )}
       </div>
