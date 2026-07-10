@@ -43,6 +43,7 @@ import ProfitAndLoss from "./pages/ProfitAndLoss";
 import BalanceSheet from "./pages/BalanceSheet";
 import ClosePeriod from "./pages/ClosePeriod";
 import AccountsReceivable from "./pages/AccountsReceivable";
+import CustomerPurchases from "./pages/CustomerPurchases";
 import AccountsPayable from "./pages/AccountsPayable";
 import BankingReconciliation from "./pages/BankingReconciliation";
 import CashFlowStatement from "./pages/CashFlowStatement";
@@ -107,6 +108,7 @@ useEffect(() => {
   { label: "Balance Sheet", path: "/balance-sheet", show: can("finance") },
   { label: "Close Period", path: "/close-period", show: can("finance") },
   { label: "Accounts Receivable", path: "/accounts-receivable", show: can("finance") },
+  { label: "Customer Purchases", path: "/customer-purchases", show: can("finance") },
   { label: "Accounts Payable", path: "/accounts-payable", show: can("finance") },
   { label: "Banking", path: "/banking-reconciliation", show: can("finance") },
   { label: "Cash Flow", path: "/cash-flow-statement", show: can("finance") },
@@ -262,6 +264,7 @@ const subNavItemStyle = (active) => ({
       <Route path="/balance-sheet" element={can("finance") ? <BalanceSheet /> : <Navigate to="/" replace />} />
       <Route path="/close-period" element={can("finance") ? <ClosePeriod /> : <Navigate to="/" replace />} />
       <Route path="/accounts-receivable" element={can("finance") ? <AccountsReceivable /> : <Navigate to="/" replace />} />
+      <Route path="/customer-purchases" element={can("finance") ? <CustomerPurchases /> : <Navigate to="/" replace />} />
       <Route path="/accounts-payable" element={can("finance") ? <AccountsPayable /> : <Navigate to="/" replace />} />
       <Route path="/banking-reconciliation" element={can("finance") ? <BankingReconciliation /> : <Navigate to="/" replace />} />
       <Route path="/cash-flow-statement" element={can("finance") ? <CashFlowStatement /> : <Navigate to="/" replace />} />
