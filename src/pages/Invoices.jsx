@@ -12,10 +12,21 @@ function Invoices() {
   const [searchTerm, setSearchTerm] = useState("");
   const [pageSize, setPageSize] = useState(25);
   const [currentPage, setCurrentPage] = useState(1);
-  const [packages, setPackages] = useState([]);
-  const [selectedCustomerEkonId, setSelectedCustomerEkonId] = useState("");
+    const [packages, setPackages] = useState([]);
+  const [customerPurchases, setCustomerPurchases] = useState([]);
+
+  const [selectedCustomerEkonId, setSelectedCustomerEkonId] =
+    useState("");
+
   const [selectedPackageIds, setSelectedPackageIds] = useState([]);
+
+  const [
+    selectedCustomerPurchaseNumbers,
+    setSelectedCustomerPurchaseNumbers,
+  ] = useState([]);
+
   const [pointsToRedeem, setPointsToRedeem] = useState("");
+  const [generatingInvoice, setGeneratingInvoice] = useState(false);
 
   const ROYAL_BLUE = "#0B3D91";
   const GOLD = "#D4AF37";
@@ -67,20 +78,36 @@ setChargeFormByInvoice(chargeForms);
     fetchInvoices();
     fetchAccounts();
     fetchPackages();
+    fetchCustomerPurchases();
   }, []);
 
   useEffect(() => {
     setCurrentPage(1);
   }, [searchTerm, pageSize]);
 
-  const fetchPackages = async () => {
-  try {
-    const res = await api.get("/api/packages");
-    setPackages(res.data.data || []);
-  } catch (error) {
-    console.error("Error loading packages:", error);
-  }
-};
+    const fetchPackages = async () => {
+    try {
+      const res = await api.get("/api/packages");
+      setPackages(res.data.data || []);
+    } catch (error) {
+      console.error("Error loading packages:", error);
+    }
+  };
+
+  const fetchCustomerPurchases = async () => {
+    try {
+      const res = await api.get(
+        "/api/customer-purchases?limit=100"
+      );
+
+      setCustomerPurchases(res.data.data || []);
+    } catch (error) {
+      console.error(
+        "Error loading customer purchases:",
+        error
+      );
+    }
+  };
 
   const handleAccountChange = (invoiceNumber, accountNumber) => {
     setSelectedAccountByInvoice((prev) => ({
@@ -187,8 +214,13 @@ const saveInvoiceCharges = async (invoiceNumber) => {
         receivingAccountNumber,
       });
 
-      alert(res.data.message);
-      await fetchInvoices();
+            alert(res.data.message);
+
+      await Promise.all([
+        fetchInvoices(),
+        fetchPackages(),
+        fetchCustomerPurchases(),
+      ]);
     } catch (error) {
       console.error("Error marking invoice paid:", error);
       alert(error?.response?.data?.message || "Could not mark invoice as paid.");
@@ -211,19 +243,106 @@ const customerOptions = useMemo(() => {
     map[pkg.customerEkonId] = pkg.customerName;
   });
 
-  return Object.entries(map).map(([ekonId, name]) => ({
-    ekonId,
-    name,
-  }));
-}, [readyUninvoicedPackages]);
+  readyCustomerPurchases.forEach((purchase) => {
+    map[purchase.customerEkonId] =
+      purchase.customerName;
+  });
+
+  return Object.entries(map).map(
+    ([ekonId, name]) => ({
+      ekonId,
+      name,
+    })
+  );
+}, [readyUninvoicedPackages, readyCustomerPurchases]);
 
 const customerReadyPackages = useMemo(() => {
   if (!selectedCustomerEkonId) return [];
 
   return readyUninvoicedPackages.filter(
-    (pkg) => pkg.customerEkonId === selectedCustomerEkonId
+    (pkg) =>
+      pkg.customerEkonId === selectedCustomerEkonId
   );
 }, [readyUninvoicedPackages, selectedCustomerEkonId]);
+
+const readyCustomerPurchases = useMemo(() => {
+  return customerPurchases.filter(
+    (purchase) =>
+      purchase.status === "Ready to Invoice" &&
+      purchase.recoveryStatus === "Not Invoiced" &&
+      !purchase.invoiceNumber
+  );
+}, [customerPurchases]);
+
+const customerReadyPurchases = useMemo(() => {
+  if (!selectedCustomerEkonId) return [];
+
+  return readyCustomerPurchases.filter(
+    (purchase) =>
+      purchase.customerEkonId === selectedCustomerEkonId
+  );
+}, [readyCustomerPurchases, selectedCustomerEkonId]);
+
+const selectedCustomerPurchases = useMemo(() => {
+  return customerReadyPurchases.filter((purchase) =>
+    selectedCustomerPurchaseNumbers.includes(
+      purchase.purchaseNumber
+    )
+  );
+}, [
+  customerReadyPurchases,
+  selectedCustomerPurchaseNumbers,
+]);
+
+const selectedPurchaseSummary = useMemo(() => {
+  return selectedCustomerPurchases.reduce(
+    (summary, purchase) => {
+      summary.itemRecovery += Number(
+        purchase.itemRecoveryAmount || 0
+      );
+
+      summary.shoppingFee += Number(
+        purchase.shoppingAssistanceFee || 0
+      );
+
+      summary.weightCharge += Number(
+        purchase.weightCharge || 0
+      );
+
+      summary.shippingCharge += Number(
+        purchase.shippingCharge || 0
+      );
+
+      summary.customsDuty += Number(
+        purchase.customsDuty || 0
+      );
+
+      summary.deliveryFee += Number(
+        purchase.deliveryFee || 0
+      );
+
+      summary.otherCharges += Number(
+        purchase.otherCharges || 0
+      );
+
+      summary.total += Number(
+        purchase.totalCustomerCharge || 0
+      );
+
+      return summary;
+    },
+    {
+      itemRecovery: 0,
+      shoppingFee: 0,
+      weightCharge: 0,
+      shippingCharge: 0,
+      customsDuty: 0,
+      deliveryFee: 0,
+      otherCharges: 0,
+      total: 0,
+    }
+  );
+}, [selectedCustomerPurchases]);
 
 const togglePackageSelection = (packageId) => {
   setSelectedPackageIds((prev) =>
@@ -233,35 +352,93 @@ const togglePackageSelection = (packageId) => {
   );
 };
 
+const toggleCustomerPurchaseSelection = (
+  purchaseNumber
+) => {
+  setSelectedCustomerPurchaseNumbers((prev) =>
+    prev.includes(purchaseNumber)
+      ? prev.filter(
+          (number) => number !== purchaseNumber
+        )
+      : [...prev, purchaseNumber]
+  );
+};
+
 const generateSelectedInvoice = async () => {
   if (!selectedCustomerEkonId) {
     alert("Please select a customer.");
     return;
   }
 
-  if (selectedPackageIds.length === 0) {
-    alert("Please select at least one ready package.");
+  if (
+    selectedPackageIds.length === 0 &&
+    selectedCustomerPurchaseNumbers.length === 0
+  ) {
+    alert(
+      "Select at least one ready package or customer purchase."
+    );
     return;
   }
 
   try {
-    const res = await api.post("/api/invoices/generate-multiple", {
-      customerEkonId: selectedCustomerEkonId,
-      packageIds: selectedPackageIds,
-      pointsToRedeem: Number(pointsToRedeem || 0),
-    });
+    setGeneratingInvoice(true);
 
-    alert(res.data.message || "Invoice generated successfully.");
+    let response;
+
+    if (
+      selectedCustomerPurchaseNumbers.length > 0
+    ) {
+      response = await api.post(
+        "/api/invoices/generate-customer-purchases",
+        {
+          customerEkonId:
+            selectedCustomerEkonId,
+          customerPurchaseNumbers:
+            selectedCustomerPurchaseNumbers,
+        }
+      );
+    } else {
+      response = await api.post(
+        "/api/invoices/generate-multiple",
+        {
+          customerEkonId:
+            selectedCustomerEkonId,
+          packageIds: selectedPackageIds,
+          pointsToRedeem: Number(
+            pointsToRedeem || 0
+          ),
+        }
+      );
+    }
+
+    alert(
+      response.data.message ||
+        "Invoice generated successfully."
+    );
 
     setSelectedCustomerEkonId("");
     setSelectedPackageIds([]);
+    setSelectedCustomerPurchaseNumbers([]);
     setPointsToRedeem("");
 
-    await fetchInvoices();
-    await fetchPackages();
+    await Promise.all([
+      fetchInvoices(),
+      fetchPackages(),
+      fetchCustomerPurchases(),
+    ]);
   } catch (error) {
-    console.error("Error generating selected invoice:", error);
-    alert(error?.response?.data?.message || "Could not generate invoice.");
+    console.error(
+      "Error generating selected invoice:",
+      error
+    );
+
+    alert(
+      error?.response?.data?.message ||
+        error?.response?.data?.error ||
+        "Could not generate invoice."
+    );
+  } finally {
+    setGeneratingInvoice(false);
   }
 };
 
@@ -414,16 +591,58 @@ const generateSelectedInvoice = async () => {
       const rightX = 140;
       const rowHeight = 9;
 
-      const chargeRows = [
-  ["Shipping / Freight Subtotal", formatCurrency(inv.subtotal)],
-  ["Customs Duty", formatCurrency(inv.customsDuty)],
-  ["GCT", formatCurrency(inv.gct)],
-  ["Processing Fee", formatCurrency(inv.processingFee)],
-  ["Delivery Fee", formatCurrency(inv.deliveryFee)],
-  ["Other Adjustment", formatCurrency(inv.otherAdjustment)],
-  ["EK Points Redeemed", `- ${formatCurrency(inv.pointsRedeemed)}`],
-  ["Final Total", formatCurrency(inv.finalTotal)],
-];
+            const chargeRows = [
+        [
+          "Customer Purchase Recovery",
+          formatCurrency(
+            inv.customerPurchaseRecoveryAmount
+          ),
+        ],
+        [
+          "Shopping Assistance Fee",
+          formatCurrency(
+            inv.shoppingAssistanceFee
+          ),
+        ],
+        [
+          "Weight Charge",
+          formatCurrency(
+            inv.customerPurchaseWeightCharge
+          ),
+        ],
+        [
+          "Additional Shipping Charge",
+          formatCurrency(
+            inv.customerPurchaseShippingCharge
+          ),
+        ],
+        [
+          "Shipping / Freight Subtotal",
+          formatCurrency(inv.subtotal),
+        ],
+        [
+          "Customs Duty",
+          formatCurrency(inv.customsDuty),
+        ],
+        ["GCT", formatCurrency(inv.gct)],
+        [
+          "Processing Fee",
+          formatCurrency(inv.processingFee),
+        ],
+        [
+          "Delivery Fee",
+          formatCurrency(inv.deliveryFee),
+        ],
+        [
+          "Other Adjustment",
+          formatCurrency(inv.otherAdjustment),
+        ],
+        [
+          "EK Points Redeemed",
+          `- ${formatCurrency(inv.pointsRedeemed)}`,
+        ],
+        ["Final Total", formatCurrency(inv.finalTotal)],
+      ];
 
       chargeRows.forEach((row, index) => {
         if (index === chargeRows.length - 1) {
@@ -704,9 +923,10 @@ const generateSelectedInvoice = async () => {
   <div style={{ display: "grid", gap: "12px" }}>
     <select
       value={selectedCustomerEkonId}
-      onChange={(e) => {
+            onChange={(e) => {
         setSelectedCustomerEkonId(e.target.value);
         setSelectedPackageIds([]);
+        setSelectedCustomerPurchaseNumbers([]);
       }}
       style={{
         padding: "12px",
@@ -722,48 +942,284 @@ const generateSelectedInvoice = async () => {
       ))}
     </select>
 
-    {selectedCustomerEkonId && (
-      <div
-        style={{
-          border: `1px solid ${BORDER}`,
-          borderRadius: "10px",
-          overflow: "hidden",
-        }}
-      >
-        {customerReadyPackages.length > 0 ? (
-          customerReadyPackages.map((pkg) => (
-            <label
-              key={pkg._id}
+        {selectedCustomerEkonId && (
+      <>
+        <div
+          style={{
+            border: `1px solid ${BORDER}`,
+            borderRadius: "10px",
+            overflow: "hidden",
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: "#eef4ff",
+              padding: "12px",
+              color: ROYAL_BLUE,
+              fontWeight: "bold",
+            }}
+          >
+            Ready Packages
+          </div>
+
+          {customerReadyPackages.length > 0 ? (
+            customerReadyPackages.map((pkg) => (
+              <label
+                key={pkg._id}
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "40px 1fr",
+                  gap: "10px",
+                  padding: "12px",
+                  borderBottom: `1px solid ${BORDER}`,
+                  cursor: "pointer",
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={selectedPackageIds.includes(
+                    pkg._id
+                  )}
+                  onChange={() =>
+                    togglePackageSelection(pkg._id)
+                  }
+                  disabled={
+                    selectedCustomerPurchaseNumbers.length >
+                    0
+                  }
+                />
+
+                <div>
+                  <strong>{pkg.trackingNumber}</strong>
+
+                  <div
+                    style={{
+                      color: MUTED,
+                      fontSize: "14px",
+                    }}
+                  >
+                    Weight: {pkg.weight || 0} lb |
+                    Status: {pkg.status} | Invoice:{" "}
+                    {pkg.invoiceStatus || "Pending"}
+                  </div>
+
+                  {pkg.customerPurchaseNumber && (
+                    <div
+                      style={{
+                        color: "#7c3aed",
+                        fontSize: "13px",
+                        fontWeight: "bold",
+                        marginTop: "4px",
+                      }}
+                    >
+                      Linked Purchase:{" "}
+                      {pkg.customerPurchaseNumber}
+                    </div>
+                  )}
+                </div>
+              </label>
+            ))
+          ) : (
+            <div
               style={{
-                display: "grid",
-                gridTemplateColumns: "40px 1fr",
-                gap: "10px",
-                padding: "12px",
-                borderBottom: `1px solid ${BORDER}`,
-                cursor: "pointer",
+                padding: "14px",
+                color: MUTED,
               }}
             >
-              <input
-                type="checkbox"
-                checked={selectedPackageIds.includes(pkg._id)}
-                onChange={() => togglePackageSelection(pkg._id)}
-              />
+              No ready uninvoiced packages found for
+              this customer.
+            </div>
+          )}
+        </div>
 
-              <div>
-                <strong>{pkg.trackingNumber}</strong>
-                <div style={{ color: MUTED, fontSize: "14px" }}>
-                  Weight: {pkg.weight || 0} lb | Status: {pkg.status} | Invoice:{" "}
-                  {pkg.invoiceStatus || "Pending"}
+        <div
+          style={{
+            border: `1px solid ${BORDER}`,
+            borderRadius: "10px",
+            overflow: "hidden",
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: "#fff7ed",
+              padding: "12px",
+              color: "#c2410c",
+              fontWeight: "bold",
+            }}
+          >
+            Ready Customer Purchases
+          </div>
+
+          {customerReadyPurchases.length > 0 ? (
+            customerReadyPurchases.map(
+              (purchase) => (
+                <label
+                  key={purchase.purchaseNumber}
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns:
+                      "40px 1fr",
+                    gap: "10px",
+                    padding: "12px",
+                    borderBottom: `1px solid ${BORDER}`,
+                    cursor: "pointer",
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={selectedCustomerPurchaseNumbers.includes(
+                      purchase.purchaseNumber
+                    )}
+                    onChange={() =>
+                      toggleCustomerPurchaseSelection(
+                        purchase.purchaseNumber
+                      )
+                    }
+                    disabled={
+                      selectedPackageIds.length > 0
+                    }
+                  />
+
+                  <div>
+                    <strong>
+                      {purchase.purchaseNumber}
+                    </strong>
+
+                    <div
+                      style={{
+                        marginTop: "4px",
+                        color: "#334155",
+                      }}
+                    >
+                      {purchase.merchant}
+                      {purchase.orderNumber
+                        ? ` — ${purchase.orderNumber}`
+                        : ""}
+                    </div>
+
+                    <div
+                      style={{
+                        marginTop: "4px",
+                        color: MUTED,
+                        fontSize: "14px",
+                      }}
+                    >
+                      Tracking:{" "}
+                      {purchase.trackingNumber || "—"} |
+                      Weight:{" "}
+                      {purchase.weight || 0} lb
+                    </div>
+
+                    <div
+                      style={{
+                        marginTop: "5px",
+                        color: "#c2410c",
+                        fontWeight: "bold",
+                      }}
+                    >
+                      Recovery Total:{" "}
+                      {formatCurrency(
+                        purchase.totalCustomerCharge
+                      )}
+                    </div>
+                  </div>
+                </label>
+              )
+            )
+          ) : (
+            <div
+              style={{
+                padding: "14px",
+                color: MUTED,
+              }}
+            >
+              No Customer Purchases are currently
+              ready to invoice for this customer.
+            </div>
+          )}
+        </div>
+
+        {selectedCustomerPurchases.length > 0 && (
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns:
+                "repeat(auto-fit, minmax(180px, 1fr))",
+              gap: "10px",
+              padding: "14px",
+              borderRadius: "10px",
+              border: `1px solid ${BORDER}`,
+              backgroundColor: "#f8fafc",
+            }}
+          >
+            {[
+              [
+                "Item Recovery",
+                selectedPurchaseSummary.itemRecovery,
+              ],
+              [
+                "Shopping Fee",
+                selectedPurchaseSummary.shoppingFee,
+              ],
+              [
+                "Weight Charge",
+                selectedPurchaseSummary.weightCharge,
+              ],
+              [
+                "Shipping Charge",
+                selectedPurchaseSummary.shippingCharge,
+              ],
+              [
+                "Customs",
+                selectedPurchaseSummary.customsDuty,
+              ],
+              [
+                "Delivery",
+                selectedPurchaseSummary.deliveryFee,
+              ],
+              [
+                "Other Charges",
+                selectedPurchaseSummary.otherCharges,
+              ],
+              [
+                "Invoice Total",
+                selectedPurchaseSummary.total,
+              ],
+            ].map(([label, amount]) => (
+              <div
+                key={label}
+                style={{
+                  border: `1px solid ${BORDER}`,
+                  borderRadius: "8px",
+                  padding: "10px",
+                  backgroundColor: WHITE,
+                }}
+              >
+                <div
+                  style={{
+                    color: MUTED,
+                    fontSize: "12px",
+                    marginBottom: "5px",
+                  }}
+                >
+                  {label}
                 </div>
+
+                <strong
+                  style={{
+                    color:
+                      label === "Invoice Total"
+                        ? "#c2410c"
+                        : ROYAL_BLUE,
+                  }}
+                >
+                  {formatCurrency(amount)}
+                </strong>
               </div>
-            </label>
-          ))
-        ) : (
-          <div style={{ padding: "14px", color: MUTED }}>
-            No ready uninvoiced packages found for this customer.
+            ))}
           </div>
         )}
-      </div>
+      </>
     )}
 
     <input
@@ -778,19 +1234,28 @@ const generateSelectedInvoice = async () => {
       }}
     />
 
-    <button
+        <button
       onClick={generateSelectedInvoice}
+      disabled={generatingInvoice}
       style={{
-        backgroundColor: ROYAL_BLUE,
+        backgroundColor: generatingInvoice
+          ? "#94a3b8"
+          : ROYAL_BLUE,
         color: WHITE,
         border: "none",
         padding: "12px 16px",
         borderRadius: "8px",
-        cursor: "pointer",
+        cursor: generatingInvoice
+          ? "not-allowed"
+          : "pointer",
         fontWeight: "bold",
       }}
     >
-      Generate Invoice for Selected Packages
+      {generatingInvoice
+        ? "Generating Invoice..."
+        : selectedCustomerPurchaseNumbers.length > 0
+        ? "Generate Customer Purchase Recovery Invoice"
+        : "Generate Invoice for Selected Packages"}
     </button>
   </div>
 </div>
@@ -864,6 +1329,10 @@ const generateSelectedInvoice = async () => {
                 <th>Customer EKON ID</th>
                 <th>Customer</th>
                 <th>Package Count</th>
+                <th>Invoice Source</th>
+                <th>Purchase Count</th>
+                <th>Item Recovery</th>
+                <th>Shopping Fee</th>
                 <th>Subtotal</th>
                 <th>Customs Duty</th>
                 <th>GCT</th>
@@ -901,7 +1370,28 @@ const generateSelectedInvoice = async () => {
                     </td>
                     <td>{inv.customerEkonId}</td>
                     <td>{inv.customerName}</td>
-                    <td>{inv.packageCount}</td>
+                                        <td>{inv.packageCount}</td>
+
+                    <td>
+                      {inv.invoiceSource || "Packages"}
+                    </td>
+
+                    <td>
+                      {inv.customerPurchaseCount || 0}
+                    </td>
+
+                    <td>
+                      {formatCurrency(
+                        inv.customerPurchaseRecoveryAmount
+                      )}
+                    </td>
+
+                    <td>
+                      {formatCurrency(
+                        inv.shoppingAssistanceFee
+                      )}
+                    </td>
+
                     <td>{formatCurrency(inv.subtotal)}</td>
                     <td>{formatCurrency(inv.customsDuty)}</td>
                     <td>{formatCurrency(inv.gct)}</td>

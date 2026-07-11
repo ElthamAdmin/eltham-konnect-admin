@@ -577,6 +577,62 @@ function CustomerPurchases() {
     }
   };
 
+    const generateRecoveryInvoice = async (
+    purchase
+  ) => {
+    if (
+      purchase.status !== "Ready to Invoice" ||
+      purchase.recoveryStatus !== "Not Invoiced"
+    ) {
+      alert(
+        "Prepare the recovery charges before generating the invoice."
+      );
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Generate a recovery invoice for ${purchase.purchaseNumber}?\n\nTotal: ${formatMoney(
+        purchase.totalCustomerCharge
+      )}`
+    );
+
+    if (!confirmed) return;
+
+    try {
+      const response = await api.post(
+        "/api/invoices/generate-customer-purchases",
+        {
+          customerEkonId:
+            purchase.customerEkonId,
+          customerPurchaseNumbers: [
+            purchase.purchaseNumber,
+          ],
+        }
+      );
+
+      alert(
+        response.data.message ||
+          "Recovery invoice generated successfully."
+      );
+
+      await Promise.all([
+        refreshPage(),
+        loadReferenceData(),
+      ]);
+    } catch (error) {
+      console.error(
+        "Recovery invoice generation error:",
+        error
+      );
+
+      alert(
+        error?.response?.data?.message ||
+          error?.response?.data?.error ||
+          "Could not generate the recovery invoice."
+      );
+    }
+  };
+
   const applyFilters = async () => {
     setPagination((previous) => ({
       ...previous,
@@ -1520,17 +1576,42 @@ function CustomerPurchases() {
                         </button>
                       )}
 
-                      {!purchase.invoiceNumber &&
+                                            {!purchase.invoiceNumber &&
                         ![
                           "Cancelled",
                           "Refunded",
                           "Reversed",
-                        ].includes(purchase.status) && (
+                        ].includes(purchase.status) &&
+                        purchase.status !==
+                          "Ready to Invoice" && (
                           <button
-                            onClick={() => prepareRecovery(purchase)}
-                            style={buttonStyle("#ea580c")}
+                            onClick={() =>
+                              prepareRecovery(purchase)
+                            }
+                            style={buttonStyle(
+                              "#ea580c"
+                            )}
                           >
                             Prepare Recovery
+                          </button>
+                        )}
+
+                      {!purchase.invoiceNumber &&
+                        purchase.status ===
+                          "Ready to Invoice" &&
+                        purchase.recoveryStatus ===
+                          "Not Invoiced" && (
+                          <button
+                            onClick={() =>
+                              generateRecoveryInvoice(
+                                purchase
+                              )
+                            }
+                            style={buttonStyle(
+                              "#16a34a"
+                            )}
+                          >
+                            Generate Invoice
                           </button>
                         )}
 
@@ -1704,6 +1785,22 @@ function CustomerPurchases() {
                 [
                   "Outstanding",
                   formatMoney(selectedPurchase.outstandingAmount),
+                ],
+                                [
+                  "Invoice Ready",
+                  selectedPurchase.invoiceReady
+                    ? "Yes"
+                    : "No",
+                ],
+                [
+                  "Invoice Number",
+                  selectedPurchase.invoiceNumber ||
+                    "—",
+                ],
+                [
+                  "Invoice Journal Entry",
+                  selectedPurchase.invoiceJournalEntryNumber ||
+                    "—",
                 ],
                 [
                   "Journal Entry",

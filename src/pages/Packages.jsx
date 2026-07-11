@@ -966,8 +966,13 @@ const clearWeightAnalysisFilter = async () => {
                   onChange={toggleSelectAllVisible}
                 />
               </th>
-              <th>Tracking</th>
-              <th style={{ width: "180px" }}>Added Date/Time</th>
+                            <th>Tracking</th>
+              <th style={{ width: "150px" }}>
+                Linked Purchase
+              </th>
+              <th style={{ width: "180px" }}>
+                Added Date/Time
+              </th>
               <th style={{ width: "160px" }}>Added By</th>
               <th>Customer</th>
               <th>EKON</th>
@@ -1007,11 +1012,51 @@ const clearWeightAnalysisFilter = async () => {
                         onChange={() => togglePackageSelection(pkg.trackingNumber)}
                       />
                     </td>
-                    <td style={{ wordBreak: "break-word", maxWidth: "220px" }}>
+                    <td
+  style={{
+    wordBreak: "break-word",
+    maxWidth: "220px",
+  }}
+>
   {pkg.trackingNumber}
 </td>
 
-<td>{formatDateTime(pkg.createdAt || pkg.dateReceived) || "-"}</td>
+<td>
+  {pkg.customerPurchaseNumber ? (
+    <div>
+      <div
+        style={{
+          color: "#7c3aed",
+          fontWeight: "bold",
+        }}
+      >
+        {pkg.customerPurchaseNumber}
+      </div>
+
+      <div
+        style={{
+          color: MUTED,
+          fontSize: "12px",
+          marginTop: "3px",
+        }}
+      >
+        {pkg.customerPurchaseLinked
+          ? "Linked"
+          : "Reference only"}
+      </div>
+    </div>
+  ) : (
+    <span style={{ color: "#94a3b8" }}>
+      Not linked
+    </span>
+  )}
+</td>
+
+<td>
+  {formatDateTime(
+    pkg.createdAt || pkg.dateReceived
+  ) || "-"}
+</td>
 
 <td>
   <div style={{ fontWeight: "bold", color: "#1e293b" }}>
@@ -1157,15 +1202,24 @@ const clearWeightAnalysisFilter = async () => {
                           </button>
                         )}
 
-                        <button
-                          onClick={() => generateInvoice(pkg.customerEkonId)}
+                                                <button
+                          onClick={() =>
+                            generateInvoice(
+                              pkg.customerEkonId
+                            )
+                          }
                           style={{
                             ...actionButtonStyle,
-                            backgroundColor: ROYAL_BLUE,
+                            backgroundColor:
+                              pkg.customerPurchaseNumber
+                                ? "#7c3aed"
+                                : ROYAL_BLUE,
                             color: WHITE,
                           }}
                         >
-                          Generate Invoice
+                          {pkg.customerPurchaseNumber
+                            ? "Open Combined Invoice Flow"
+                            : "Generate Freight Invoice"}
                         </button>
 
                         <button
