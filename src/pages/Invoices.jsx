@@ -227,122 +227,134 @@ const saveInvoiceCharges = async (invoiceNumber) => {
     }
   };
 
-  const readyUninvoicedPackages = useMemo(() => {
-  return packages.filter(
-    (pkg) =>
-      pkg.readyForPickup === true &&
-      pkg.invoiceStatus !== "Issued" &&
-      pkg.invoiceStatus !== "Paid"
-  );
-}, [packages]);
+    const readyUninvoicedPackages = useMemo(() => {
+    return packages.filter(
+      (pkg) =>
+        pkg.readyForPickup === true &&
+        pkg.invoiceStatus !== "Issued" &&
+        pkg.invoiceStatus !== "Paid"
+    );
+  }, [packages]);
 
-const customerOptions = useMemo(() => {
-  const map = {};
+  const readyCustomerPurchases = useMemo(() => {
+    return customerPurchases.filter(
+      (purchase) =>
+        purchase.status === "Ready to Invoice" &&
+        purchase.recoveryStatus === "Not Invoiced" &&
+        !purchase.invoiceNumber
+    );
+  }, [customerPurchases]);
 
-  readyUninvoicedPackages.forEach((pkg) => {
-    map[pkg.customerEkonId] = pkg.customerName;
-  });
+  const customerOptions = useMemo(() => {
+    const map = {};
 
-  readyCustomerPurchases.forEach((purchase) => {
-    map[purchase.customerEkonId] =
-      purchase.customerName;
-  });
+    readyUninvoicedPackages.forEach((pkg) => {
+      map[pkg.customerEkonId] = pkg.customerName;
+    });
 
-  return Object.entries(map).map(
-    ([ekonId, name]) => ({
-      ekonId,
-      name,
-    })
-  );
-}, [readyUninvoicedPackages, readyCustomerPurchases]);
+    readyCustomerPurchases.forEach((purchase) => {
+      map[purchase.customerEkonId] =
+        purchase.customerName;
+    });
 
-const customerReadyPackages = useMemo(() => {
-  if (!selectedCustomerEkonId) return [];
+    return Object.entries(map).map(
+      ([ekonId, name]) => ({
+        ekonId,
+        name,
+      })
+    );
+  }, [
+    readyUninvoicedPackages,
+    readyCustomerPurchases,
+  ]);
 
-  return readyUninvoicedPackages.filter(
-    (pkg) =>
-      pkg.customerEkonId === selectedCustomerEkonId
-  );
-}, [readyUninvoicedPackages, selectedCustomerEkonId]);
+  const customerReadyPackages = useMemo(() => {
+    if (!selectedCustomerEkonId) return [];
 
-const readyCustomerPurchases = useMemo(() => {
-  return customerPurchases.filter(
-    (purchase) =>
-      purchase.status === "Ready to Invoice" &&
-      purchase.recoveryStatus === "Not Invoiced" &&
-      !purchase.invoiceNumber
-  );
-}, [customerPurchases]);
+    return readyUninvoicedPackages.filter(
+      (pkg) =>
+        pkg.customerEkonId ===
+        selectedCustomerEkonId
+    );
+  }, [
+    readyUninvoicedPackages,
+    selectedCustomerEkonId,
+  ]);
 
-const customerReadyPurchases = useMemo(() => {
-  if (!selectedCustomerEkonId) return [];
+  const customerReadyPurchases = useMemo(() => {
+    if (!selectedCustomerEkonId) return [];
 
-  return readyCustomerPurchases.filter(
-    (purchase) =>
-      purchase.customerEkonId === selectedCustomerEkonId
-  );
-}, [readyCustomerPurchases, selectedCustomerEkonId]);
+    return readyCustomerPurchases.filter(
+      (purchase) =>
+        purchase.customerEkonId ===
+        selectedCustomerEkonId
+    );
+  }, [
+    readyCustomerPurchases,
+    selectedCustomerEkonId,
+  ]);
 
-const selectedCustomerPurchases = useMemo(() => {
-  return customerReadyPurchases.filter((purchase) =>
-    selectedCustomerPurchaseNumbers.includes(
-      purchase.purchaseNumber
-    )
-  );
-}, [
-  customerReadyPurchases,
-  selectedCustomerPurchaseNumbers,
-]);
+  const selectedCustomerPurchases = useMemo(() => {
+    return customerReadyPurchases.filter(
+      (purchase) =>
+        selectedCustomerPurchaseNumbers.includes(
+          purchase.purchaseNumber
+        )
+    );
+  }, [
+    customerReadyPurchases,
+    selectedCustomerPurchaseNumbers,
+  ]);
 
-const selectedPurchaseSummary = useMemo(() => {
-  return selectedCustomerPurchases.reduce(
-    (summary, purchase) => {
-      summary.itemRecovery += Number(
-        purchase.itemRecoveryAmount || 0
-      );
+  const selectedPurchaseSummary = useMemo(() => {
+    return selectedCustomerPurchases.reduce(
+      (summary, purchase) => {
+        summary.itemRecovery += Number(
+          purchase.itemRecoveryAmount || 0
+        );
 
-      summary.shoppingFee += Number(
-        purchase.shoppingAssistanceFee || 0
-      );
+        summary.shoppingFee += Number(
+          purchase.shoppingAssistanceFee || 0
+        );
 
-      summary.weightCharge += Number(
-        purchase.weightCharge || 0
-      );
+        summary.weightCharge += Number(
+          purchase.weightCharge || 0
+        );
 
-      summary.shippingCharge += Number(
-        purchase.shippingCharge || 0
-      );
+        summary.shippingCharge += Number(
+          purchase.shippingCharge || 0
+        );
 
-      summary.customsDuty += Number(
-        purchase.customsDuty || 0
-      );
+        summary.customsDuty += Number(
+          purchase.customsDuty || 0
+        );
 
-      summary.deliveryFee += Number(
-        purchase.deliveryFee || 0
-      );
+        summary.deliveryFee += Number(
+          purchase.deliveryFee || 0
+        );
 
-      summary.otherCharges += Number(
-        purchase.otherCharges || 0
-      );
+        summary.otherCharges += Number(
+          purchase.otherCharges || 0
+        );
 
-      summary.total += Number(
-        purchase.totalCustomerCharge || 0
-      );
+        summary.total += Number(
+          purchase.totalCustomerCharge || 0
+        );
 
-      return summary;
-    },
-    {
-      itemRecovery: 0,
-      shoppingFee: 0,
-      weightCharge: 0,
-      shippingCharge: 0,
-      customsDuty: 0,
-      deliveryFee: 0,
-      otherCharges: 0,
-      total: 0,
-    }
-  );
-}, [selectedCustomerPurchases]);
+        return summary;
+      },
+      {
+        itemRecovery: 0,
+        shoppingFee: 0,
+        weightCharge: 0,
+        shippingCharge: 0,
+        customsDuty: 0,
+        deliveryFee: 0,
+        otherCharges: 0,
+        total: 0,
+      }
+    );
+  }, [selectedCustomerPurchases]);
 
 const togglePackageSelection = (packageId) => {
   setSelectedPackageIds((prev) =>
