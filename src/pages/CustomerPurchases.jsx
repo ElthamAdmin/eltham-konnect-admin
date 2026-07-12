@@ -440,7 +440,8 @@ function CustomerPurchases() {
           "Tracking information recorded successfully."
       );
 
-      closeTrackingModal();
+            setTrackingPurchase(null);
+      setTrackingForm(initialTrackingForm);
 
       await Promise.all([
         refreshPage(),
@@ -596,7 +597,24 @@ function CustomerPurchases() {
     }
   };
 
-  const prepareRecovery = async (purchase) => {
+    const prepareRecovery = async (purchase) => {
+    if (purchase.status !== "At Warehouse") {
+      alert(
+        "Recovery charges can only be prepared after the package reaches the warehouse."
+      );
+      return;
+    }
+
+    if (
+      Number(purchase.weight || 0) <= 0 ||
+      Number(purchase.chargeableWeight || 0) <= 0
+    ) {
+      alert(
+        "Warehouse weight must be recorded before preparing recovery charges."
+      );
+      return;
+    }
+
     const itemRecoveryAmount = prompt(
       "Recoverable item cost in JMD:",
       String(
@@ -678,69 +696,6 @@ function CustomerPurchases() {
       alert(
         error?.response?.data?.message ||
           "Could not prepare recovery charges."
-      );
-    }
-  };
-
-      if (purchase.status !== "At Warehouse") {
-      alert(
-        "Recovery charges can only be prepared after the package reaches the warehouse."
-      );
-      return;
-    }
-
-    if (
-      Number(purchase.weight || 0) <= 0 ||
-      Number(purchase.chargeableWeight || 0) <= 0
-    ) {
-      alert(
-        "Warehouse weight must be recorded before preparing recovery charges."
-      );
-      return;
-    }
-
-  const refundPurchase = async (purchase) => {
-    const refundAmount = prompt(
-      "Refund amount in JMD:",
-      String(
-        Number(purchase.baseCurrencyAmount || 0) -
-          Number(purchase.refundedAmount || 0)
-      )
-    );
-
-    if (refundAmount === null) return;
-
-    const notes = prompt(
-      "Refund notes:",
-      `Refund from ${purchase.merchant}`
-    );
-
-    if (notes === null) return;
-
-    const confirmed = window.confirm(
-      `Post a refund of ${formatMoney(refundAmount)} for ${purchase.purchaseNumber}?`
-    );
-
-    if (!confirmed) return;
-
-    try {
-      const response = await api.patch(
-        `/api/customer-purchases/${purchase.purchaseNumber}/refund`,
-        {
-          refundAmount: Number(refundAmount || 0),
-          refundDate: new Date().toISOString().slice(0, 10),
-          notes,
-        }
-      );
-
-      alert(response.data.message || "Refund posted successfully.");
-      await refreshPage();
-    } catch (error) {
-      console.error("Purchase refund error:", error);
-
-      alert(
-        error?.response?.data?.message ||
-          "Could not post the purchase refund."
       );
     }
   };
