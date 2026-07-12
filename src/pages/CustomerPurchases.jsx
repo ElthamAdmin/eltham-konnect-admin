@@ -30,6 +30,16 @@ const initialForm = {
   notes: "",
 };
 
+const initialTrackingForm = {
+  trackingNumber: "",
+  carrier: "",
+  shipmentDate: "",
+  shippingMethod: "Courier",
+  expectedWarehouse: "KP",
+  estimatedArrivalDate: "",
+  trackingNotes: "",
+};
+
 const formatMoney = (value, currency = "JMD") =>
   `${currency} ${Number(value || 0).toLocaleString(undefined, {
     minimumFractionDigits: 2,
@@ -71,7 +81,17 @@ function CustomerPurchases() {
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const [selectedPurchase, setSelectedPurchase] = useState(null);
+    const [selectedPurchase, setSelectedPurchase] = useState(null);
+
+  const [trackingPurchase, setTrackingPurchase] =
+    useState(null);
+
+  const [trackingForm, setTrackingForm] =
+    useState(initialTrackingForm);
+
+  const [savingTracking, setSavingTracking] =
+    useState(false);
+
   const [formData, setFormData] = useState(initialForm);
 
   const [filters, setFilters] = useState({
@@ -341,11 +361,123 @@ function CustomerPurchases() {
     }
   };
 
+    const openTrackingModal = (purchase) => {
+    setTrackingPurchase(purchase);
+
+    setTrackingForm({
+      trackingNumber:
+        purchase.trackingNumber || "",
+      carrier: purchase.carrier || "",
+      shipmentDate: purchase.shipmentDate
+        ? formatDate(purchase.shipmentDate)
+        : "",
+      shippingMethod:
+        purchase.shippingMethod || "Courier",
+      expectedWarehouse:
+        purchase.expectedWarehouse ||
+        purchase.warehouse ||
+        "KP",
+      estimatedArrivalDate:
+        purchase.estimatedArrivalDate
+          ? formatDate(
+              purchase.estimatedArrivalDate
+            )
+          : "",
+      trackingNotes:
+        purchase.trackingNotes || "",
+    });
+  };
+
+  const closeTrackingModal = () => {
+    if (savingTracking) return;
+
+    setTrackingPurchase(null);
+    setTrackingForm(initialTrackingForm);
+  };
+
+  const handleTrackingChange = (event) => {
+    const { name, value } = event.target;
+
+    setTrackingForm((previous) => ({
+      ...previous,
+      [name]: value,
+    }));
+  };
+
+  const saveTrackingInformation = async () => {
+    if (!trackingPurchase) return;
+
+    if (!trackingForm.trackingNumber.trim()) {
+      alert("Tracking number is required.");
+      return;
+    }
+
+    try {
+      setSavingTracking(true);
+
+      const response = await api.patch(
+        `/api/customer-purchases/${trackingPurchase.purchaseNumber}/tracking`,
+        {
+          trackingNumber:
+            trackingForm.trackingNumber.trim(),
+          carrier: trackingForm.carrier.trim(),
+          shipmentDate:
+            trackingForm.shipmentDate || null,
+          shippingMethod:
+            trackingForm.shippingMethod,
+          expectedWarehouse:
+            trackingForm.expectedWarehouse.trim(),
+          estimatedArrivalDate:
+            trackingForm.estimatedArrivalDate ||
+            null,
+          trackingNotes:
+            trackingForm.trackingNotes.trim(),
+        }
+      );
+
+      alert(
+        response.data.message ||
+          "Tracking information recorded successfully."
+      );
+
+      closeTrackingModal();
+
+      await Promise.all([
+        refreshPage(),
+        loadReferenceData(),
+      ]);
+    } catch (error) {
+      console.error(
+        "Customer purchase tracking error:",
+        error
+      );
+
+      alert(
+        error?.response?.data?.message ||
+          error?.response?.data?.error ||
+          "Could not record tracking information."
+      );
+    } finally {
+      setSavingTracking(false);
+    }
+  };
+
   const linkPackage = async (purchase) => {
-    const eligiblePackages = packages.filter(
+        const eligiblePackages = packages.filter(
       (pkg) =>
-        pkg.customerEkonId === purchase.customerEkonId &&
-        pkg.status !== "Deleted"
+        pkg.customerEkonId ===
+          purchase.customerEkonId &&
+        pkg.status !== "Deleted" &&
+        (
+          !purchase.trackingNumber ||
+          pkg.trackingNumber ===
+            purchase.trackingNumber
+        ) &&
+        (
+          !pkg.customerPurchaseNumber ||
+          pkg.customerPurchaseNumber ===
+            purchase.purchaseNumber
+        )
     );
 
     if (eligiblePackages.length === 0) {
@@ -396,17 +528,19 @@ function CustomerPurchases() {
     }
   };
 
-  const receivePurchase = async (purchase) => {
-    const trackingNumber = prompt(
-      "Tracking number:",
-      purchase.trackingNumber || ""
-    );
-
-    if (trackingNumber === null) return;
+    const receivePurchase = async (purchase) => {
+    if (!purchase.trackingNumber) {
+      alert(
+        "Record the tracking number before recording warehouse arrival."
+      );
+      return;
+    }
 
     const warehouse = prompt(
       "Warehouse or location:",
-      purchase.warehouse || "KP"
+      purchase.warehouse ||
+        purchase.expectedWarehouse ||
+        "KP"
     );
 
     if (warehouse === null) return;
@@ -418,14 +552,25 @@ function CustomerPurchases() {
 
     if (weight === null) return;
 
+    const numericWeight = Number(weight || 0);
+
+    if (numericWeight <= 0) {
+      alert(
+        "Actual warehouse weight must be greater than zero."
+      );
+      return;
+    }
+
     try {
       const response = await api.patch(
         `/api/customer-purchases/${purchase.purchaseNumber}/receive`,
         {
-          trackingNumber,
+          trackingNumber:
+            purchase.trackingNumber,
           warehouse,
-          weight: Number(weight || 0),
-          packageReceivedDate: new Date().toISOString(),
+          weight: numericWeight,
+          packageReceivedDate:
+            new Date().toISOString(),
         }
       );
 
@@ -434,9 +579,15 @@ function CustomerPurchases() {
           "Purchase arrival recorded successfully."
       );
 
-      await refreshPage();
+      await Promise.all([
+        refreshPage(),
+        loadReferenceData(),
+      ]);
     } catch (error) {
-      console.error("Purchase receipt error:", error);
+      console.error(
+        "Purchase receipt error:",
+        error
+      );
 
       alert(
         error?.response?.data?.message ||
@@ -530,6 +681,23 @@ function CustomerPurchases() {
       );
     }
   };
+
+      if (purchase.status !== "At Warehouse") {
+      alert(
+        "Recovery charges can only be prepared after the package reaches the warehouse."
+      );
+      return;
+    }
+
+    if (
+      Number(purchase.weight || 0) <= 0 ||
+      Number(purchase.chargeableWeight || 0) <= 0
+    ) {
+      alert(
+        "Warehouse weight must be recorded before preparing recovery charges."
+      );
+      return;
+    }
 
   const refundPurchase = async (purchase) => {
     const refundAmount = prompt(
@@ -678,18 +846,57 @@ function CustomerPurchases() {
     }
   };
 
-  const statusBadge = (status) => {
+    const statusBadge = (status) => {
     let backgroundColor = "#64748b";
 
-    if (status === "Purchased") backgroundColor = ROYAL_BLUE;
-    if (status === "Pending Purchase") backgroundColor = "#f59e0b";
-    if (status === "In Transit") backgroundColor = "#2563eb";
-    if (status === "At Warehouse") backgroundColor = "#7c3aed";
-    if (status === "Ready to Invoice") backgroundColor = "#ea580c";
-    if (status === "Invoiced") backgroundColor = "#0891b2";
-    if (status === "Recovered") backgroundColor = "#16a34a";
-    if (status === "Refunded") backgroundColor = "#475569";
-    if (status === "Cancelled" || status === "Reversed") {
+    if (status === "Pending Purchase") {
+      backgroundColor = "#f59e0b";
+    }
+
+    if (status === "Purchased") {
+      backgroundColor = ROYAL_BLUE;
+    }
+
+    if (status === "Tracking Received") {
+      backgroundColor = "#0f766e";
+    }
+
+    if (status === "In Transit") {
+      backgroundColor = "#2563eb";
+    }
+
+    if (status === "At Warehouse") {
+      backgroundColor = "#7c3aed";
+    }
+
+    if (status === "Recovery Calculated") {
+      backgroundColor = "#c2410c";
+    }
+
+    if (status === "Ready to Invoice") {
+      backgroundColor = "#ea580c";
+    }
+
+    if (status === "Invoiced") {
+      backgroundColor = "#0891b2";
+    }
+
+    if (status === "Partially Recovered") {
+      backgroundColor = "#d97706";
+    }
+
+    if (status === "Recovered") {
+      backgroundColor = "#16a34a";
+    }
+
+    if (status === "Refunded") {
+      backgroundColor = "#475569";
+    }
+
+    if (
+      status === "Cancelled" ||
+      status === "Reversed"
+    ) {
       backgroundColor = "#dc2626";
     }
 
@@ -824,10 +1031,28 @@ function CustomerPurchases() {
           "#f59e0b"
         )}
 
+                {metricCard(
+          "Tracking Received",
+          dashboard?.trackingReceived || 0,
+          "#0f766e"
+        )}
+
+        {metricCard(
+          "In Transit",
+          dashboard?.inTransit || 0,
+          "#2563eb"
+        )}
+
         {metricCard(
           "At Warehouse",
           dashboard?.atWarehouse || 0,
           "#7c3aed"
+        )}
+
+                {metricCard(
+          "Recovery Calculated",
+          dashboard?.recoveryCalculated || 0,
+          "#c2410c"
         )}
 
         {metricCard(
@@ -1170,10 +1395,28 @@ function CustomerPurchases() {
           >
             <option value="">All Purchase Statuses</option>
             <option value="Pending Purchase">Pending Purchase</option>
-            <option value="Purchased">Purchased</option>
-            <option value="In Transit">In Transit</option>
-            <option value="At Warehouse">At Warehouse</option>
-            <option value="Ready to Invoice">Ready to Invoice</option>
+                        <option value="Purchased">
+              Purchased
+            </option>
+
+            <option value="Tracking Received">
+              Tracking Received
+            </option>
+
+            <option value="In Transit">
+              In Transit
+            </option>
+                        <option value="At Warehouse">
+              At Warehouse
+            </option>
+
+            <option value="Recovery Calculated">
+              Recovery Calculated
+            </option>
+
+            <option value="Ready to Invoice">
+              Ready to Invoice
+            </option>
             <option value="Invoiced">Invoiced</option>
             <option value="Partially Recovered">
               Partially Recovered
@@ -1448,7 +1691,9 @@ function CustomerPurchases() {
               <th>Purchase Amount</th>
               <th>JMD Amount</th>
               <th>Payment Account</th>
+              <th>Carrier</th>
               <th>Tracking</th>
+              <th>Expected Warehouse</th>
               <th>Weight</th>
               <th>Total Customer Charge</th>
               <th>Outstanding</th>
@@ -1473,7 +1718,7 @@ function CustomerPurchases() {
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan="18" style={{ textAlign: "center" }}>
+                <td colSpan="20" style={{ textAlign: "center" }}>
                   Loading customer purchases...
                 </td>
               </tr>
@@ -1506,11 +1751,37 @@ function CustomerPurchases() {
                       {purchase.paymentAccountType}
                     </div>
                   </td>
-                  <td>{purchase.trackingNumber || "—"}</td>
+                                    <td>
+                    {purchase.carrier || "—"}
+                  </td>
+
+                  <td>
+                    {purchase.trackingNumber || "—"}
+                  </td>
+
+                  <td>
+                    {purchase.expectedWarehouse ||
+                      purchase.warehouse ||
+                      "—"}
+                  </td>
+
                   <td>
                     {purchase.weight
                       ? `${purchase.weight} lb`
                       : "—"}
+
+                    {purchase.chargeableWeight ? (
+                      <div
+                        style={{
+                          color: MUTED,
+                          fontSize: "12px",
+                          marginTop: "3px",
+                        }}
+                      >
+                        Billable:{" "}
+                        {purchase.chargeableWeight} lb
+                      </div>
+                    ) : null}
                   </td>
                   <td>{formatMoney(purchase.totalCustomerCharge)}</td>
                   <td
@@ -1553,37 +1824,69 @@ function CustomerPurchases() {
                         View
                       </button>
 
-                      {!purchase.trackingNumber && (
-                        <button
-                          onClick={() => linkPackage(purchase)}
-                          style={buttonStyle("#7c3aed")}
-                        >
-                          Link Package
-                        </button>
-                      )}
+                                            {!purchase.trackingNumber &&
+                        purchase.status ===
+                          "Purchased" && (
+                          <button
+                            onClick={() =>
+                              openTrackingModal(
+                                purchase
+                              )
+                            }
+                            style={buttonStyle(
+                              "#0f766e"
+                            )}
+                          >
+                            Record Tracking
+                          </button>
+                        )}
 
-                      {![
-                        "Cancelled",
-                        "Refunded",
-                        "Reversed",
-                        "Recovered",
-                      ].includes(purchase.status) && (
-                        <button
-                          onClick={() => receivePurchase(purchase)}
-                          style={buttonStyle("#0891b2")}
-                        >
-                          Record Arrival
-                        </button>
-                      )}
-
-                                            {!purchase.invoiceNumber &&
+                      {purchase.trackingNumber &&
+                        !purchase.packageId &&
                         ![
+                          "Invoiced",
+                          "Partially Recovered",
+                          "Recovered",
                           "Cancelled",
                           "Refunded",
                           "Reversed",
-                        ].includes(purchase.status) &&
-                        purchase.status !==
-                          "Ready to Invoice" && (
+                        ].includes(
+                          purchase.status
+                        ) && (
+                          <button
+                            onClick={() =>
+                              linkPackage(purchase)
+                            }
+                            style={buttonStyle(
+                              "#7c3aed"
+                            )}
+                          >
+                            Link Package
+                          </button>
+                        )}
+
+                      {purchase.trackingNumber &&
+                        [
+                          "Tracking Received",
+                          "In Transit",
+                        ].includes(
+                          purchase.status
+                        ) && (
+                          <button
+                            onClick={() =>
+                              receivePurchase(purchase)
+                            }
+                            style={buttonStyle(
+                              "#0891b2"
+                            )}
+                          >
+                            Record Arrival
+                          </button>
+                        )}
+
+                      {!purchase.invoiceNumber &&
+                        purchase.status ===
+                          "At Warehouse" && (
                           <button
                             onClick={() =>
                               prepareRecovery(purchase)
@@ -1599,6 +1902,7 @@ function CustomerPurchases() {
                       {!purchase.invoiceNumber &&
                         purchase.status ===
                           "Ready to Invoice" &&
+                        purchase.invoiceReady === true &&
                         purchase.recoveryStatus ===
                           "Not Invoiced" && (
                           <button
@@ -1635,7 +1939,7 @@ function CustomerPurchases() {
             ) : (
               <tr>
                 <td
-                  colSpan="18"
+                  colSpan="20"
                   style={{
                     textAlign: "center",
                     padding: "24px",
@@ -1649,6 +1953,318 @@ function CustomerPurchases() {
           </tbody>
         </table>
       </div>
+
+            {trackingPurchase && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            backgroundColor:
+              "rgba(15,23,42,0.72)",
+            zIndex: 10000,
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            padding: "20px",
+          }}
+        >
+          <div
+            style={{
+              width: "100%",
+              maxWidth: "700px",
+              maxHeight: "90vh",
+              overflowY: "auto",
+              backgroundColor: WHITE,
+              borderRadius: "16px",
+              padding: "24px",
+              border: `1px solid ${BORDER}`,
+              boxShadow:
+                "0 25px 60px rgba(0,0,0,0.28)",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                gap: "12px",
+                marginBottom: "20px",
+              }}
+            >
+              <div>
+                <h2
+                  style={{
+                    margin: 0,
+                    color: "#0f766e",
+                  }}
+                >
+                  Record Shipment Tracking
+                </h2>
+
+                <div
+                  style={{
+                    marginTop: "6px",
+                    color: MUTED,
+                  }}
+                >
+                  {trackingPurchase.purchaseNumber} —{" "}
+                  {trackingPurchase.customerName}
+                </div>
+              </div>
+
+              <button
+                onClick={closeTrackingModal}
+                disabled={savingTracking}
+                style={{
+                  ...buttonStyle("#64748b"),
+                  cursor: savingTracking
+                    ? "not-allowed"
+                    : "pointer",
+                }}
+              >
+                Close
+              </button>
+            </div>
+
+            <div
+              style={{
+                backgroundColor: "#f0fdfa",
+                border: "1px solid #99f6e4",
+                borderRadius: "10px",
+                padding: "12px",
+                marginBottom: "18px",
+                color: "#115e59",
+              }}
+            >
+              Record the tracking information received
+              from the merchant. Weight should only be
+              entered later when the package reaches the
+              warehouse.
+            </div>
+
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns:
+                  "repeat(auto-fit, minmax(230px, 1fr))",
+                gap: "14px",
+              }}
+            >
+              <div>
+                <label
+                  style={{
+                    display: "block",
+                    marginBottom: "6px",
+                    fontWeight: "bold",
+                  }}
+                >
+                  Tracking Number *
+                </label>
+
+                <input
+                  name="trackingNumber"
+                  value={
+                    trackingForm.trackingNumber
+                  }
+                  onChange={handleTrackingChange}
+                  placeholder="Enter tracking number"
+                  style={fieldStyle}
+                />
+              </div>
+
+              <div>
+                <label
+                  style={{
+                    display: "block",
+                    marginBottom: "6px",
+                    fontWeight: "bold",
+                  }}
+                >
+                  Carrier
+                </label>
+
+                <input
+                  name="carrier"
+                  value={trackingForm.carrier}
+                  onChange={handleTrackingChange}
+                  placeholder="UPS, FedEx, USPS, DHL..."
+                  style={fieldStyle}
+                />
+              </div>
+
+              <div>
+                <label
+                  style={{
+                    display: "block",
+                    marginBottom: "6px",
+                    fontWeight: "bold",
+                  }}
+                >
+                  Shipment Date
+                </label>
+
+                <input
+                  type="date"
+                  name="shipmentDate"
+                  value={
+                    trackingForm.shipmentDate
+                  }
+                  onChange={handleTrackingChange}
+                  style={fieldStyle}
+                />
+              </div>
+
+              <div>
+                <label
+                  style={{
+                    display: "block",
+                    marginBottom: "6px",
+                    fontWeight: "bold",
+                  }}
+                >
+                  Shipping Method
+                </label>
+
+                <select
+                  name="shippingMethod"
+                  value={
+                    trackingForm.shippingMethod
+                  }
+                  onChange={handleTrackingChange}
+                  style={fieldStyle}
+                >
+                  <option value="">
+                    Select method
+                  </option>
+                  <option value="Air">Air</option>
+                  <option value="Sea">Sea</option>
+                  <option value="Courier">
+                    Courier
+                  </option>
+                  <option value="Local Delivery">
+                    Local Delivery
+                  </option>
+                  <option value="Other">
+                    Other
+                  </option>
+                </select>
+              </div>
+
+              <div>
+                <label
+                  style={{
+                    display: "block",
+                    marginBottom: "6px",
+                    fontWeight: "bold",
+                  }}
+                >
+                  Expected Warehouse
+                </label>
+
+                <input
+                  name="expectedWarehouse"
+                  value={
+                    trackingForm.expectedWarehouse
+                  }
+                  onChange={handleTrackingChange}
+                  placeholder="KP"
+                  style={fieldStyle}
+                />
+              </div>
+
+              <div>
+                <label
+                  style={{
+                    display: "block",
+                    marginBottom: "6px",
+                    fontWeight: "bold",
+                  }}
+                >
+                  Estimated Arrival
+                </label>
+
+                <input
+                  type="date"
+                  name="estimatedArrivalDate"
+                  value={
+                    trackingForm.estimatedArrivalDate
+                  }
+                  onChange={handleTrackingChange}
+                  style={fieldStyle}
+                />
+              </div>
+
+              <div
+                style={{
+                  gridColumn: "1 / -1",
+                }}
+              >
+                <label
+                  style={{
+                    display: "block",
+                    marginBottom: "6px",
+                    fontWeight: "bold",
+                  }}
+                >
+                  Tracking Notes
+                </label>
+
+                <textarea
+                  name="trackingNotes"
+                  value={
+                    trackingForm.trackingNotes
+                  }
+                  onChange={handleTrackingChange}
+                  rows={4}
+                  placeholder="Shipment or carrier notes"
+                  style={{
+                    ...fieldStyle,
+                    resize: "vertical",
+                  }}
+                />
+              </div>
+            </div>
+
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "flex-end",
+                gap: "10px",
+                flexWrap: "wrap",
+                marginTop: "22px",
+              }}
+            >
+              <button
+                onClick={closeTrackingModal}
+                disabled={savingTracking}
+                style={buttonStyle("#64748b")}
+              >
+                Cancel
+              </button>
+
+              <button
+                onClick={
+                  saveTrackingInformation
+                }
+                disabled={savingTracking}
+                style={{
+                  ...buttonStyle("#0f766e"),
+                  opacity: savingTracking
+                    ? 0.7
+                    : 1,
+                  cursor: savingTracking
+                    ? "not-allowed"
+                    : "pointer",
+                }}
+              >
+                {savingTracking
+                  ? "Saving Tracking..."
+                  : "Save Tracking"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {selectedPurchase && (
         <div
@@ -1737,11 +2353,55 @@ function CustomerPurchases() {
                   "Payment Account",
                   selectedPurchase.paymentAccountName,
                 ],
+                                [
+                  "Carrier",
+                  selectedPurchase.carrier || "—",
+                ],
                 [
                   "Tracking Number",
-                  selectedPurchase.trackingNumber || "—",
+                  selectedPurchase.trackingNumber ||
+                    "—",
                 ],
-                ["Warehouse", selectedPurchase.warehouse || "—"],
+                [
+                  "Shipment Date",
+                  formatDate(
+                    selectedPurchase.shipmentDate
+                  ),
+                ],
+                [
+                  "Shipping Method",
+                  selectedPurchase.shippingMethod ||
+                    "—",
+                ],
+                [
+                  "Expected Warehouse",
+                  selectedPurchase.expectedWarehouse ||
+                    "—",
+                ],
+                [
+                  "Estimated Arrival",
+                  formatDate(
+                    selectedPurchase.estimatedArrivalDate
+                  ),
+                ],
+                [
+                  "Tracking Recorded By",
+                  selectedPurchase.trackingRecordedBy ||
+                    "—",
+                ],
+                [
+                  "Tracking Recorded At",
+                  selectedPurchase.trackingRecordedAt
+                    ? new Date(
+                        selectedPurchase.trackingRecordedAt
+                      ).toLocaleString()
+                    : "—",
+                ],
+                [
+                  "Warehouse",
+                  selectedPurchase.warehouse ||
+                    "—",
+                ],
                 [
                   "Weight",
                   selectedPurchase.weight
@@ -1887,6 +2547,33 @@ function CustomerPurchases() {
                       ))}
                     </tbody>
                   </table>
+                </div>
+              </div>
+            )}
+
+                        {selectedPurchase.trackingNotes && (
+              <div
+                style={{
+                  marginTop: "18px",
+                  border: `1px solid ${BORDER}`,
+                  borderRadius: "10px",
+                  padding: "14px",
+                  backgroundColor: "#f0fdfa",
+                }}
+              >
+                <strong
+                  style={{ color: "#0f766e" }}
+                >
+                  Tracking Notes
+                </strong>
+
+                <div
+                  style={{
+                    marginTop: "7px",
+                    whiteSpace: "pre-wrap",
+                  }}
+                >
+                  {selectedPurchase.trackingNotes}
                 </div>
               </div>
             )}
