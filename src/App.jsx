@@ -10,6 +10,7 @@ import Packages from "./pages/Packages";
 import Invoices from "./pages/Invoices";
 import PointsHistory from "./pages/PointsHistory";
 import Finance from "./pages/Finance";
+import Payroll from "./pages/Payroll";
 import SupportTickets from "./pages/SupportTickets";
 import Manifests from "./pages/Manifests";
 import POS from "./pages/POS";
@@ -82,12 +83,18 @@ useEffect(() => {
 
   const can = (key) => permissions.includes(key) || user?.role === "Admin";
 
-  const canAccessHR =
+    const canAccessHR =
     can("hr") ||
     can("hrSelfService") ||
     can("leaveSelfService") ||
     can("documentSelfService") ||
     can("payslipSelfService");
+
+  const canAccessPayroll =
+    can("payroll") ||
+    can("payrollManage") ||
+    can("payrollApprove") ||
+    can("finance");
 
   const initials = useMemo(() => {
     const name = user?.fullName || "";
@@ -131,6 +138,7 @@ const navItems = [
   { label: "Invoices", path: "/invoices", show: can("invoices") },
   { label: "PreAlerts", path: "/prealerts", show: can("packages") },
   { label: "Support", path: "/support-tickets", show: can("support") },
+  { label: "Payroll", path: "/payroll", show: canAccessPayroll },
   { label: "HR", path: "/hr", show: canAccessHR },
   { label: "Communication", path: "/communication", show: can("communication") },
   { label: "Team Hub", path: "/team-hub", show: can("communication") },
@@ -256,6 +264,7 @@ const subNavItemStyle = (active) => ({
       <Route path="/prealerts" element={can("packages") ? <PreAlerts /> : <Navigate to="/" replace />} />
       <Route path="/support-tickets" element={can("support") ? <SupportTickets /> : <Navigate to="/" replace />} />
       <Route path="/finance" element={can("finance") ? <Finance /> : <Navigate to="/" replace />} />
+      <Route path="/payroll" element={canAccessPayroll ? <Payroll /> : <Navigate to="/" replace />} />
       <Route path="/chart-of-accounts" element={can("finance") ? <ChartOfAccounts /> : <Navigate to="/" replace />} />
       <Route path="/journal-entries" element={can("finance") ? <JournalEntries /> : <Navigate to="/" replace />} />
       <Route path="/general-ledger" element={can("finance") ? <GeneralLedger /> : <Navigate to="/" replace />} />
