@@ -67,8 +67,29 @@ function Payroll() {
   const [attendance, setAttendance] = useState(EMPTY_ATTENDANCE);
   const [attendanceLoading, setAttendanceLoading] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+    const [saving, setSaving] = useState(false);
+  const [previewLoading, setPreviewLoading] = useState(false);
   const [error, setError] = useState("");
+
+  const [preview, setPreview] = useState({
+    nisEmployee: 0,
+    nhtEmployee: 0,
+    educationTax: 0,
+    incomeTax: 0,
+    pensionEmployee: 0,
+    totalDeductions: 0,
+    netPayBeforeAdvance: 0,
+    advanceRecovery: 0,
+    netPay: 0,
+    nisEmployer: 0,
+    nhtEmployer: 0,
+    educationTaxEmployer: 0,
+    heartEmployer: 0,
+    totalEmployerContributions: 0,
+    totalPayrollCost: 0,
+    statutoryRuleCode: "",
+    advanceRecoveries: [],
+  });
   const [pagination, setPagination] = useState({
     page: 1,
     limit: 10,
@@ -76,67 +97,71 @@ function Payroll() {
     total: 0,
   });
 
-  // Temporary Phase 1A preview values. Phase 1B moves all effective-dated
-  // Jamaican statutory rules to the backend.
-  const preview = useMemo(() => {
-    const gross = roundMoney(form.grossPay);
-    const pension = roundMoney(form.pensionEmployee);
+    useEffect(() => {
+    const grossPay = Number(form.grossPay || 0);
 
-    if (gross <= 0) {
-      return {
+    if (!form.employeeId || !form.payPeriod || grossPay <= 0) {
+      setPreview({
         nisEmployee: 0,
         nhtEmployee: 0,
         educationTax: 0,
         incomeTax: 0,
         pensionEmployee: 0,
         totalDeductions: 0,
+        netPayBeforeAdvance: 0,
+        advanceRecovery: 0,
         netPay: 0,
-      };
+        nisEmployer: 0,
+        nhtEmployer: 0,
+        educationTaxEmployer: 0,
+        heartEmployer: 0,
+        totalEmployerContributions: 0,
+        totalPayrollCost: 0,
+        statutoryRuleCode: "",
+        advanceRecoveries: [],
+      });
+
+      return;
     }
 
-    if (!form.autoCalculateStatutoryDeductions) {
-      const nisEmployee = roundMoney(form.nisEmployee);
-      const nhtEmployee = roundMoney(form.nhtEmployee);
-      const educationTax = roundMoney(form.educationTax);
-      const incomeTax = roundMoney(form.incomeTax);
-      const totalDeductions = roundMoney(
-        nisEmployee + nhtEmployee + educationTax + incomeTax + pension
-      );
+    const timer = setTimeout(async () => {
+      try {
+        setPreviewLoading(true);
 
-      return {
-        nisEmployee,
-        nhtEmployee,
-        educationTax,
-        incomeTax,
-        pensionEmployee: pension,
-        totalDeductions,
-        netPay: roundMoney(gross - totalDeductions),
-      };
-    }
+        const res = await api.post("/api/payroll/preview", {
+          employeeId: form.employeeId,
+          grossPay,
+          pensionEmployee: Number(
+            form.pensionEmployee || 0
+          ),
+          payPeriod: form.payPeriod,
+          payFrequency: "Monthly",
+          applyEmployeeAdvances: true,
+        });
 
-    const nisMonthlyCeiling = 5000000 / 12;
-    const monthlyPayeThreshold = 2003496 / 12;
-    const nisEmployee = roundMoney(Math.min(gross, nisMonthlyCeiling) * 0.025);
-    const nhtEmployee = roundMoney(gross * 0.02);
-    const educationTax = roundMoney(gross * 0.0225);
-    const taxableIncome = Math.max(0, roundMoney(gross - pension));
-    const incomeTax = roundMoney(
-      Math.max(0, taxableIncome - monthlyPayeThreshold) * 0.25
-    );
-    const totalDeductions = roundMoney(
-      nisEmployee + nhtEmployee + educationTax + incomeTax + pension
-    );
+        setPreview(res.data?.data || {});
+      } catch (previewError) {
+        console.error(
+          "Could not calculate Payroll preview:",
+          previewError
+        );
 
-    return {
-      nisEmployee,
-      nhtEmployee,
-      educationTax,
-      incomeTax,
-      pensionEmployee: pension,
-      totalDeductions,
-      netPay: roundMoney(gross - totalDeductions),
-    };
-  }, [form]);
+        setError(
+          previewError?.response?.data?.message ||
+            "Could not calculate Payroll preview."
+        );
+      } finally {
+        setPreviewLoading(false);
+      }
+    }, 350);
+
+    return () => clearTimeout(timer);
+  }, [
+    form.employeeId,
+    form.grossPay,
+    form.pensionEmployee,
+    form.payPeriod,
+  ]);
 
   const totals = useMemo(
     () =>
@@ -267,25 +292,19 @@ function Payroll() {
       setSaving(true);
       setError("");
 
-      const payload = {
+            const payload = {
         employeeId: form.employeeId,
         employeeName: form.employeeName,
         role: form.role,
         payPeriod: form.payPeriod,
+        payFrequency: "Monthly",
         grossPay: Number(form.grossPay || 0),
         status: form.status,
-        autoCalculateStatutoryDeductions:
-          form.autoCalculateStatutoryDeductions,
+        autoCalculateStatutoryDeductions: true,
+        applyEmployeeAdvances: true,
         paidFromAccountNumber: form.paidFromAccountNumber,
         pensionEmployee: Number(form.pensionEmployee || 0),
       };
-
-      if (!form.autoCalculateStatutoryDeductions) {
-        payload.nisEmployee = Number(form.nisEmployee || 0);
-        payload.nhtEmployee = Number(form.nhtEmployee || 0);
-        payload.educationTax = Number(form.educationTax || 0);
-        payload.incomeTax = Number(form.incomeTax || 0);
-      }
 
       const res = await api.post("/api/payroll", payload);
       alert(res.data?.message || "Payroll record saved successfully.");
@@ -431,20 +450,36 @@ function Payroll() {
       <section style={cardStyle}>
         <h2 style={sectionTitleStyle}>Add Payroll Record</h2>
 
-        <div style={noticeStyle}>
-          <label style={{ display: "flex", gap: "10px", fontWeight: 700 }}>
-            <input
-              type="checkbox"
-              name="autoCalculateStatutoryDeductions"
-              checked={form.autoCalculateStatutoryDeductions}
-              onChange={handleChange}
-            />
-            Auto Calculate Jamaican Statutory Deductions
-          </label>
-          <div style={{ color: MUTED, marginTop: "7px", fontSize: "14px" }}>
-            This preview preserves the current calculation during extraction.
-            Effective-dated government rules are added in Phase 1B.
+                <div style={noticeStyle}>
+          <div style={{ fontWeight: 700, color: "#1e293b" }}>
+            Jamaican Statutory Calculations
           </div>
+
+          <div
+            style={{
+              color: MUTED,
+              marginTop: "7px",
+              fontSize: "14px",
+              lineHeight: 1.5,
+            }}
+          >
+            Employee and employer contributions are calculated by the
+            effective-dated backend rule for the selected pay period.
+            Open employee advances are identified and recovered after
+            statutory deductions.
+          </div>
+
+          {preview.statutoryRuleCode && (
+            <div
+              style={{
+                marginTop: "8px",
+                color: ROYAL_BLUE,
+                fontWeight: 700,
+              }}
+            >
+              Applied rule: {preview.statutoryRuleCode}
+            </div>
+          )}
         </div>
 
         <div style={formGridStyle}>
@@ -550,34 +585,6 @@ function Payroll() {
             </select>
           </Field>
 
-          <ManualDeduction
-            label="NIS Employee"
-            name="nisEmployee"
-            value={form.nisEmployee}
-            disabled={form.autoCalculateStatutoryDeductions}
-            onChange={handleChange}
-          />
-          <ManualDeduction
-            label="NHT Employee"
-            name="nhtEmployee"
-            value={form.nhtEmployee}
-            disabled={form.autoCalculateStatutoryDeductions}
-            onChange={handleChange}
-          />
-          <ManualDeduction
-            label="Education Tax"
-            name="educationTax"
-            value={form.educationTax}
-            disabled={form.autoCalculateStatutoryDeductions}
-            onChange={handleChange}
-          />
-          <ManualDeduction
-            label="Income Tax"
-            name="incomeTax"
-            value={form.incomeTax}
-            disabled={form.autoCalculateStatutoryDeductions}
-            onChange={handleChange}
-          />
         </div>
 
         <h3 style={{ color: ROYAL_BLUE, marginBottom: "10px" }}>
@@ -606,40 +613,136 @@ function Payroll() {
           />
         </div>
 
-        <h3 style={{ color: ROYAL_BLUE, marginBottom: "10px" }}>
+                <h3 style={{ color: ROYAL_BLUE, marginBottom: "10px" }}>
           Payroll Preview
         </h3>
-        <div style={metricGridStyle}>
-          <Metric label="NIS" value={formatCurrency(preview.nisEmployee)} />
-          <Metric label="NHT" value={formatCurrency(preview.nhtEmployee)} />
-          <Metric
-            label="Education Tax"
-            value={formatCurrency(preview.educationTax)}
-          />
-          <Metric
-            label="Income Tax"
-            value={formatCurrency(preview.incomeTax)}
-          />
-          <Metric
-            label="Total Deductions"
-            value={formatCurrency(preview.totalDeductions)}
-            color="#dc2626"
-          />
-          <Metric
-            label="Net Pay"
-            value={formatCurrency(preview.netPay)}
-            color="#16a34a"
-          />
-        </div>
+
+        {previewLoading ? (
+          <div style={noticeStyle}>
+            Calculating Payroll and employee advances…
+          </div>
+        ) : (
+          <>
+            <div style={metricGridStyle}>
+              <Metric
+                label="NIS Employee"
+                value={formatCurrency(preview.nisEmployee)}
+              />
+
+              <Metric
+                label="NHT Employee"
+                value={formatCurrency(preview.nhtEmployee)}
+              />
+
+              <Metric
+                label="Education Tax Employee"
+                value={formatCurrency(preview.educationTax)}
+              />
+
+              <Metric
+                label="PAYE"
+                value={formatCurrency(preview.incomeTax)}
+              />
+
+              <Metric
+                label="Statutory Deductions"
+                value={formatCurrency(preview.totalDeductions)}
+                color="#dc2626"
+              />
+
+              <Metric
+                label="Net Before Advance"
+                value={formatCurrency(preview.netPayBeforeAdvance)}
+              />
+
+              <Metric
+                label="Employee Advance Recovery"
+                value={formatCurrency(preview.advanceRecovery)}
+                color="#dc2626"
+              />
+
+              <Metric
+                label="Final Take-Home Pay"
+                value={formatCurrency(preview.netPay)}
+                color="#16a34a"
+              />
+            </div>
+
+            <h3 style={{ color: ROYAL_BLUE, marginBottom: "10px" }}>
+              Employer Contributions
+            </h3>
+
+            <div style={metricGridStyle}>
+              <Metric
+                label="NIS Employer"
+                value={formatCurrency(preview.nisEmployer)}
+              />
+
+              <Metric
+                label="NHT Employer"
+                value={formatCurrency(preview.nhtEmployer)}
+              />
+
+              <Metric
+                label="Education Tax Employer"
+                value={formatCurrency(
+                  preview.educationTaxEmployer
+                )}
+              />
+
+              <Metric
+                label="HEART Employer"
+                value={formatCurrency(preview.heartEmployer)}
+              />
+
+              <Metric
+                label="Total Employer Contributions"
+                value={formatCurrency(
+                  preview.totalEmployerContributions
+                )}
+                color="#7c3aed"
+              />
+
+              <Metric
+                label="Total Employment Cost"
+                value={formatCurrency(preview.totalPayrollCost)}
+                color="#7c3aed"
+              />
+            </div>
+
+            {preview.advanceRecoveries?.length > 0 && (
+              <div style={noticeStyle}>
+                <strong style={{ color: ROYAL_BLUE }}>
+                  Advance Recovery Details
+                </strong>
+
+                {preview.advanceRecoveries.map((recovery) => (
+                  <div
+                    key={recovery.advanceNumber}
+                    style={{
+                      marginTop: "8px",
+                      color: "#334155",
+                    }}
+                  >
+                    {recovery.advanceNumber}:{" "}
+                    {formatCurrency(recovery.amount)} —{" "}
+                    {recovery.description}
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        )}
 
         <button
           type="button"
           onClick={savePayroll}
-          disabled={saving}
+                    disabled={saving || previewLoading}
           style={{
             ...primaryButtonStyle,
-            opacity: saving ? 0.65 : 1,
-            cursor: saving ? "not-allowed" : "pointer",
+                        opacity: saving || previewLoading ? 0.65 : 1,
+            cursor:
+              saving || previewLoading ? "not-allowed" : "pointer",
           }}
         >
           {saving ? "Saving Payroll…" : "Save Payroll Record"}
