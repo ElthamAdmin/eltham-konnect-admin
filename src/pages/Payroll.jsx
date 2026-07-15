@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { jsPDF } from "jspdf";
 import { autoTable } from "jspdf-autotable";
 import api from "../api";
+import { useAuth } from "../context/AuthContext";
 
 const EMPTY_FORM = {
   employeeId: "",
@@ -60,6 +61,8 @@ const getMonthDateRange = (monthValue) => {
 };
 
 function Payroll() {
+  const { user } = useAuth();
+
   const [payroll, setPayroll] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [accounts, setAccounts] = useState([]);
@@ -68,8 +71,14 @@ function Payroll() {
   const [attendanceLoading, setAttendanceLoading] = useState(false);
   const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
-  const [previewLoading, setPreviewLoading] = useState(false);
+    const [previewLoading, setPreviewLoading] = useState(false);
+  const [actionPayrollNumber, setActionPayrollNumber] =
+    useState("");
   const [error, setError] = useState("");
+
+  const canApprovePayroll =
+    user?.role === "Admin" ||
+    (user?.permissions || []).includes("payrollApprove");
 
   const [preview, setPreview] = useState({
     nisEmployee: 0,
@@ -325,6 +334,162 @@ function Payroll() {
     }
   };
 
+    const refreshPayrollRecords = async () => {
+    await Promise.all([
+      loadReferenceData(),
+      loadPayroll(pagination.page, pagination.limit),
+    ]);
+  };
+
+  const approvePayrollRecord = async (item) => {
+    const confirmed = window.confirm(
+      `Approve Payroll ${item.payrollNumber} for ` +
+        `${item.employeeName}?\n\n` +
+        `Gross Pay: ${formatCurrency(item.grossPay)}\n` +
+        `Final Net Pay: ${formatCurrency(item.netPay)}\n\n` +
+        `Approval will not withdraw money yet.`
+    );
+
+    if (!confirmed) return;
+
+    const approvalNotes =
+      window.prompt(
+        "Enter approval notes, or leave blank:",
+        ""
+      ) || "";
+
+    try {
+      setActionPayrollNumber(item.payrollNumber);
+      setError("");
+
+      const res = await api.post(
+        `/api/payroll/${encodeURIComponent(
+          item.payrollNumber
+        )}/approve`,
+        {
+          approvalNotes,
+        }
+      );
+
+      alert(res.data?.message || "Payroll approved.");
+      await refreshPayrollRecords();
+    } catch (actionError) {
+      console.error("Could not approve Payroll:", actionError);
+
+      const message =
+        actionError?.response?.data?.message ||
+        "Could not approve Payroll.";
+
+      setError(message);
+      alert(message);
+    } finally {
+      setActionPayrollNumber("");
+    }
+  };
+
+  const payPayrollRecord = async (item) => {
+    const confirmed = window.confirm(
+      `PAY AND POST ${item.payrollNumber}?\n\n` +
+        `Employee: ${item.employeeName}\n` +
+        `Bank/Cash Payment: ${formatCurrency(item.netPay)}\n` +
+        `Advance Recovery: ${formatCurrency(
+          item.advanceRecovery
+        )}\n` +
+        `Employer Contributions: ${formatCurrency(
+          item.totalEmployerContributions
+        )}\n\n` +
+        `This action will post the General Ledger, reduce the ` +
+        `payment account, and recover the employee advance.`
+    );
+
+    if (!confirmed) return;
+
+    try {
+      setActionPayrollNumber(item.payrollNumber);
+      setError("");
+
+      const res = await api.post(
+        `/api/payroll/${encodeURIComponent(
+          item.payrollNumber
+        )}/pay`
+      );
+
+      alert(
+        `${res.data?.message || "Payroll paid."}\n\n` +
+          `Journal: ${
+            res.data?.journalEntryNumber || "-"
+          }\n` +
+          `Transaction: ${
+            res.data?.transactionNumber || "-"
+          }`
+      );
+
+      await refreshPayrollRecords();
+    } catch (actionError) {
+      console.error("Could not pay Payroll:", actionError);
+
+      const message =
+        actionError?.response?.data?.message ||
+        "Could not pay Payroll.";
+
+      setError(message);
+      alert(message);
+    } finally {
+      setActionPayrollNumber("");
+    }
+  };
+
+  const cancelPayrollRecord = async (item) => {
+    const reason = window.prompt(
+      `Enter the reason for cancelling ${item.payrollNumber}:`,
+      ""
+    );
+
+    if (reason === null) return;
+
+    if (!reason.trim()) {
+      alert("A cancellation reason is required.");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Cancel Payroll ${item.payrollNumber}?\n\n` +
+        `Employee: ${item.employeeName}\n` +
+        `Reason: ${reason.trim()}`
+    );
+
+    if (!confirmed) return;
+
+    try {
+      setActionPayrollNumber(item.payrollNumber);
+      setError("");
+
+      const res = await api.post(
+        `/api/payroll/${encodeURIComponent(
+          item.payrollNumber
+        )}/cancel`,
+        {
+          reason: reason.trim(),
+        }
+      );
+
+      alert(res.data?.message || "Payroll cancelled.");
+      await refreshPayrollRecords();
+    } catch (actionError) {
+      console.error("Could not cancel Payroll:", actionError);
+
+      const message =
+        actionError?.response?.data?.message ||
+        "Could not cancel Payroll.";
+
+      setError(message);
+      alert(message);
+    } finally {
+      setActionPayrollNumber("");
+    }
+  };
+
+
   const generatePayslipPdf = (item) => {
     try {
       const doc = new jsPDF("p", "mm", "a4");
@@ -373,10 +538,25 @@ function Payroll() {
         headStyles: { fillColor: [11, 61, 145] },
       });
 
-      autoTable(doc, {
+            autoTable(doc, {
         startY: doc.lastAutoTable.finalY + 8,
         head: [["Net Pay Summary", "Amount"]],
-        body: [["Net Pay", formatCurrency(item.netPay)]],
+        body: [
+          [
+            "Net Before Employee Advance",
+            formatCurrency(
+              item.netPayBeforeAdvance ?? item.netPay
+            ),
+          ],
+          [
+            "Employee Advance Recovery",
+            formatCurrency(item.advanceRecovery),
+          ],
+          [
+            "Final Take-Home Pay",
+            formatCurrency(item.netPay),
+          ],
+        ],
         headStyles: { fillColor: [22, 163, 74] },
       });
 
@@ -827,14 +1007,126 @@ function Payroll() {
                       <td style={cellStyle}>
                         <StatusBadge status={item.status} />
                       </td>
-                      <td style={cellStyle}>
-                        <button
-                          type="button"
-                          onClick={() => generatePayslipPdf(item)}
-                          style={payslipButtonStyle}
+                                            <td style={cellStyle}>
+                        <div
+                          style={{
+                            display: "flex",
+                            gap: "7px",
+                            flexWrap: "wrap",
+                            minWidth: "190px",
+                          }}
                         >
-                          Generate Payslip
-                        </button>
+                          {!item.statutoryRuleCode && (
+                            <span
+                              style={{
+                                color: MUTED,
+                                fontSize: "12px",
+                              }}
+                            >
+                              Legacy record
+                            </span>
+                          )}
+
+                          {item.statutoryRuleCode &&
+                            item.status === "Pending" &&
+                            canApprovePayroll && (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    approvePayrollRecord(item)
+                                  }
+                                  disabled={
+                                    actionPayrollNumber ===
+                                    item.payrollNumber
+                                  }
+                                  style={actionButtonStyle(
+                                    "#0B3D91"
+                                  )}
+                                >
+                                  Approve
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    cancelPayrollRecord(item)
+                                  }
+                                  disabled={
+                                    actionPayrollNumber ===
+                                    item.payrollNumber
+                                  }
+                                  style={actionButtonStyle(
+                                    "#dc2626"
+                                  )}
+                                >
+                                  Cancel
+                                </button>
+                              </>
+                            )}
+
+                          {item.statutoryRuleCode &&
+                            item.status === "Approved" &&
+                            canApprovePayroll && (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    payPayrollRecord(item)
+                                  }
+                                  disabled={
+                                    actionPayrollNumber ===
+                                    item.payrollNumber
+                                  }
+                                  style={actionButtonStyle(
+                                    "#16a34a"
+                                  )}
+                                >
+                                  Pay & Post
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    cancelPayrollRecord(item)
+                                  }
+                                  disabled={
+                                    actionPayrollNumber ===
+                                    item.payrollNumber
+                                  }
+                                  style={actionButtonStyle(
+                                    "#dc2626"
+                                  )}
+                                >
+                                  Cancel
+                                </button>
+                              </>
+                            )}
+
+                          {item.status === "Paid" && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                generatePayslipPdf(item)
+                              }
+                              style={payslipButtonStyle}
+                            >
+                              Generate Payslip
+                            </button>
+                          )}
+
+                          {item.status === "Cancelled" && (
+                            <span
+                              style={{
+                                color: "#dc2626",
+                                fontSize: "12px",
+                                fontWeight: 700,
+                              }}
+                            >
+                              Cancelled
+                            </span>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))
@@ -918,7 +1210,16 @@ function Metric({ label, value, color = ROYAL_BLUE }) {
 }
 
 function StatusBadge({ status }) {
-  const color = status === "Paid" ? "#16a34a" : "#f59e0b";
+  const colours = {
+    Pending: "#f59e0b",
+    Approved: "#0B3D91",
+    Paid: "#16a34a",
+    Cancelled: "#dc2626",
+    Reversed: "#64748b",
+  };
+
+  const color = colours[status] || "#64748b";
+
   return (
     <span
       style={{
@@ -932,7 +1233,7 @@ function StatusBadge({ status }) {
       }}
     >
       {status || "Pending"}
-    </span>
+        </span>
   );
 }
 
@@ -1012,6 +1313,17 @@ const secondaryButtonStyle = {
   fontWeight: 700,
   cursor: "pointer",
 };
+
+const actionButtonStyle = (backgroundColor) => ({
+  backgroundColor,
+  color: WHITE,
+  border: "none",
+  borderRadius: "7px",
+  padding: "7px 11px",
+  fontWeight: 700,
+  cursor: "pointer",
+  whiteSpace: "nowrap",
+});
 
 const payslipButtonStyle = {
   backgroundColor: "#16a34a",
