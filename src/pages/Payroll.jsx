@@ -1789,6 +1789,12 @@ const exportPayrollRegisterCsv = () => {
         </button>
       </section>
 
+      <BatchPayrollPanel
+        employees={employees}
+        accounts={accounts}
+        onCreated={refreshPayrollRecords}
+      />
+
       <section style={{ ...cardStyle, marginTop: "22px" }}>
         <div
   style={{
@@ -2566,6 +2572,1194 @@ const exportPayrollRegisterCsv = () => {
 </div>
       </section>
     </div>
+  );
+}
+
+function BatchPayrollPanel({
+  employees,
+  accounts,
+  onCreated,
+}) {
+  const [open, setOpen] =
+    useState(false);
+
+  const [payPeriod, setPayPeriod] =
+    useState("");
+
+  const [
+    paidFromAccountNumber,
+    setPaidFromAccountNumber,
+  ] = useState("");
+
+  const [rows, setRows] =
+    useState([]);
+
+  const [
+    preparedRecords,
+    setPreparedRecords,
+  ] = useState([]);
+
+  const [batchPreview, setBatchPreview] =
+    useState(null);
+
+  const [previewing, setPreviewing] =
+    useState(false);
+
+  const [creating, setCreating] =
+    useState(false);
+
+  useEffect(() => {
+    setRows((currentRows) =>
+      (employees || [])
+        .filter(
+          (employee) =>
+            employee.employmentStatus ===
+              "Active" &&
+            employee.payrollEnabled !== false
+        )
+        .map((employee) => {
+          const existing =
+            currentRows.find(
+              (row) =>
+                row.employeeId ===
+                employee.employeeId
+            );
+
+          if (existing) {
+            return existing;
+          }
+
+          return {
+            employeeId:
+              employee.employeeId,
+            employeeName:
+              employee.fullName,
+            role:
+              employee.jobTitle,
+            selected: false,
+            grossPay:
+              employee.payRate || "",
+            compensationType:
+              employee.payType ===
+              "Weekly Wage"
+                ? "Wage"
+                : "Salary",
+            statutoryTreatment:
+              "Standard",
+            targetNetPay: "",
+            pensionEmployee: "",
+            linkedUserId:
+              employee.linkedUserId ||
+              "",
+          };
+        })
+    );
+  }, [employees]);
+
+  const activeAccounts = (
+    accounts || []
+  ).filter(
+    (account) =>
+      account.status === "Active" &&
+      ["Bank", "Cash"].includes(
+        account.accountType
+      )
+  );
+
+  const selectedRows = rows.filter(
+    (row) => row.selected
+  );
+
+  const updateRow = (
+    employeeId,
+    field,
+    value
+  ) => {
+    setRows((currentRows) =>
+      currentRows.map((row) =>
+        row.employeeId === employeeId
+          ? {
+              ...row,
+              [field]: value,
+            }
+          : row
+      )
+    );
+
+    setBatchPreview(null);
+    setPreparedRecords([]);
+  };
+
+  const toggleAllEmployees = (
+    checked
+  ) => {
+    setRows((currentRows) =>
+      currentRows.map((row) => ({
+        ...row,
+        selected: checked,
+      }))
+    );
+
+    setBatchPreview(null);
+    setPreparedRecords([]);
+  };
+
+  const getWorkedHours = async (
+    row
+  ) => {
+    if (
+      !row.linkedUserId ||
+      !payPeriod
+    ) {
+      return 0;
+    }
+
+    try {
+      const {
+        startDate,
+        endDate,
+      } = getMonthDateRange(
+        payPeriod
+      );
+
+      const params =
+        new URLSearchParams({
+          filter: "custom",
+          userId:
+            row.linkedUserId,
+          startDate,
+          endDate,
+        });
+
+      const res = await api.get(
+        `/api/auth/attendance-history?${params.toString()}`
+      );
+
+      const minutes = Number(
+        res.data?.data?.summary?.[0]
+          ?.totalWorkedMinutes || 0
+      );
+
+      return roundMoney(
+        minutes / 60
+      );
+    } catch (attendanceError) {
+      console.error(
+        `Could not load attendance for ${row.employeeName}:`,
+        attendanceError
+      );
+
+      return 0;
+    }
+  };
+
+  const buildBatchRecords =
+    async () => {
+      const prepared =
+        await Promise.all(
+          selectedRows.map(
+            async (row) => ({
+              employeeId:
+                row.employeeId,
+              employeeName:
+                row.employeeName,
+              role:
+                row.role,
+              grossPay: Number(
+                row.grossPay || 0
+              ),
+              compensationType:
+                row.compensationType,
+              statutoryTreatment:
+                row.statutoryTreatment,
+              targetNetPay:
+                row.statutoryTreatment ===
+                "Employer-Assisted Net Pay"
+                  ? Number(
+                      row.targetNetPay ||
+                        row.grossPay ||
+                        0
+                    )
+                  : 0,
+              pensionEmployee:
+                Number(
+                  row.pensionEmployee ||
+                    0
+                ),
+              workedHours:
+                await getWorkedHours(
+                  row
+                ),
+              applyEmployeeAdvances:
+                true,
+            })
+          )
+        );
+
+      setPreparedRecords(prepared);
+
+      return prepared;
+    };
+
+  const previewBatch = async () => {
+    if (!payPeriod) {
+      alert(
+        "Select the batch pay period."
+      );
+      return;
+    }
+
+    if (!paidFromAccountNumber) {
+      alert(
+        "Select the Payroll payment account."
+      );
+      return;
+    }
+
+    if (!selectedRows.length) {
+      alert(
+        "Select at least one employee."
+      );
+      return;
+    }
+
+    const invalidPay = selectedRows.find(
+      (row) =>
+        Number(row.grossPay || 0) <=
+        0
+    );
+
+    if (invalidPay) {
+      alert(
+        `Enter a valid pay amount for ${invalidPay.employeeName}.`
+      );
+      return;
+    }
+
+    try {
+      setPreviewing(true);
+      setBatchPreview(null);
+
+      const records =
+        await buildBatchRecords();
+
+      const res = await api.post(
+        "/api/payroll/batch/preview",
+        {
+          defaults: {
+            payPeriod,
+            payFrequency:
+              "Monthly",
+            paidFromAccountNumber,
+            minimumWageApplicable:
+              true,
+            applyEmployeeAdvances:
+              true,
+          },
+          records,
+        }
+      );
+
+      setBatchPreview(
+        res.data
+      );
+    } catch (previewError) {
+      console.error(
+        "Could not preview Payroll batch:",
+        previewError
+      );
+
+      const response =
+        previewError?.response?.data;
+
+      if (response?.data) {
+        setBatchPreview(response);
+      }
+
+      alert(
+        response?.message ||
+          "Could not preview Payroll batch."
+      );
+    } finally {
+      setPreviewing(false);
+    }
+  };
+
+  const createBatch = async () => {
+    const successfulResults =
+      (
+        batchPreview?.data || []
+      ).filter(
+        (result) =>
+          result.success === true
+      );
+
+    if (
+      !successfulResults.length
+    ) {
+      alert(
+        "There are no successful preview records to create."
+      );
+      return;
+    }
+
+    const successfulEmployeeIds =
+      new Set(
+        successfulResults.map(
+          (result) =>
+            result.employeeId
+        )
+      );
+
+    const recordsToCreate =
+      preparedRecords.filter(
+        (record) =>
+          successfulEmployeeIds.has(
+            record.employeeId
+          )
+      );
+
+    const confirmed =
+      window.confirm(
+        `Create ${recordsToCreate.length} Pending Payroll record(s) for ${payPeriod}?\n\n` +
+          `This will not approve, pay, withdraw money, post journals, or finalize advance recoveries.`
+      );
+
+    if (!confirmed) return;
+
+    try {
+      setCreating(true);
+
+      const res = await api.post(
+        "/api/payroll/batch",
+        {
+          defaults: {
+            payPeriod,
+            payFrequency:
+              "Monthly",
+            paidFromAccountNumber,
+            applyEmployeeAdvances:
+              true,
+          },
+          records:
+            recordsToCreate,
+        }
+      );
+
+      alert(
+        res.data?.message ||
+          "Payroll batch created."
+      );
+
+      setBatchPreview(null);
+      setPreparedRecords([]);
+
+      setRows((currentRows) =>
+        currentRows.map((row) => ({
+          ...row,
+          selected: false,
+        }))
+      );
+
+      if (onCreated) {
+        await onCreated();
+      }
+    } catch (createError) {
+      console.error(
+        "Could not create Payroll batch:",
+        createError
+      );
+
+      const response =
+        createError?.response?.data;
+
+      alert(
+        response?.message ||
+          "Could not create Payroll batch."
+      );
+
+      if (response?.data) {
+        setBatchPreview(response);
+      }
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const successfulPreviewCount =
+    (
+      batchPreview?.data || []
+    ).filter(
+      (result) =>
+        result.success === true
+    ).length;
+
+  return (
+    <section
+      style={{
+        ...cardStyle,
+        marginTop: "22px",
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          justifyContent:
+            "space-between",
+          alignItems: "center",
+          gap: "12px",
+          flexWrap: "wrap",
+        }}
+      >
+        <div>
+          <h2
+            style={{
+              ...sectionTitleStyle,
+              marginBottom: "5px",
+            }}
+          >
+            Batch Payroll
+          </h2>
+
+          <p
+            style={{
+              margin: 0,
+              color: MUTED,
+            }}
+          >
+            Preview and prepare
+            Pending Payroll records
+            for multiple employees.
+          </p>
+        </div>
+
+        <button
+          type="button"
+          onClick={() =>
+            setOpen(
+              (current) =>
+                !current
+            )
+          }
+          style={secondaryButtonStyle}
+        >
+          {open
+            ? "Close Batch Payroll"
+            : "Open Batch Payroll"}
+        </button>
+      </div>
+
+      {open && (
+        <div
+          style={{
+            marginTop: "18px",
+          }}
+        >
+          <div style={noticeStyle}>
+            Batch preview checks
+            statutory deductions,
+            employer contributions,
+            attendance, minimum wage,
+            employee advances, and
+            existing payroll records.
+            Creating a batch only
+            creates Pending records.
+          </div>
+
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns:
+                "repeat(auto-fit, minmax(230px, 1fr))",
+              gap: "12px",
+              marginTop: "16px",
+            }}
+          >
+            <Field label="Batch Pay Period">
+              <input
+                type="month"
+                value={payPeriod}
+                onChange={(event) => {
+                  setPayPeriod(
+                    event.target.value
+                  );
+                  setBatchPreview(
+                    null
+                  );
+                  setPreparedRecords(
+                    []
+                  );
+                }}
+                style={inputStyle}
+              />
+            </Field>
+
+            <Field label="Payroll Payment Account">
+              <select
+                value={
+                  paidFromAccountNumber
+                }
+                onChange={(event) => {
+                  setPaidFromAccountNumber(
+                    event.target.value
+                  );
+                  setBatchPreview(
+                    null
+                  );
+                  setPreparedRecords(
+                    []
+                  );
+                }}
+                style={inputStyle}
+              >
+                <option value="">
+                  Select Payroll
+                  Payment Account
+                </option>
+
+                {activeAccounts.map(
+                  (account) => (
+                    <option
+                      key={
+                        account.accountNumber
+                      }
+                      value={
+                        account.accountNumber
+                      }
+                    >
+                      {account.accountName} (
+                      {account.accountType}) -{" "}
+                      {formatCurrency(
+                        account.currentBalance,
+                        account.currency ||
+                          "JMD"
+                      )}
+                    </option>
+                  )
+                )}
+              </select>
+            </Field>
+          </div>
+
+          <div
+            style={{
+              overflowX: "auto",
+              marginTop: "18px",
+            }}
+          >
+            <table style={tableStyle}>
+              <thead
+                style={{
+                  backgroundColor:
+                    "#eef4ff",
+                }}
+              >
+                <tr>
+                  <th style={cellStyle}>
+                    <input
+                      type="checkbox"
+                      checked={
+                        rows.length > 0 &&
+                        rows.every(
+                          (row) =>
+                            row.selected
+                        )
+                      }
+                      onChange={(
+                        event
+                      ) =>
+                        toggleAllEmployees(
+                          event.target
+                            .checked
+                        )
+                      }
+                    />
+                  </th>
+
+                  <th style={cellStyle}>
+                    Employee
+                  </th>
+
+                  <th style={cellStyle}>
+                    Base Pay
+                  </th>
+
+                  <th style={cellStyle}>
+                    Compensation
+                  </th>
+
+                  <th style={cellStyle}>
+                    Statutory Treatment
+                  </th>
+
+                  <th style={cellStyle}>
+                    Requested Net
+                  </th>
+
+                  <th style={cellStyle}>
+                    Pension
+                  </th>
+                </tr>
+              </thead>
+
+              <tbody>
+                {rows.length ? (
+                  rows.map((row) => (
+                    <tr
+                      key={
+                        row.employeeId
+                      }
+                    >
+                      <td
+                        style={
+                          cellStyle
+                        }
+                      >
+                        <input
+                          type="checkbox"
+                          checked={
+                            row.selected
+                          }
+                          onChange={(
+                            event
+                          ) =>
+                            updateRow(
+                              row.employeeId,
+                              "selected",
+                              event.target
+                                .checked
+                            )
+                          }
+                        />
+                      </td>
+
+                      <td
+                        style={
+                          cellStyle
+                        }
+                      >
+                        <strong>
+                          {
+                            row.employeeName
+                          }
+                        </strong>
+
+                        <div
+                          style={{
+                            color:
+                              MUTED,
+                            fontSize:
+                              "12px",
+                          }}
+                        >
+                          {
+                            row.employeeId
+                          }{" "}
+                          — {row.role}
+                        </div>
+                      </td>
+
+                      <td
+                        style={
+                          cellStyle
+                        }
+                      >
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={
+                            row.grossPay
+                          }
+                          onChange={(
+                            event
+                          ) =>
+                            updateRow(
+                              row.employeeId,
+                              "grossPay",
+                              event.target
+                                .value
+                            )
+                          }
+                          style={{
+                            ...inputStyle,
+                            minWidth:
+                              "115px",
+                          }}
+                        />
+                      </td>
+
+                      <td
+                        style={
+                          cellStyle
+                        }
+                      >
+                        <select
+                          value={
+                            row.compensationType
+                          }
+                          onChange={(
+                            event
+                          ) =>
+                            updateRow(
+                              row.employeeId,
+                              "compensationType",
+                              event.target
+                                .value
+                            )
+                          }
+                          style={{
+                            ...inputStyle,
+                            minWidth:
+                              "125px",
+                          }}
+                        >
+                          <option value="Salary">
+                            Salary
+                          </option>
+                          <option value="Wage">
+                            Wage
+                          </option>
+                          <option value="Stipend">
+                            Stipend
+                          </option>
+                          <option value="Allowance">
+                            Allowance
+                          </option>
+                          <option value="Other">
+                            Other
+                          </option>
+                        </select>
+                      </td>
+
+                      <td
+                        style={
+                          cellStyle
+                        }
+                      >
+                        <select
+                          value={
+                            row.statutoryTreatment
+                          }
+                          onChange={(
+                            event
+                          ) =>
+                            updateRow(
+                              row.employeeId,
+                              "statutoryTreatment",
+                              event.target
+                                .value
+                            )
+                          }
+                          style={{
+                            ...inputStyle,
+                            minWidth:
+                              "190px",
+                          }}
+                        >
+                          <option value="Standard">
+                            Standard
+                          </option>
+
+                          <option value="Employer-Assisted Net Pay">
+                            Employer-Assisted
+                            Net Pay
+                          </option>
+                        </select>
+                      </td>
+
+                      <td
+                        style={
+                          cellStyle
+                        }
+                      >
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          disabled={
+                            row.statutoryTreatment !==
+                            "Employer-Assisted Net Pay"
+                          }
+                          value={
+                            row.targetNetPay
+                          }
+                          placeholder={
+                            row.grossPay ||
+                            "0"
+                          }
+                          onChange={(
+                            event
+                          ) =>
+                            updateRow(
+                              row.employeeId,
+                              "targetNetPay",
+                              event.target
+                                .value
+                            )
+                          }
+                          style={{
+                            ...(row.statutoryTreatment ===
+                            "Employer-Assisted Net Pay"
+                              ? inputStyle
+                              : readOnlyStyle),
+                            minWidth:
+                              "120px",
+                          }}
+                        />
+                      </td>
+
+                      <td
+                        style={
+                          cellStyle
+                        }
+                      >
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={
+                            row.pensionEmployee
+                          }
+                          onChange={(
+                            event
+                          ) =>
+                            updateRow(
+                              row.employeeId,
+                              "pensionEmployee",
+                              event.target
+                                .value
+                            )
+                          }
+                          style={{
+                            ...inputStyle,
+                            minWidth:
+                              "105px",
+                          }}
+                        />
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td
+                      style={cellStyle}
+                      colSpan="7"
+                    >
+                      No active,
+                      Payroll-enabled
+                      employees found.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          <div
+            style={{
+              display: "flex",
+              gap: "10px",
+              flexWrap: "wrap",
+              marginTop: "14px",
+            }}
+          >
+            <button
+              type="button"
+              onClick={previewBatch}
+              disabled={
+                previewing ||
+                creating
+              }
+              style={{
+                ...primaryButtonStyle,
+                marginTop: 0,
+                opacity:
+                  previewing ||
+                  creating
+                    ? 0.65
+                    : 1,
+              }}
+            >
+              {previewing
+                ? "Calculating Batch…"
+                : `Preview Selected (${selectedRows.length})`}
+            </button>
+
+            {successfulPreviewCount >
+              0 && (
+              <button
+                type="button"
+                onClick={
+                  createBatch
+                }
+                disabled={
+                  creating ||
+                  previewing
+                }
+                style={{
+                  ...primaryButtonStyle,
+                  marginTop: 0,
+                  backgroundColor:
+                    "#16a34a",
+                  opacity:
+                    creating ||
+                    previewing
+                      ? 0.65
+                      : 1,
+                }}
+              >
+                {creating
+                  ? "Creating Pending Payroll…"
+                  : `Create Successful Records (${successfulPreviewCount})`}
+              </button>
+            )}
+          </div>
+
+          {batchPreview?.summary && (
+            <div
+              style={{
+                ...metricGridStyle,
+                marginTop: "18px",
+              }}
+            >
+              <Metric
+                label="Requested"
+                value={
+                  batchPreview
+                    .summary
+                    .requestedRecords ||
+                  0
+                }
+              />
+
+              <Metric
+                label="Successful"
+                value={
+                  batchPreview
+                    .summary
+                    .successfulRecords ||
+                  0
+                }
+                color="#16a34a"
+              />
+
+              <Metric
+                label="Failed"
+                value={
+                  batchPreview
+                    .summary
+                    .failedRecords ||
+                  0
+                }
+                color="#dc2626"
+              />
+
+              <Metric
+                label="Batch Gross"
+                value={formatCurrency(
+                  batchPreview
+                    .summary
+                    .totals
+                    ?.grossPay
+                )}
+              />
+
+              <Metric
+                label="Batch Net Pay"
+                value={formatCurrency(
+                  batchPreview
+                    .summary
+                    .totals
+                    ?.netPay
+                )}
+                color="#16a34a"
+              />
+
+              <Metric
+                label="Batch Employment Cost"
+                value={formatCurrency(
+                  batchPreview
+                    .summary
+                    .totals
+                    ?.totalPayrollCost
+                )}
+                color="#7c3aed"
+              />
+            </div>
+          )}
+
+          {Array.isArray(
+            batchPreview?.data
+          ) && (
+            <div
+              style={{
+                overflowX: "auto",
+                marginTop: "16px",
+              }}
+            >
+              <table style={tableStyle}>
+                <thead
+                  style={{
+                    backgroundColor:
+                      "#eef4ff",
+                  }}
+                >
+                  <tr>
+                    <th style={cellStyle}>
+                      Employee
+                    </th>
+                    <th style={cellStyle}>
+                      Result
+                    </th>
+                    <th style={cellStyle}>
+                      Gross
+                    </th>
+                    <th style={cellStyle}>
+                      Deductions
+                    </th>
+                    <th style={cellStyle}>
+                      Advance
+                    </th>
+                    <th style={cellStyle}>
+                      Net Pay
+                    </th>
+                    <th style={cellStyle}>
+                      Compliance
+                    </th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {batchPreview.data.map(
+                    (result) => {
+                      const payroll =
+                        result.data ||
+                        {};
+
+                      const assessment =
+                        payroll.minimumWageAssessment ||
+                        {};
+
+                      return (
+                        <tr
+                          key={`${result.rowNumber}-${result.employeeId}`}
+                        >
+                          <td
+                            style={
+                              cellStyle
+                            }
+                          >
+                            <strong>
+                              {
+                                result.employeeName
+                              }
+                            </strong>
+
+                            <div
+                              style={{
+                                color:
+                                  MUTED,
+                                fontSize:
+                                  "12px",
+                              }}
+                            >
+                              {
+                                result.employeeId
+                              }
+                            </div>
+                          </td>
+
+                          <td
+                            style={
+                              cellStyle
+                            }
+                          >
+                            <span
+                              style={{
+                                color:
+                                  result.success
+                                    ? "#16a34a"
+                                    : "#dc2626",
+                                fontWeight:
+                                  700,
+                              }}
+                            >
+                              {result.success
+                                ? "Ready"
+                                : result.message}
+                            </span>
+                          </td>
+
+                          <td
+                            style={
+                              cellStyle
+                            }
+                          >
+                            {result.success
+                              ? formatCurrency(
+                                  payroll.grossPay
+                                )
+                              : "-"}
+                          </td>
+
+                          <td
+                            style={
+                              cellStyle
+                            }
+                          >
+                            {result.success
+                              ? formatCurrency(
+                                  payroll.totalDeductions
+                                )
+                              : "-"}
+                          </td>
+
+                          <td
+                            style={
+                              cellStyle
+                            }
+                          >
+                            {result.success
+                              ? formatCurrency(
+                                  payroll.advanceRecovery
+                                )
+                              : "-"}
+                          </td>
+
+                          <td
+                            style={
+                              cellStyle
+                            }
+                          >
+                            {result.success
+                              ? formatCurrency(
+                                  payroll.netPay
+                                )
+                              : "-"}
+                          </td>
+
+                          <td
+                            style={
+                              cellStyle
+                            }
+                          >
+                            {result.success
+                              ? assessment.assessmentStatus ||
+                                "Not Assessed"
+                              : "Blocked"}
+                          </td>
+                        </tr>
+                      );
+                    }
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+    </section>
   );
 }
 
