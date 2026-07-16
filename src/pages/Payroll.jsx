@@ -1311,6 +1311,7 @@ function Payroll() {
                   <th style={cellStyle}>Employee</th>
                   <th style={cellStyle}>Role</th>
                   <th style={cellStyle}>Pay Period</th>
+                  <th style={cellStyle}>Pay Date</th>
                   <th style={cellStyle}>Gross Pay</th>
                   <th style={cellStyle}>NIS</th>
                   <th style={cellStyle}>NHT</th>
@@ -1333,7 +1334,12 @@ function Payroll() {
                       <td style={cellStyle}>{item.employeeName}</td>
                       <td style={cellStyle}>{item.role}</td>
                       <td style={cellStyle}>{item.payPeriod}</td>
-                      <td style={cellStyle}>{formatCurrency(item.grossPay)}</td>
+                      <td style={cellStyle}>
+                        {formatDate(item.payDate) || "-"}
+                      </td>
+                      <td style={cellStyle}>
+                        {formatCurrency(item.grossPay)}
+                      </td>
                       <td style={cellStyle}>{formatCurrency(item.nisEmployee)}</td>
                       <td style={cellStyle}>{formatCurrency(item.nhtEmployee)}</td>
                       <td style={cellStyle}>
@@ -1366,7 +1372,7 @@ function Payroll() {
                             minWidth: "190px",
                           }}
                         >
-                          {!item.statutoryRuleCode && (
+                                                    {!item.statutoryRuleCode && (
                             <span
                               style={{
                                 color: MUTED,
@@ -1377,36 +1383,27 @@ function Payroll() {
                             </span>
                           )}
 
-                                                    {item.statutoryRuleCode &&
-                            item.status === "Approved" &&
+                          {item.statutoryRuleCode &&
+                            item.status === "Pending" &&
                             canApprovePayroll && (
                               <>
                                 <button
                                   type="button"
                                   onClick={() =>
-                                    payPayrollRecord(item)
+                                    approvePayrollRecord(item)
                                   }
                                   disabled={
                                     actionPayrollNumber ===
-                                      item.payrollNumber ||
-                                    !isScheduledPayDateAvailable(
-                                      item.payDate
-                                    )
+                                    item.payrollNumber
                                   }
                                   style={actionButtonStyle(
-                                    "#16a34a"
+                                    "#0B3D91"
                                   )}
                                 >
                                   {actionPayrollNumber ===
                                   item.payrollNumber
-                                    ? "Posting…"
-                                    : isScheduledPayDateAvailable(
-                                        item.payDate
-                                      )
-                                    ? "Pay & Post"
-                                    : `Scheduled ${formatDate(
-                                        item.payDate
-                                      )}`}
+                                    ? "Approving…"
+                                    : "Approve"}
                                 </button>
 
                                 <button
@@ -1437,14 +1434,40 @@ function Payroll() {
                                     payPayrollRecord(item)
                                   }
                                   disabled={
-  actionPayrollNumber === item.payrollNumber ||
-  !isScheduledPayDateAvailable(item.payDate)
-}
-                                  style={actionButtonStyle(
-                                    "#16a34a"
-                                  )}
+                                    actionPayrollNumber ===
+                                      item.payrollNumber ||
+                                    !isScheduledPayDateAvailable(
+                                      item.payDate
+                                    )
+                                  }
+                                  style={{
+                                    ...actionButtonStyle(
+                                      "#16a34a"
+                                    ),
+                                    opacity:
+                                      isScheduledPayDateAvailable(
+                                        item.payDate
+                                      )
+                                        ? 1
+                                        : 0.65,
+                                    cursor:
+                                      isScheduledPayDateAvailable(
+                                        item.payDate
+                                      )
+                                        ? "pointer"
+                                        : "not-allowed",
+                                  }}
                                 >
-                                  Pay & Post
+                                  {actionPayrollNumber ===
+                                  item.payrollNumber
+                                    ? "Posting…"
+                                    : isScheduledPayDateAvailable(
+                                        item.payDate
+                                      )
+                                    ? "Pay & Post"
+                                    : `Scheduled ${formatDate(
+                                        item.payDate
+                                      )}`}
                                 </button>
 
                                 <button
