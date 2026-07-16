@@ -52,6 +52,36 @@ const formatDate = (value) => {
   return Number.isNaN(date.getTime()) ? String(value) : date.toISOString().slice(0, 10);
 };
 
+const getJamaicaToday = () => {
+  const parts = new Intl.DateTimeFormat(
+    "en-CA",
+    {
+      timeZone: "America/Jamaica",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }
+  ).formatToParts(new Date());
+
+  const values = {};
+
+  for (const part of parts) {
+    if (part.type !== "literal") {
+      values[part.type] = part.value;
+    }
+  }
+
+  return `${values.year}-${values.month}-${values.day}`;
+};
+
+const isScheduledPayDateAvailable = (payDate) => {
+  const scheduledDate = formatDate(payDate);
+
+  if (!scheduledDate) return false;
+
+  return getJamaicaToday() >= scheduledDate;
+};
+
 const getMonthDateRange = (monthValue) => {
   if (!monthValue) return { startDate: "", endDate: "" };
 
@@ -85,7 +115,9 @@ function Payroll() {
     (user?.permissions || []).includes("payrollApprove");
 
     const emptyPreview = {
-    grossPay: 0,
+        grossPay: 0,
+    scheduledPayDate: "",
+    payDate: "",
     compensationType: "Salary",
     statutoryTreatment: "Standard",
     applyEmployeeStatutoryDeductions: true,
@@ -423,8 +455,11 @@ function Payroll() {
     const confirmed = window.confirm(
       `Approve Payroll ${item.payrollNumber} for ` +
         `${item.employeeName}?\n\n` +
-        `Gross Pay: ${formatCurrency(item.grossPay)}\n` +
-        `Final Net Pay: ${formatCurrency(item.netPay)}\n\n` +
+                `Gross Pay: ${formatCurrency(item.grossPay)}\n` +
+        `Final Net Pay: ${formatCurrency(item.netPay)}\n` +
+        `Scheduled Payment Date: ${formatDate(
+          item.payDate
+        )}\n\n` +
         `Approval will not withdraw money yet.`
     );
 
@@ -468,7 +503,10 @@ function Payroll() {
   const payPayrollRecord = async (item) => {
     const confirmed = window.confirm(
       `PAY AND POST ${item.payrollNumber}?\n\n` +
-        `Employee: ${item.employeeName}\n` +
+                `Employee: ${item.employeeName}\n` +
+        `Scheduled Payment Date: ${formatDate(
+          item.payDate
+        )}\n` +
         `Bank/Cash Payment: ${formatCurrency(item.netPay)}\n` +
         `Advance Recovery: ${formatCurrency(
           item.advanceRecovery
@@ -785,6 +823,20 @@ function Payroll() {
               value={form.payPeriod}
               onChange={handleChange}
               style={inputStyle}
+            />
+          </Field>
+
+                    <Field label="Scheduled Payment Date">
+            <input
+              value={
+                preview.scheduledPayDate
+                  ? formatDate(
+                      preview.scheduledPayDate
+                    )
+                  : "Select employee, period, and pay"
+              }
+              readOnly
+              style={readOnlyStyle}
             />
           </Field>
 
@@ -1325,24 +1377,36 @@ function Payroll() {
                             </span>
                           )}
 
-                          {item.statutoryRuleCode &&
-                            item.status === "Pending" &&
+                                                    {item.statutoryRuleCode &&
+                            item.status === "Approved" &&
                             canApprovePayroll && (
                               <>
                                 <button
                                   type="button"
                                   onClick={() =>
-                                    approvePayrollRecord(item)
+                                    payPayrollRecord(item)
                                   }
                                   disabled={
                                     actionPayrollNumber ===
-                                    item.payrollNumber
+                                      item.payrollNumber ||
+                                    !isScheduledPayDateAvailable(
+                                      item.payDate
+                                    )
                                   }
                                   style={actionButtonStyle(
-                                    "#0B3D91"
+                                    "#16a34a"
                                   )}
                                 >
-                                  Approve
+                                  {actionPayrollNumber ===
+                                  item.payrollNumber
+                                    ? "Posting…"
+                                    : isScheduledPayDateAvailable(
+                                        item.payDate
+                                      )
+                                    ? "Pay & Post"
+                                    : `Scheduled ${formatDate(
+                                        item.payDate
+                                      )}`}
                                 </button>
 
                                 <button
@@ -1373,9 +1437,9 @@ function Payroll() {
                                     payPayrollRecord(item)
                                   }
                                   disabled={
-                                    actionPayrollNumber ===
-                                    item.payrollNumber
-                                  }
+  actionPayrollNumber === item.payrollNumber ||
+  !isScheduledPayDateAvailable(item.payDate)
+}
                                   style={actionButtonStyle(
                                     "#16a34a"
                                   )}
@@ -1430,7 +1494,7 @@ function Payroll() {
                   ))
                 ) : (
                   <tr>
-                    <td style={cellStyle} colSpan="16">
+                    <td style={cellStyle} colSpan="17">
                       No Payroll records found.
                     </td>
                   </tr>
