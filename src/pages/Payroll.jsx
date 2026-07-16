@@ -109,6 +109,8 @@ function Payroll() {
   const [actionPayrollNumber, setActionPayrollNumber] =
     useState("");
   const [error, setError] = useState("");
+    const [registerTotals, setRegisterTotals] =
+    useState(null);
 
   const canApprovePayroll =
     user?.role === "Admin" ||
@@ -256,20 +258,42 @@ function Payroll() {
     attendance.totalWorkedMinutes,
   ]);
 
-  const totals = useMemo(
+    const pageTotals = useMemo(
     () =>
-      payroll.reduce(
-        (sum, item) => ({
-          grossPay: sum.grossPay + Number(item.grossPay || 0),
-          totalDeductions:
-            sum.totalDeductions +
-            Number(item.totalDeductions ?? item.deductions ?? 0),
-          netPay: sum.netPay + Number(item.netPay || 0),
-        }),
-        { grossPay: 0, totalDeductions: 0, netPay: 0 }
-      ),
+      payroll
+        .filter(
+          (item) =>
+            !["Cancelled", "Reversed"].includes(
+              item.status
+            )
+        )
+        .reduce(
+          (sum, item) => ({
+            grossPay:
+              sum.grossPay +
+              Number(item.grossPay || 0),
+            totalDeductions:
+              sum.totalDeductions +
+              Number(
+                item.totalDeductions ??
+                  item.deductions ??
+                  0
+              ),
+            netPay:
+              sum.netPay +
+              Number(item.netPay || 0),
+          }),
+          {
+            grossPay: 0,
+            totalDeductions: 0,
+            netPay: 0,
+          }
+        ),
     [payroll]
   );
+
+  const totals =
+    registerTotals || pageTotals;
 
   const loadReferenceData = async () => {
     const [employeeRes, accountRes] = await Promise.all([
@@ -292,12 +316,57 @@ function Payroll() {
     }));
   };
 
+    const loadPayrollRegister = async () => {
+    const res = await api.get(
+      "/api/payroll/reports/register?limit=1000"
+    );
+
+    const register =
+      res.data?.totals || {};
+
+    setRegisterTotals({
+      recordCount: Number(
+        register.recordCount || 0
+      ),
+      legacyRecordCount: Number(
+        register.legacyRecordCount || 0
+      ),
+      statusCounts:
+        register.statusCounts || {},
+      grossPay: Number(
+        register.grossPay || 0
+      ),
+      totalDeductions: Number(
+        register.totalEmployeeDeductions || 0
+      ),
+      netPay: Number(register.netPay || 0),
+      advanceRecovery: Number(
+        register.advanceRecovery || 0
+      ),
+      totalEmployerContributions: Number(
+        register.totalEmployerContributions ||
+          0
+      ),
+      totalPayrollCost: Number(
+        register.totalPayrollCost || 0
+      ),
+      governmentLiabilities:
+        register.governmentLiabilities || {
+          total: 0,
+        },
+    });
+  };
+
   useEffect(() => {
     const loadPage = async () => {
       try {
         setLoading(true);
         setError("");
-        await Promise.all([loadReferenceData(), loadPayroll(1, 10)]);
+                await Promise.all([
+          loadReferenceData(),
+          loadPayroll(1, 10),
+          loadPayrollRegister(),
+        ]);
       } catch (loadError) {
         console.error("Could not load Payroll:", loadError);
         setError(
@@ -429,9 +498,10 @@ function Payroll() {
       alert(res.data?.message || "Payroll record saved successfully.");
       setForm(EMPTY_FORM);
       setAttendance(EMPTY_ATTENDANCE);
-      await Promise.all([
+            await Promise.all([
         loadReferenceData(),
         loadPayroll(1, pagination.limit),
+        loadPayrollRegister(),
       ]);
     } catch (saveError) {
       console.error("Could not save Payroll:", saveError);
@@ -444,10 +514,14 @@ function Payroll() {
     }
   };
 
-    const refreshPayrollRecords = async () => {
+      const refreshPayrollRecords = async () => {
     await Promise.all([
       loadReferenceData(),
-      loadPayroll(pagination.page, pagination.limit),
+      loadPayroll(
+        pagination.page,
+        pagination.limit
+      ),
+      loadPayrollRegister(),
     ]);
   };
 
@@ -728,18 +802,96 @@ function Payroll() {
         </div>
       )}
 
-      <div style={metricGridStyle}>
-        <Metric label="Records on Page" value={payroll.length} />
-        <Metric label="Gross Payroll" value={formatCurrency(totals.grossPay)} />
+            <div style={metricGridStyle}>
+        <Metric
+          label="Active Payroll Records"
+          value={
+            registerTotals?.recordCount ??
+            payroll.filter(
+              (item) =>
+                ![
+                  "Cancelled",
+                  "Reversed",
+                ].includes(item.status)
+            ).length
+          }
+        />
+
+        <Metric
+          label="Pending"
+          value={
+            registerTotals?.statusCounts
+              ?.Pending || 0
+          }
+          color="#f59e0b"
+        />
+
+        <Metric
+          label="Approved"
+          value={
+            registerTotals?.statusCounts
+              ?.Approved || 0
+          }
+        />
+
+        <Metric
+          label="Paid"
+          value={
+            registerTotals?.statusCounts
+              ?.Paid || 0
+          }
+          color="#16a34a"
+        />
+
+        <Metric
+          label="Gross Payroll"
+          value={formatCurrency(
+            totals.grossPay
+          )}
+        />
+
         <Metric
           label="Employee Deductions"
-          value={formatCurrency(totals.totalDeductions)}
+          value={formatCurrency(
+            totals.totalDeductions
+          )}
           color="#dc2626"
         />
+
         <Metric
           label="Net Payroll"
-          value={formatCurrency(totals.netPay)}
+          value={formatCurrency(
+            totals.netPay
+          )}
           color="#16a34a"
+        />
+
+        <Metric
+          label="Government Liabilities"
+          value={formatCurrency(
+            registerTotals
+              ?.governmentLiabilities
+              ?.total || 0
+          )}
+          color="#7c3aed"
+        />
+
+        <Metric
+          label="Advance Recoveries"
+          value={formatCurrency(
+            registerTotals
+              ?.advanceRecovery || 0
+          )}
+          color="#dc2626"
+        />
+
+        <Metric
+          label="Total Employment Cost"
+          value={formatCurrency(
+            registerTotals
+              ?.totalPayrollCost || 0
+          )}
+          color="#7c3aed"
         />
       </div>
 
@@ -1322,6 +1474,7 @@ function Payroll() {
                   <th style={cellStyle}>Net Pay</th>
                   <th style={cellStyle}>Paid From</th>
                   <th style={cellStyle}>Status</th>
+                  <th style={cellStyle}>Compliance</th>
                   <th style={cellStyle}>Action</th>
                 </tr>
               </thead>
@@ -1362,6 +1515,48 @@ function Payroll() {
                       </td>
                       <td style={cellStyle}>
                         <StatusBadge status={item.status} />
+                      </td>
+                                            <td style={cellStyle}>
+                        {!item.statutoryRuleCode ? (
+                          <span
+                            style={{
+                              color: MUTED,
+                              fontSize: "12px",
+                            }}
+                          >
+                            Not assessed
+                          </span>
+                        ) : item.minimumWageAssessment
+                            ?.compliant === false ? (
+                          <span
+                            title={
+                              item.minimumWageAssessment
+                                ?.warning || ""
+                            }
+                            style={{
+                              color: "#dc2626",
+                              fontSize: "12px",
+                              fontWeight: 700,
+                            }}
+                          >
+                            Shortfall{" "}
+                            {formatCurrency(
+                              item
+                                .minimumWageAssessment
+                                ?.shortfall
+                            )}
+                          </span>
+                        ) : (
+                          <span
+                            style={{
+                              color: "#16a34a",
+                              fontSize: "12px",
+                              fontWeight: 700,
+                            }}
+                          >
+                            Compliant
+                          </span>
+                        )}
                       </td>
                                             <td style={cellStyle}>
                         <div
@@ -1517,7 +1712,7 @@ function Payroll() {
                   ))
                 ) : (
                   <tr>
-                    <td style={cellStyle} colSpan="17">
+                    <td style={cellStyle} colSpan="18">
                       No Payroll records found.
                     </td>
                   </tr>
