@@ -32,6 +32,17 @@ const EMPTY_ATTENDANCE = {
   totalLunchLabel: "0h 0m",
 };
 
+const EMPTY_REGISTER_FILTERS = {
+  search: "",
+  employeeId: "",
+  status: "",
+  periodFrom: "",
+  periodTo: "",
+  compensationType: "",
+  statutoryTreatment: "",
+  legacy: "",
+};
+
 const ROYAL_BLUE = "#0B3D91";
 const WHITE = "#FFFFFF";
 const BORDER = "#dbe3ef";
@@ -109,8 +120,15 @@ function Payroll() {
   const [actionPayrollNumber, setActionPayrollNumber] =
     useState("");
   const [error, setError] = useState("");
-    const [registerTotals, setRegisterTotals] =
-    useState(null);
+    const [registerTotals, setRegisterTotals] = useState(null);
+
+const [registerRecords, setRegisterRecords] = useState([]);
+
+const [registerFilters, setRegisterFilters] = useState(
+  EMPTY_REGISTER_FILTERS
+);
+
+const [registerLoading, setRegisterLoading] = useState(false);
 
   const canApprovePayroll =
     user?.role === "Admin" ||
@@ -316,13 +334,35 @@ function Payroll() {
     }));
   };
 
-    const loadPayrollRegister = async () => {
-    const res = await api.get(
-      "/api/payroll/reports/register?limit=1000"
+    const loadPayrollRegister = async (
+  filters = registerFilters
+) => {
+  try {
+    setRegisterLoading(true);
+
+    const params = new URLSearchParams({
+      limit: "1000",
+    });
+
+    Object.entries(filters || {}).forEach(
+      ([key, value]) => {
+        const normalizedValue = String(
+          value ?? ""
+        ).trim();
+
+        if (normalizedValue) {
+          params.set(key, normalizedValue);
+        }
+      }
     );
 
-    const register =
-      res.data?.totals || {};
+    const res = await api.get(
+      `/api/payroll/reports/register?${params.toString()}`
+    );
+
+    const register = res.data?.totals || {};
+
+    setRegisterRecords(res.data?.data || []);
 
     setRegisterTotals({
       recordCount: Number(
@@ -339,23 +379,84 @@ function Payroll() {
       totalDeductions: Number(
         register.totalEmployeeDeductions || 0
       ),
-      netPay: Number(register.netPay || 0),
+      netPay: Number(
+        register.netPay || 0
+      ),
       advanceRecovery: Number(
         register.advanceRecovery || 0
       ),
       totalEmployerContributions: Number(
-        register.totalEmployerContributions ||
-          0
+        register.totalEmployerContributions || 0
       ),
       totalPayrollCost: Number(
         register.totalPayrollCost || 0
       ),
       governmentLiabilities:
         register.governmentLiabilities || {
+          nis: 0,
+          nht: 0,
+          educationTax: 0,
+          paye: 0,
+          heart: 0,
+          pension: 0,
           total: 0,
         },
     });
-  };
+  } finally {
+    setRegisterLoading(false);
+  }
+};
+
+const updateRegisterFilter = (
+  field,
+  value
+) => {
+  setRegisterFilters((current) => ({
+    ...current,
+    [field]: value,
+  }));
+};
+
+const applyRegisterFilters = async () => {
+  try {
+    setError("");
+    await loadPayrollRegister(registerFilters);
+  } catch (filterError) {
+    console.error(
+      "Could not filter Payroll register:",
+      filterError
+    );
+
+    setError(
+      filterError?.response?.data?.message ||
+        "Could not filter Payroll register."
+    );
+  }
+};
+
+const clearRegisterFilters = async () => {
+  try {
+    setError("");
+
+    setRegisterFilters(
+      EMPTY_REGISTER_FILTERS
+    );
+
+    await loadPayrollRegister(
+      EMPTY_REGISTER_FILTERS
+    );
+  } catch (filterError) {
+    console.error(
+      "Could not reset Payroll register:",
+      filterError
+    );
+
+    setError(
+      filterError?.response?.data?.message ||
+        "Could not reset Payroll register."
+    );
+  }
+};
 
   useEffect(() => {
     const loadPage = async () => {
@@ -867,7 +968,7 @@ function Payroll() {
         />
 
         <Metric
-          label="Government Liabilities"
+          label="Active Statutory Obligations"
           value={formatCurrency(
             registerTotals
               ?.governmentLiabilities
@@ -1432,12 +1533,234 @@ function Payroll() {
       </section>
 
       <section style={{ ...cardStyle, marginTop: "22px" }}>
+        <div
+  style={{
+    padding: "16px",
+    marginBottom: "18px",
+    backgroundColor: "#f8fafc",
+    border: `1px solid ${BORDER}`,
+    borderRadius: "12px",
+  }}
+>
+  <h3
+    style={{
+      margin: "0 0 14px",
+      color: ROYAL_BLUE,
+    }}
+  >
+    Payroll Register Filters
+  </h3>
+
+  <div
+    style={{
+      display: "grid",
+      gridTemplateColumns:
+        "repeat(auto-fit, minmax(190px, 1fr))",
+      gap: "12px",
+    }}
+  >
+    <input
+      type="text"
+      placeholder="Search employee or payroll number"
+      value={registerFilters.search}
+      onChange={(event) =>
+        updateRegisterFilter(
+          "search",
+          event.target.value
+        )
+      }
+      style={inputStyle}
+    />
+
+    <select
+      value={registerFilters.employeeId}
+      onChange={(event) =>
+        updateRegisterFilter(
+          "employeeId",
+          event.target.value
+        )
+      }
+      style={inputStyle}
+    >
+      <option value="">All Employees</option>
+
+      {employees.map((employee) => (
+        <option
+          key={employee.employeeId}
+          value={employee.employeeId}
+        >
+          {employee.fullName} (
+          {employee.employeeId})
+        </option>
+      ))}
+    </select>
+
+    <select
+      value={registerFilters.status}
+      onChange={(event) =>
+        updateRegisterFilter(
+          "status",
+          event.target.value
+        )
+      }
+      style={inputStyle}
+    >
+      <option value="">All Active Statuses</option>
+      <option value="Pending">Pending</option>
+      <option value="Approved">Approved</option>
+      <option value="Paid">Paid</option>
+      <option value="Cancelled">Cancelled</option>
+      <option value="Reversed">Reversed</option>
+    </select>
+
+    <input
+      type="month"
+      title="Period from"
+      value={registerFilters.periodFrom}
+      onChange={(event) =>
+        updateRegisterFilter(
+          "periodFrom",
+          event.target.value
+        )
+      }
+      style={inputStyle}
+    />
+
+    <input
+      type="month"
+      title="Period to"
+      value={registerFilters.periodTo}
+      onChange={(event) =>
+        updateRegisterFilter(
+          "periodTo",
+          event.target.value
+        )
+      }
+      style={inputStyle}
+    />
+
+    <select
+      value={
+        registerFilters.compensationType
+      }
+      onChange={(event) =>
+        updateRegisterFilter(
+          "compensationType",
+          event.target.value
+        )
+      }
+      style={inputStyle}
+    >
+      <option value="">
+        All Compensation Types
+      </option>
+      <option value="Salary">Salary</option>
+      <option value="Wage">Wage</option>
+      <option value="Stipend">Stipend</option>
+      <option value="Allowance">
+        Allowance
+      </option>
+      <option value="Other">Other</option>
+    </select>
+
+    <select
+      value={
+        registerFilters.statutoryTreatment
+      }
+      onChange={(event) =>
+        updateRegisterFilter(
+          "statutoryTreatment",
+          event.target.value
+        )
+      }
+      style={inputStyle}
+    >
+      <option value="">
+        All Statutory Treatments
+      </option>
+      <option value="Standard">
+        Standard
+      </option>
+      <option value="Employer-Assisted Net Pay">
+        Employer-Assisted Net Pay
+      </option>
+      <option value="Documented Exemption">
+        Documented Exemption
+      </option>
+    </select>
+
+    <select
+      value={registerFilters.legacy}
+      onChange={(event) =>
+        updateRegisterFilter(
+          "legacy",
+          event.target.value
+        )
+      }
+      style={inputStyle}
+    >
+      <option value="">Modern and Legacy</option>
+      <option value="false">
+        Modern Records Only
+      </option>
+      <option value="true">
+        Legacy Records Only
+      </option>
+    </select>
+  </div>
+
+  <div
+    style={{
+      display: "flex",
+      flexWrap: "wrap",
+      gap: "10px",
+      marginTop: "14px",
+    }}
+  >
+    <button
+      type="button"
+      onClick={applyRegisterFilters}
+      disabled={registerLoading}
+      style={{
+        ...primaryButtonStyle,
+        marginTop: 0,
+        opacity: registerLoading
+          ? 0.65
+          : 1,
+      }}
+    >
+      {registerLoading
+        ? "Applying Filters…"
+        : "Apply Filters"}
+    </button>
+
+    <button
+      type="button"
+      onClick={clearRegisterFilters}
+      disabled={registerLoading}
+      style={{
+        ...primaryButtonStyle,
+        marginTop: 0,
+        backgroundColor: "#64748b",
+        opacity: registerLoading
+          ? 0.65
+          : 1,
+      }}
+    >
+      Clear Filters
+    </button>
+  </div>
+</div>
         <div style={recordsHeaderStyle}>
           <div>
             <h2 style={{ ...sectionTitleStyle, marginBottom: "4px" }}>
               Payroll Records
             </h2>
-            <span style={{ color: MUTED }}>Total records: {pagination.total}</span>
+            <span style={{ color: MUTED }}>
+  Total records:{" "}
+  {registerTotals?.recordCount ??
+    pagination.total}
+</span>
           </div>
           <select
             value={pagination.limit}
@@ -1479,8 +1802,8 @@ function Payroll() {
                 </tr>
               </thead>
               <tbody>
-                {payroll.length ? (
-                  payroll.map((item) => (
+                {registerRecords.length ? (
+  registerRecords.map((item) => (
                     <tr key={item._id || item.payrollNumber}>
                       <td style={cellStyle}>{item.payrollNumber}</td>
                       <td style={cellStyle}>{item.employeeId || "-"}</td>
@@ -1517,48 +1840,59 @@ function Payroll() {
                         <StatusBadge status={item.status} />
                       </td>
                                             <td style={cellStyle}>
-                        {!item.statutoryRuleCode ? (
-                          <span
-                            style={{
-                              color: MUTED,
-                              fontSize: "12px",
-                            }}
-                          >
-                            Not assessed
-                          </span>
-                        ) : item.minimumWageAssessment
-                            ?.compliant === false ? (
-                          <span
-                            title={
-                              item.minimumWageAssessment
-                                ?.warning || ""
-                            }
-                            style={{
-                              color: "#dc2626",
-                              fontSize: "12px",
-                              fontWeight: 700,
-                            }}
-                          >
-                            Shortfall{" "}
-                            {formatCurrency(
-                              item
-                                .minimumWageAssessment
-                                ?.shortfall
-                            )}
-                          </span>
-                        ) : (
-                          <span
-                            style={{
-                              color: "#16a34a",
-                              fontSize: "12px",
-                              fontWeight: 700,
-                            }}
-                          >
-                            Compliant
-                          </span>
-                        )}
+                        {["Cancelled", "Reversed"].includes(
+  item.status
+) ? (
+  <span
+    style={{
+      color: MUTED,
+      fontSize: "12px",
+    }}
+  >
+    Not applicable
+  </span>
+) : !item.statutoryRuleCode ? (
+  <span
+    style={{
+      color: MUTED,
+      fontSize: "12px",
+    }}
+  >
+    Not assessed
+  </span>
+) : item.minimumWageAssessment
+    ?.compliant === false ? (
+  <span
+    title={
+      item.minimumWageAssessment
+        ?.warning || ""
+    }
+    style={{
+      color: "#dc2626",
+      fontSize: "12px",
+      fontWeight: 700,
+    }}
+  >
+    Shortfall{" "}
+    {formatCurrency(
+      item.minimumWageAssessment
+        ?.shortfall
+    )}
+  </span>
+) : (
+  <span
+    style={{
+      color: "#16a34a",
+      fontSize: "12px",
+      fontWeight: 700,
+    }}
+  >
+    Compliant
+  </span>
+)}
                       </td>
-                                            <td style={cellStyle}>
+
+                      <td style={cellStyle}>
                         <div
                           style={{
                             display: "flex",
@@ -1567,17 +1901,6 @@ function Payroll() {
                             minWidth: "190px",
                           }}
                         >
-                                                    {!item.statutoryRuleCode && (
-                            <span
-                              style={{
-                                color: MUTED,
-                                fontSize: "12px",
-                              }}
-                            >
-                              Legacy record
-                            </span>
-                          )}
-
                           {item.statutoryRuleCode &&
                             item.status === "Pending" &&
                             canApprovePayroll && (
