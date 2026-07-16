@@ -130,6 +130,24 @@ const [registerFilters, setRegisterFilters] = useState(
 
 const [registerLoading, setRegisterLoading] = useState(false);
 
+const [registerPage, setRegisterPage] = useState(1);
+
+const [recognizedLiabilities, setRecognizedLiabilities] =
+  useState(0);
+
+const [ytdEmployeeId, setYtdEmployeeId] = useState("");
+
+const [ytdYear, setYtdYear] = useState(
+  String(new Date().getFullYear())
+);
+
+const [includeApprovedYtd, setIncludeApprovedYtd] =
+  useState(true);
+
+const [ytdReport, setYtdReport] = useState(null);
+
+const [ytdLoading, setYtdLoading] = useState(false);
+
   const canApprovePayroll =
     user?.role === "Admin" ||
     (user?.permissions || []).includes("payrollApprove");
@@ -313,6 +331,33 @@ const [registerLoading, setRegisterLoading] = useState(false);
   const totals =
     registerTotals || pageTotals;
 
+    const registerPageSize = Number(
+  pagination.limit || 10
+);
+
+const registerPages = Math.max(
+  1,
+  Math.ceil(
+    registerRecords.length /
+      registerPageSize
+  )
+);
+
+const visibleRegisterRecords = useMemo(() => {
+  const firstRecord =
+    (registerPage - 1) *
+    registerPageSize;
+
+  return registerRecords.slice(
+    firstRecord,
+    firstRecord + registerPageSize
+  );
+}, [
+  registerRecords,
+  registerPage,
+  registerPageSize,
+]);
+
   const loadReferenceData = async () => {
     const [employeeRes, accountRes] = await Promise.all([
       api.get("/api/hr"),
@@ -356,13 +401,41 @@ const [registerLoading, setRegisterLoading] = useState(false);
       }
     );
 
-    const res = await api.get(
-      `/api/payroll/reports/register?${params.toString()}`
+    const paidParams = new URLSearchParams(
+      params
     );
 
-    const register = res.data?.totals || {};
+    paidParams.set("status", "Paid");
 
-    setRegisterRecords(res.data?.data || []);
+    const [registerRes, paidRes] =
+      await Promise.all([
+        api.get(
+          `/api/payroll/reports/register?${params.toString()}`
+        ),
+        api.get(
+          `/api/payroll/reports/register?${paidParams.toString()}`
+        ),
+      ]);
+
+    const register =
+      registerRes.data?.totals || {};
+
+    const paidRegister =
+      paidRes.data?.totals || {};
+
+    setRegisterRecords(
+      registerRes.data?.data || []
+    );
+
+    setRegisterPage(1);
+
+    setRecognizedLiabilities(
+      Number(
+        paidRegister
+          ?.governmentLiabilities
+          ?.total || 0
+      )
+    );
 
     setRegisterTotals({
       recordCount: Number(
@@ -406,6 +479,8 @@ const [registerLoading, setRegisterLoading] = useState(false);
     setRegisterLoading(false);
   }
 };
+
+
 
 const updateRegisterFilter = (
   field,
@@ -456,6 +531,180 @@ const clearRegisterFilters = async () => {
         "Could not reset Payroll register."
     );
   }
+};
+
+const loadEmployeeYtd = async () => {
+  if (!ytdEmployeeId) {
+    alert(
+      "Select an employee before generating the YTD report."
+    );
+    return;
+  }
+
+  try {
+    setYtdLoading(true);
+    setError("");
+
+    const params = new URLSearchParams({
+      year: ytdYear,
+      includeApproved: String(
+        includeApprovedYtd
+      ),
+    });
+
+    const res = await api.get(
+      `/api/payroll/reports/ytd/${encodeURIComponent(
+        ytdEmployeeId
+      )}?${params.toString()}`
+    );
+
+    setYtdReport(res.data || null);
+  } catch (reportError) {
+    console.error(
+      "Could not generate employee YTD report:",
+      reportError
+    );
+
+    const message =
+      reportError?.response?.data?.message ||
+      "Could not generate employee YTD report.";
+
+    setError(message);
+    alert(message);
+  } finally {
+    setYtdLoading(false);
+  }
+};
+
+const escapeCsvValue = (value) => {
+  const normalized = String(
+    value ?? ""
+  ).replace(/"/g, '""');
+
+  return `"${normalized}"`;
+};
+
+const exportPayrollRegisterCsv = () => {
+  if (!registerRecords.length) {
+    alert(
+      "There are no Payroll records to export."
+    );
+    return;
+  }
+
+  const headings = [
+    "Payroll Number",
+    "Employee ID",
+    "Employee",
+    "Role",
+    "Pay Period",
+    "Pay Date",
+    "Compensation Type",
+    "Statutory Treatment",
+    "Gross Pay",
+    "NIS Employee",
+    "NHT Employee",
+    "Education Tax Employee",
+    "PAYE",
+    "Pension Employee",
+    "Total Employee Deductions",
+    "Net Before Advance",
+    "Advance Recovery",
+    "Net Pay",
+    "NIS Employer",
+    "NHT Employer",
+    "Education Tax Employer",
+    "HEART Employer",
+    "Total Employer Contributions",
+    "Total Employment Cost",
+    "Payment Account",
+    "Status",
+    "Compliance",
+    "Minimum Wage Shortfall",
+  ];
+
+  const rows = registerRecords.map(
+    (item) => [
+      item.payrollNumber,
+      item.employeeId,
+      item.employeeName,
+      item.role,
+      item.payPeriod,
+      formatDate(item.payDate),
+      item.compensationType || "Legacy",
+      item.statutoryTreatment || "Legacy",
+      roundMoney(item.grossPay),
+      roundMoney(item.nisEmployee),
+      roundMoney(item.nhtEmployee),
+      roundMoney(item.educationTax),
+      roundMoney(item.incomeTax),
+      roundMoney(item.pensionEmployee),
+      roundMoney(
+        item.totalDeductions ??
+          item.deductions
+      ),
+      roundMoney(
+        item.netPayBeforeAdvance ??
+          item.netPay
+      ),
+      roundMoney(item.advanceRecovery),
+      roundMoney(item.netPay),
+      roundMoney(item.nisEmployer),
+      roundMoney(item.nhtEmployer),
+      roundMoney(
+        item.educationTaxEmployer
+      ),
+      roundMoney(item.heartEmployer),
+      roundMoney(
+        item.totalEmployerContributions
+      ),
+      roundMoney(
+        item.totalPayrollCost ??
+          Number(item.grossPay || 0) +
+            Number(
+              item.totalEmployerContributions ||
+                0
+            )
+      ),
+      item.paidFromAccountName ||
+        item.paidFromAccountNumber ||
+        "",
+      item.status,
+      !item.statutoryRuleCode
+        ? "Not Assessed"
+        : item.minimumWageAssessment
+            ?.compliant === false
+        ? "Shortfall"
+        : "Compliant",
+      roundMoney(
+        item.minimumWageAssessment
+          ?.shortfall
+      ),
+    ]
+  );
+
+  const csv = [
+    headings.map(escapeCsvValue).join(","),
+    ...rows.map((row) =>
+      row.map(escapeCsvValue).join(",")
+    ),
+  ].join("\r\n");
+
+  const blob = new Blob([csv], {
+    type: "text/csv;charset=utf-8;",
+  });
+
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+
+  link.href = url;
+  link.download = `payroll-register-${getJamaicaToday()}.csv`;
+
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+
+  URL.revokeObjectURL(url);
 };
 
   useEffect(() => {
@@ -976,6 +1225,14 @@ const clearRegisterFilters = async () => {
           )}
           color="#7c3aed"
         />
+
+        <Metric
+  label="Recognized Payroll Liabilities"
+  value={formatCurrency(
+    recognizedLiabilities
+  )}
+  color="#9333ea"
+/>
 
         <Metric
           label="Advance Recoveries"
@@ -1544,6 +1801,195 @@ const clearRegisterFilters = async () => {
 >
   <h3
     style={{
+      margin: "0 0 6px",
+      color: ROYAL_BLUE,
+    }}
+  >
+    Employee Year-to-Date Payroll
+  </h3>
+
+  <p
+    style={{
+      margin: "0 0 14px",
+      color: MUTED,
+    }}
+  >
+    Generate an employee payroll summary for
+    the selected calendar year.
+  </p>
+
+  <div
+    style={{
+      display: "grid",
+      gridTemplateColumns:
+        "repeat(auto-fit, minmax(210px, 1fr))",
+      gap: "12px",
+    }}
+  >
+    <select
+      value={ytdEmployeeId}
+      onChange={(event) => {
+        setYtdEmployeeId(
+          event.target.value
+        );
+        setYtdReport(null);
+      }}
+      style={inputStyle}
+    >
+      <option value="">
+        Select Employee
+      </option>
+
+      {employees.map((employee) => (
+        <option
+          key={employee.employeeId}
+          value={employee.employeeId}
+        >
+          {employee.fullName} (
+          {employee.employeeId})
+        </option>
+      ))}
+    </select>
+
+    <input
+      type="number"
+      min="2020"
+      max="2100"
+      value={ytdYear}
+      onChange={(event) => {
+        setYtdYear(event.target.value);
+        setYtdReport(null);
+      }}
+      placeholder="Payroll year"
+      style={inputStyle}
+    />
+
+    <label
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: "9px",
+        padding: "10px",
+        border: `1px solid ${BORDER}`,
+        borderRadius: "8px",
+        backgroundColor: WHITE,
+      }}
+    >
+      <input
+        type="checkbox"
+        checked={includeApprovedYtd}
+        onChange={(event) => {
+          setIncludeApprovedYtd(
+            event.target.checked
+          );
+          setYtdReport(null);
+        }}
+      />
+
+      Include approved scheduled payroll
+    </label>
+  </div>
+
+  <button
+    type="button"
+    onClick={loadEmployeeYtd}
+    disabled={ytdLoading}
+    style={{
+      ...primaryButtonStyle,
+      marginTop: "14px",
+      opacity: ytdLoading ? 0.65 : 1,
+    }}
+  >
+    {ytdLoading
+      ? "Generating YTD…"
+      : "Generate YTD Summary"}
+  </button>
+
+  {ytdReport?.totals && (
+    <div
+      style={{
+        ...metricGridStyle,
+        marginTop: "16px",
+      }}
+    >
+      <Metric
+        label="YTD Records"
+        value={
+          ytdReport.totals.recordCount || 0
+        }
+      />
+
+      <Metric
+        label="YTD Gross Pay"
+        value={formatCurrency(
+          ytdReport.totals.grossPay
+        )}
+      />
+
+      <Metric
+        label="YTD Employee Deductions"
+        value={formatCurrency(
+          ytdReport.totals
+            .totalEmployeeDeductions
+        )}
+        color="#dc2626"
+      />
+
+      <Metric
+        label="YTD Net Pay"
+        value={formatCurrency(
+          ytdReport.totals.netPay
+        )}
+        color="#16a34a"
+      />
+
+      <Metric
+        label="YTD Advance Recoveries"
+        value={formatCurrency(
+          ytdReport.totals.advanceRecovery
+        )}
+        color="#dc2626"
+      />
+
+      <Metric
+        label="YTD Employer Contributions"
+        value={formatCurrency(
+          ytdReport.totals
+            .totalEmployerContributions
+        )}
+        color="#7c3aed"
+      />
+
+      <Metric
+        label="YTD Statutory Obligations"
+        value={formatCurrency(
+          ytdReport.totals
+            .governmentLiabilities?.total
+        )}
+        color="#7c3aed"
+      />
+
+      <Metric
+        label="YTD Employment Cost"
+        value={formatCurrency(
+          ytdReport.totals.totalPayrollCost
+        )}
+        color="#7c3aed"
+      />
+    </div>
+  )}
+</div>
+        <div
+  style={{
+    padding: "16px",
+    marginBottom: "18px",
+    backgroundColor: "#f8fafc",
+    border: `1px solid ${BORDER}`,
+    borderRadius: "12px",
+  }}
+>
+  <h3
+    style={{
       margin: "0 0 14px",
       color: ROYAL_BLUE,
     }}
@@ -1749,6 +2195,27 @@ const clearRegisterFilters = async () => {
     >
       Clear Filters
     </button>
+
+    <button
+  type="button"
+  onClick={exportPayrollRegisterCsv}
+  disabled={
+    registerLoading ||
+    !registerRecords.length
+  }
+  style={{
+    ...primaryButtonStyle,
+    marginTop: 0,
+    backgroundColor: "#16a34a",
+    opacity:
+      registerLoading ||
+      !registerRecords.length
+        ? 0.65
+        : 1,
+  }}
+>
+  Export Register CSV
+</button>
   </div>
 </div>
         <div style={recordsHeaderStyle}>
@@ -1764,7 +2231,18 @@ const clearRegisterFilters = async () => {
           </div>
           <select
             value={pagination.limit}
-            onChange={(event) => changeLimit(Number(event.target.value))}
+            onChange={(event) => {
+  const nextLimit = Number(
+    event.target.value
+  );
+
+  setPagination((current) => ({
+    ...current,
+    limit: nextLimit,
+  }));
+
+  setRegisterPage(1);
+}}
             style={{ ...inputStyle, width: "auto" }}
           >
             <option value={10}>10 per page</option>
@@ -1802,8 +2280,8 @@ const clearRegisterFilters = async () => {
                 </tr>
               </thead>
               <tbody>
-                {registerRecords.length ? (
-  registerRecords.map((item) => (
+                {visibleRegisterRecords.length ? (
+  visibleRegisterRecords.map((item) => (
                     <tr key={item._id || item.payrollNumber}>
                       <td style={cellStyle}>{item.payrollNumber}</td>
                       <td style={cellStyle}>{item.employeeId || "-"}</td>
@@ -2046,28 +2524,46 @@ const clearRegisterFilters = async () => {
         )}
 
         <div style={paginationStyle}>
-          <button
-            type="button"
-            disabled={pagination.page <= 1 || loading}
-            onClick={() => changePage(Math.max(1, pagination.page - 1))}
-            style={secondaryButtonStyle}
-          >
-            Previous
-          </button>
-          <strong>
-            Page {pagination.page} of {Math.max(1, pagination.pages || 1)}
-          </strong>
-          <button
-            type="button"
-            disabled={pagination.page >= pagination.pages || loading}
-            onClick={() =>
-              changePage(Math.min(pagination.pages, pagination.page + 1))
-            }
-            style={secondaryButtonStyle}
-          >
-            Next
-          </button>
-        </div>
+  <button
+    type="button"
+    disabled={
+      registerPage <= 1 ||
+      registerLoading
+    }
+    onClick={() =>
+      setRegisterPage((current) =>
+        Math.max(1, current - 1)
+      )
+    }
+    style={secondaryButtonStyle}
+  >
+    Previous
+  </button>
+
+  <strong>
+    Page {registerPage} of{" "}
+    {registerPages}
+  </strong>
+
+  <button
+    type="button"
+    disabled={
+      registerPage >= registerPages ||
+      registerLoading
+    }
+    onClick={() =>
+      setRegisterPage((current) =>
+        Math.min(
+          registerPages,
+          current + 1
+        )
+      )
+    }
+    style={secondaryButtonStyle}
+  >
+    Next
+  </button>
+</div>
       </section>
     </div>
   );
