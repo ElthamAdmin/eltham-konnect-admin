@@ -11,11 +11,15 @@ const EMPTY_FORM = {
   payPeriod: "",
   grossPay: "",
   status: "Pending",
-  autoCalculateStatutoryDeductions: true,
-  nisEmployee: "",
-  nhtEmployee: "",
-  educationTax: "",
-  incomeTax: "",
+  compensationType: "Salary",
+  statutoryTreatment: "Standard",
+  targetNetPay: "",
+  exemptionReason: "",
+  exemptionLegalBasis: "",
+  exemptionSupportingReference: "",
+  exemptionSupportingDocumentUrl: "",
+  exemptionEffectiveFrom: "",
+  exemptionEffectiveTo: "",
   pensionEmployee: "",
   paidFromAccountNumber: "",
 };
@@ -80,7 +84,14 @@ function Payroll() {
     user?.role === "Admin" ||
     (user?.permissions || []).includes("payrollApprove");
 
-  const [preview, setPreview] = useState({
+    const emptyPreview = {
+    grossPay: 0,
+    compensationType: "Salary",
+    statutoryTreatment: "Standard",
+    applyEmployeeStatutoryDeductions: true,
+    applyEmployerStatutoryContributions: true,
+    targetNetPay: 0,
+    employerSupportAllowance: 0,
     nisEmployee: 0,
     nhtEmployee: 0,
     educationTax: 0,
@@ -98,7 +109,22 @@ function Payroll() {
     totalPayrollCost: 0,
     statutoryRuleCode: "",
     advanceRecoveries: [],
-  });
+    minimumWageAssessment: {
+      applicable: true,
+      hourlyRate: 0,
+      workedHours: 0,
+      minimumGrossPay: 0,
+      assessedGrossPay: 0,
+      shortfall: 0,
+      compliant: true,
+      warning: "",
+      ruleCode: "",
+    },
+  };
+
+  const [preview, setPreview] =
+    useState(emptyPreview);
+
   const [pagination, setPagination] = useState({
     page: 1,
     limit: 10,
@@ -106,49 +132,65 @@ function Payroll() {
     total: 0,
   });
 
-    useEffect(() => {
+      useEffect(() => {
     const grossPay = Number(form.grossPay || 0);
 
-    if (!form.employeeId || !form.payPeriod || grossPay <= 0) {
-      setPreview({
-        nisEmployee: 0,
-        nhtEmployee: 0,
-        educationTax: 0,
-        incomeTax: 0,
-        pensionEmployee: 0,
-        totalDeductions: 0,
-        netPayBeforeAdvance: 0,
-        advanceRecovery: 0,
-        netPay: 0,
-        nisEmployer: 0,
-        nhtEmployer: 0,
-        educationTaxEmployer: 0,
-        heartEmployer: 0,
-        totalEmployerContributions: 0,
-        totalPayrollCost: 0,
-        statutoryRuleCode: "",
-        advanceRecoveries: [],
-      });
-
+    if (
+      !form.employeeId ||
+      !form.payPeriod ||
+      grossPay <= 0
+    ) {
+      setPreview(emptyPreview);
       return;
     }
 
     const timer = setTimeout(async () => {
       try {
         setPreviewLoading(true);
+        setError("");
 
-        const res = await api.post("/api/payroll/preview", {
-          employeeId: form.employeeId,
-          grossPay,
-          pensionEmployee: Number(
-            form.pensionEmployee || 0
-          ),
-          payPeriod: form.payPeriod,
-          payFrequency: "Monthly",
-          applyEmployeeAdvances: true,
-        });
+        const res = await api.post(
+          "/api/payroll/preview",
+          {
+            employeeId: form.employeeId,
+            grossPay,
+            pensionEmployee: Number(
+              form.pensionEmployee || 0
+            ),
+            payPeriod: form.payPeriod,
+            payFrequency: "Monthly",
+            compensationType:
+              form.compensationType,
+            statutoryTreatment:
+              form.statutoryTreatment,
+            targetNetPay: Number(
+              form.targetNetPay || 0
+            ),
+            statutoryExemption: {
+              reason:
+                form.exemptionReason,
+              legalBasis:
+                form.exemptionLegalBasis,
+              supportingReference:
+                form.exemptionSupportingReference,
+              supportingDocumentUrl:
+                form.exemptionSupportingDocumentUrl,
+              effectiveFrom:
+                form.exemptionEffectiveFrom || null,
+              effectiveTo:
+                form.exemptionEffectiveTo || null,
+            },
+            workedHours: roundMoney(
+              Number(
+                attendance.totalWorkedMinutes || 0
+              ) / 60
+            ),
+            minimumWageApplicable: true,
+            applyEmployeeAdvances: true,
+          }
+        );
 
-        setPreview(res.data?.data || {});
+        setPreview(res.data?.data || emptyPreview);
       } catch (previewError) {
         console.error(
           "Could not calculate Payroll preview:",
@@ -170,6 +212,16 @@ function Payroll() {
     form.grossPay,
     form.pensionEmployee,
     form.payPeriod,
+    form.compensationType,
+    form.statutoryTreatment,
+    form.targetNetPay,
+    form.exemptionReason,
+    form.exemptionLegalBasis,
+    form.exemptionSupportingReference,
+    form.exemptionSupportingDocumentUrl,
+    form.exemptionEffectiveFrom,
+    form.exemptionEffectiveTo,
+    attendance.totalWorkedMinutes,
   ]);
 
   const totals = useMemo(
@@ -301,18 +353,44 @@ function Payroll() {
       setSaving(true);
       setError("");
 
-            const payload = {
+                  const payload = {
         employeeId: form.employeeId,
         employeeName: form.employeeName,
         role: form.role,
         payPeriod: form.payPeriod,
         payFrequency: "Monthly",
         grossPay: Number(form.grossPay || 0),
-        status: form.status,
-        autoCalculateStatutoryDeductions: true,
+        compensationType:
+          form.compensationType,
+        statutoryTreatment:
+          form.statutoryTreatment,
+        targetNetPay: Number(
+          form.targetNetPay || 0
+        ),
+        statutoryExemption: {
+          reason: form.exemptionReason,
+          legalBasis:
+            form.exemptionLegalBasis,
+          supportingReference:
+            form.exemptionSupportingReference,
+          supportingDocumentUrl:
+            form.exemptionSupportingDocumentUrl,
+          effectiveFrom:
+            form.exemptionEffectiveFrom || null,
+          effectiveTo:
+            form.exemptionEffectiveTo || null,
+        },
+        workedHours: roundMoney(
+          Number(
+            attendance.totalWorkedMinutes || 0
+          ) / 60
+        ),
         applyEmployeeAdvances: true,
-        paidFromAccountNumber: form.paidFromAccountNumber,
-        pensionEmployee: Number(form.pensionEmployee || 0),
+        paidFromAccountNumber:
+          form.paidFromAccountNumber,
+        pensionEmployee: Number(
+          form.pensionEmployee || 0
+        ),
       };
 
       const res = await api.post("/api/payroll", payload);
@@ -630,9 +708,14 @@ function Payroll() {
       <section style={cardStyle}>
         <h2 style={sectionTitleStyle}>Add Payroll Record</h2>
 
-                <div style={noticeStyle}>
-          <div style={{ fontWeight: 700, color: "#1e293b" }}>
-            Jamaican Statutory Calculations
+                        <div style={noticeStyle}>
+          <div
+            style={{
+              fontWeight: 700,
+              color: "#1e293b",
+            }}
+          >
+            Jamaican Payroll and Statutory Treatment
           </div>
 
           <div
@@ -643,10 +726,11 @@ function Payroll() {
               lineHeight: 1.5,
             }}
           >
-            Employee and employer contributions are calculated by the
-            effective-dated backend rule for the selected pay period.
-            Open employee advances are identified and recovered after
-            statutory deductions.
+            Select how this payment should be treated. Standard
+            payroll calculates employee and employer obligations.
+            Employer-assisted pay preserves a requested take-home
+            amount. A documented exemption requires an administrator,
+            legal basis, and supporting reference.
           </div>
 
           {preview.statutoryRuleCode && (
@@ -657,7 +741,8 @@ function Payroll() {
                 fontWeight: 700,
               }}
             >
-              Applied rule: {preview.statutoryRuleCode}
+              Applied statutory rule:{" "}
+              {preview.statutoryRuleCode}
             </div>
           )}
         </div>
@@ -703,7 +788,48 @@ function Payroll() {
             />
           </Field>
 
-          <Field label="Gross Pay">
+                    <Field label="Compensation Type">
+            <select
+              name="compensationType"
+              value={form.compensationType}
+              onChange={handleChange}
+              style={inputStyle}
+            >
+              <option value="Salary">Salary</option>
+              <option value="Wage">Wage</option>
+              <option value="Stipend">Stipend</option>
+              <option value="Allowance">Allowance</option>
+              <option value="Other">Other</option>
+            </select>
+          </Field>
+
+          <Field label="Statutory Treatment">
+            <select
+              name="statutoryTreatment"
+              value={form.statutoryTreatment}
+              onChange={handleChange}
+              style={inputStyle}
+            >
+              <option value="Standard">
+                Standard Statutory Deductions
+              </option>
+              <option value="Employer-Assisted Net Pay">
+                Employer-Assisted Net Pay
+              </option>
+              <option value="Documented Exemption">
+                Documented Exemption
+              </option>
+            </select>
+          </Field>
+
+          <Field
+            label={
+              form.statutoryTreatment ===
+              "Employer-Assisted Net Pay"
+                ? "Base Stipend / Pay"
+                : "Gross Pay"
+            }
+          >
             <input
               type="number"
               min="0"
@@ -714,6 +840,22 @@ function Payroll() {
               style={inputStyle}
             />
           </Field>
+
+          {form.statutoryTreatment ===
+            "Employer-Assisted Net Pay" && (
+            <Field label="Requested Take-Home Before Advance">
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                name="targetNetPay"
+                value={form.targetNetPay}
+                onChange={handleChange}
+                placeholder="Example: 15000"
+                style={inputStyle}
+              />
+            </Field>
+          )}
 
           <Field label="Employee Pension">
             <input
@@ -726,6 +868,79 @@ function Payroll() {
               style={inputStyle}
             />
           </Field>
+
+          {form.statutoryTreatment ===
+            "Documented Exemption" && (
+            <>
+              <Field label="Exemption Reason">
+                <input
+                  type="text"
+                  name="exemptionReason"
+                  value={form.exemptionReason}
+                  onChange={handleChange}
+                  placeholder="Explain why the exemption applies"
+                  style={inputStyle}
+                />
+              </Field>
+
+              <Field label="Legal Basis">
+                <input
+                  type="text"
+                  name="exemptionLegalBasis"
+                  value={form.exemptionLegalBasis}
+                  onChange={handleChange}
+                  placeholder="Legislation, ruling, or professional advice"
+                  style={inputStyle}
+                />
+              </Field>
+
+              <Field label="Supporting Reference">
+                <input
+                  type="text"
+                  name="exemptionSupportingReference"
+                  value={
+                    form.exemptionSupportingReference
+                  }
+                  onChange={handleChange}
+                  placeholder="Letter, ruling, or document reference"
+                  style={inputStyle}
+                />
+              </Field>
+
+              <Field label="Supporting Document URL">
+                <input
+                  type="url"
+                  name="exemptionSupportingDocumentUrl"
+                  value={
+                    form.exemptionSupportingDocumentUrl
+                  }
+                  onChange={handleChange}
+                  placeholder="Optional document link"
+                  style={inputStyle}
+                />
+              </Field>
+
+              <Field label="Exemption Effective From">
+                <input
+                  type="date"
+                  name="exemptionEffectiveFrom"
+                  value={form.exemptionEffectiveFrom}
+                  onChange={handleChange}
+                  style={inputStyle}
+                />
+              </Field>
+
+              <Field label="Exemption Effective To">
+                <input
+                  type="date"
+                  name="exemptionEffectiveTo"
+                  value={form.exemptionEffectiveTo}
+                  onChange={handleChange}
+                  style={inputStyle}
+                />
+              </Field>
+            </>
+          )}
 
           <Field label="Payroll Payment Account">
             <select
@@ -753,16 +968,12 @@ function Payroll() {
             </select>
           </Field>
 
-          <Field label="Status">
-            <select
-              name="status"
-              value={form.status}
-              onChange={handleChange}
-              style={inputStyle}
-            >
-              <option value="Pending">Pending</option>
-              <option value="Paid">Paid</option>
-            </select>
+                    <Field label="Initial Status">
+            <input
+              value="Pending Approval"
+              readOnly
+              style={readOnlyStyle}
+            />
           </Field>
 
         </div>
@@ -791,9 +1002,71 @@ function Payroll() {
                 : attendance.totalLunchLabel || "0h 0m"
             }
           />
-        </div>
+                </div>
 
-                <h3 style={{ color: ROYAL_BLUE, marginBottom: "10px" }}>
+        {preview.minimumWageAssessment?.warning && (
+          <div
+            style={{
+              ...noticeStyle,
+              backgroundColor:
+                preview.minimumWageAssessment.compliant
+                  ? "#f0fdf4"
+                  : "#fff7ed",
+              borderColor:
+                preview.minimumWageAssessment.compliant
+                  ? "#86efac"
+                  : "#fdba74",
+            }}
+          >
+            <div
+              style={{
+                fontWeight: 700,
+                color:
+                  preview.minimumWageAssessment.compliant
+                    ? "#166534"
+                    : "#c2410c",
+              }}
+            >
+              Minimum-Wage Assessment
+            </div>
+
+            <div
+              style={{
+                marginTop: "7px",
+                color: "#334155",
+                lineHeight: 1.5,
+              }}
+            >
+              {preview.minimumWageAssessment.warning}
+            </div>
+
+            <div
+              style={{
+                marginTop: "7px",
+                color: MUTED,
+                fontSize: "13px",
+              }}
+            >
+              Hours assessed:{" "}
+              {Number(
+                preview.minimumWageAssessment.workedHours ||
+                  0
+              ).toFixed(2)}
+              {" | "}
+              Minimum ordinary-time pay:{" "}
+              {formatCurrency(
+                preview.minimumWageAssessment.minimumGrossPay
+              )}
+              {" | "}
+              Assessed gross pay:{" "}
+              {formatCurrency(
+                preview.minimumWageAssessment.assessedGrossPay
+              )}
+            </div>
+          </div>
+        )}
+
+        <h3 style={{ color: ROYAL_BLUE, marginBottom: "10px" }}>
           Payroll Preview
         </h3>
 
@@ -803,6 +1076,31 @@ function Payroll() {
           </div>
         ) : (
           <>
+                        <Metric
+                label="Statutory Treatment"
+                value={
+                  preview.statutoryTreatment ||
+                  form.statutoryTreatment
+                }
+              />
+
+              <Metric
+                label="Calculated Gross Pay"
+                value={formatCurrency(
+                  preview.grossPay
+                )}
+              />
+
+              {form.statutoryTreatment ===
+                "Employer-Assisted Net Pay" && (
+                <Metric
+                  label="Employer Support Allowance"
+                  value={formatCurrency(
+                    preview.employerSupportAllowance
+                  )}
+                  color="#7c3aed"
+                />
+              )}
             <div style={metricGridStyle}>
               <Metric
                 label="NIS Employee"
