@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import api from "../api";
+import TaxDocumentUploadForm from "./TaxDocumentUploadForm";
 
 function TaxDocumentsPanel({
   entityCode,
@@ -168,8 +169,14 @@ function TaxDocumentsPanel({
           >
             {loading ? "Loading..." : "Refresh"}
           </button>
-        </div>
+                </div>
       </div>
+
+      <TaxDocumentUploadForm
+        entityCode={entityCode}
+        periodKey={periodKey}
+        onUploaded={loadDocuments}
+      />
 
       {error && (
         <div style={errorStyle}>
