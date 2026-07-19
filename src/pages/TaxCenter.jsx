@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import api from "../api";
 import TaxCenterOverview from "../components/TaxCenterOverview";
+import TaxDocumentsPanel from "../components/TaxDocumentsPanel";
 
 function TaxCenter() {
   const [dashboard, setDashboard] = useState({});
@@ -299,8 +300,15 @@ function TaxCenter() {
         </div>
       </div>
 
+            <TaxDocumentsPanel
+        entityCode={taxScope.entityCode}
+        periodKey={taxScope.periodKey}
+      />
+
       <div style={panel(BORDER)}>
-        <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>Tax Records</h2>
+        <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>
+          Tax Records
+        </h2>
 
         <div
           style={{
