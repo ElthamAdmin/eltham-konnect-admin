@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import api from "../api";
 import TaxDocumentUploadForm from "./TaxDocumentUploadForm";
+import TaxDocumentLinkForm from "./TaxDocumentLinkForm";
 
 function TaxDocumentsPanel({
   entityCode,
@@ -237,14 +238,7 @@ function TaxDocumentsPanel({
 
             <tbody>
               {documents.map((document) => {
-                const linkedReference =
-                  document.taxNumber ||
-                  document.estimateNumber ||
-                  document.filingNumber ||
-                  document.transactionNumber ||
-                  "Not linked";
-
-                return (
+                                return (
                   <tr key={document.documentNumber}>
                     <BodyCell>
                       <div style={documentTitle}>
@@ -291,8 +285,11 @@ function TaxDocumentsPanel({
                       </span>
                     </BodyCell>
 
-                    <BodyCell>
-                      {linkedReference}
+                                        <BodyCell>
+                      <TaxDocumentLinkForm
+                        document={document}
+                        onLinked={loadDocuments}
+                      />
                     </BodyCell>
 
                     <BodyCell>
