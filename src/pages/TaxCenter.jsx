@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import api from "../api";
+import TaxCenterOverview from "../components/TaxCenterOverview";
 
 function TaxCenter() {
   const [dashboard, setDashboard] = useState({});
@@ -97,42 +98,9 @@ function TaxCenter() {
         {formOpen ? "Close Form" : "+ Add Tax Record"}
       </button>
 
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-          gap: "14px",
-          marginBottom: "18px",
-        }}
-      >
-        <Card>
-          <h2 style={{ color: ROYAL_BLUE, margin: 0 }}>
-            {money(dashboard.totalRevenue)}
-          </h2>
-          <p style={{ fontWeight: "bold" }}>Paid Revenue</p>
-        </Card>
-
-        <Card>
-          <h2 style={{ color: "#dc2626", margin: 0 }}>
-            {money(dashboard.totalExpenses)}
-          </h2>
-          <p style={{ fontWeight: "bold" }}>Recorded Expenses</p>
-        </Card>
-
-        <Card>
-          <h2 style={{ color: "#f59e0b", margin: 0 }}>
-            {money(dashboard.payrollDeductions)}
-          </h2>
-          <p style={{ fontWeight: "bold" }}>Payroll Deductions</p>
-        </Card>
-
-        <Card>
-          <h2 style={{ color: "#7c3aed", margin: 0 }}>
-            {money(dashboard.taxBalanceDue)}
-          </h2>
-          <p style={{ fontWeight: "bold" }}>Tax Balance Due</p>
-        </Card>
-      </div>
+            <TaxCenterOverview
+        dashboard={dashboard}
+      />
 
       {formOpen && (
         <div style={panel(BORDER)}>
