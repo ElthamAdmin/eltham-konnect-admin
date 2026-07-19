@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import api from "../api";
+import TaxConfigurationReadiness from "./TaxConfigurationReadiness";
 
 const COLORS = {
   blue: "#0B3D91",
@@ -331,7 +332,12 @@ function TaxCenterOverview({
           color={COLORS.blue}
           detail="Effective entity tax treatment"
         />
-      </div>
+            </div>
+
+      <TaxConfigurationReadiness
+        entity={activeEntity}
+        periodKey={periodKey}
+      />
 
       <div style={reconciliationPanel}>
         <div>
