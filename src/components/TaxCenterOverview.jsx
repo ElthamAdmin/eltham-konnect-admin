@@ -25,7 +25,10 @@ const money = (value) =>
     }
   )}`;
 
-function TaxCenterOverview({ dashboard = {} }) {
+function TaxCenterOverview({
+  dashboard = {},
+  onScopeChange,
+}) {
   const [entities, setEntities] = useState([]);
   const [entityCode, setEntityCode] = useState("");
   const [periodKey, setPeriodKey] = useState(
@@ -82,6 +85,24 @@ function TaxCenterOverview({ dashboard = {} }) {
 
     loadEntities();
   }, []);
+
+    useEffect(() => {
+    if (
+      !entityCode ||
+      !periodKey
+    ) {
+      return;
+    }
+
+    onScopeChange?.({
+      entityCode,
+      periodKey,
+    });
+  }, [
+    entityCode,
+    periodKey,
+    onScopeChange,
+  ]);
 
   useEffect(() => {
     if (!entityCode || !periodKey) {

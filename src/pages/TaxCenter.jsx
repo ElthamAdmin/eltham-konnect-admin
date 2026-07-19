@@ -7,7 +7,14 @@ function TaxCenter() {
   const [records, setRecords] = useState([]);
   const [summary, setSummary] = useState({});
   const [payrollSummary, setPayrollSummary] = useState({});
-  const [formOpen, setFormOpen] = useState(false);
+    const [formOpen, setFormOpen] = useState(false);
+
+  const [taxScope, setTaxScope] = useState({
+    entityCode: "",
+    periodKey: new Date()
+      .toISOString()
+      .slice(0, 7),
+  });
 
   const [formData, setFormData] = useState({
     taxType: "GCT",
@@ -23,27 +30,84 @@ function TaxCenter() {
   const BORDER = "#dbe3ef";
   const MUTED = "#64748b";
 
-  const loadTaxCenter = async () => {
+    const loadTaxCenter = async (
+    selectedScope = taxScope
+  ) => {
     try {
-      const [dashboardRes, recordsRes, payrollRes] = await Promise.all([
-        api.get("/api/tax-center/dashboard"),
-        api.get("/api/tax-center/records"),
-        api.get("/api/tax-center/payroll-summary"),
+      const requestParams = {
+        entityCode:
+          selectedScope.entityCode || "",
+        periodKey:
+          selectedScope.periodKey || "",
+      };
+
+      const [
+        dashboardRes,
+        recordsRes,
+        payrollRes,
+      ] = await Promise.all([
+        api.get("/api/tax-center/dashboard", {
+          params: requestParams,
+        }),
+
+        api.get("/api/tax-center/records", {
+          params: requestParams,
+        }),
+
+        api.get(
+          "/api/tax-center/payroll-summary",
+          {
+            params: {
+              payPeriod:
+                selectedScope.periodKey,
+              entityCode:
+                selectedScope.entityCode,
+            },
+          }
+        ),
       ]);
 
-      setDashboard(dashboardRes.data.data || {});
-      setRecords(recordsRes.data.data || []);
-      setSummary(recordsRes.data.summary || {});
-      setPayrollSummary(payrollRes.data.data || {});
+      setDashboard(
+        dashboardRes.data.data || {}
+      );
+
+      setRecords(
+        recordsRes.data.data || []
+      );
+
+      setSummary(
+        recordsRes.data.summary || {}
+      );
+
+      setPayrollSummary(
+        payrollRes.data.data || {}
+      );
     } catch (error) {
-      console.error("Tax center error:", error);
-      alert(error?.response?.data?.message || "Could not load Tax Center.");
+      console.error(
+        "Tax center error:",
+        error
+      );
+
+      alert(
+        error?.response?.data?.message ||
+          "Could not load Tax Center."
+      );
     }
   };
 
-  useEffect(() => {
-    loadTaxCenter();
-  }, []);
+    useEffect(() => {
+    if (
+      !taxScope.entityCode ||
+      !taxScope.periodKey
+    ) {
+      return;
+    }
+
+    loadTaxCenter(taxScope);
+  }, [
+    taxScope.entityCode,
+    taxScope.periodKey,
+  ]);
 
   const money = (value) => `JMD ${Number(value || 0).toLocaleString()}`;
 
@@ -68,7 +132,7 @@ function TaxCenter() {
         notes: "",
       });
 
-      await loadTaxCenter();
+            await loadTaxCenter(taxScope);
     } catch (error) {
       console.error("Tax record save error:", error);
       alert(error?.response?.data?.message || "Could not create tax record.");
@@ -98,8 +162,9 @@ function TaxCenter() {
         {formOpen ? "Close Form" : "+ Add Tax Record"}
       </button>
 
-            <TaxCenterOverview
+                  <TaxCenterOverview
         dashboard={dashboard}
+        onScopeChange={setTaxScope}
       />
 
       {formOpen && (
@@ -180,14 +245,57 @@ function TaxCenter() {
       <div style={panel(BORDER)}>
         <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>Payroll Tax Summary</h2>
 
-        <div style={summaryGrid}>
-          <Mini label="Gross Pay" value={money(payrollSummary.grossPay)} />
-          <Mini label="NIS Employee" value={money(payrollSummary.nisEmployee)} />
-          <Mini label="NHT Employee" value={money(payrollSummary.nhtEmployee)} />
-          <Mini label="Education Tax" value={money(payrollSummary.educationTax)} />
-          <Mini label="Income Tax" value={money(payrollSummary.incomeTax)} />
-          <Mini label="Total Deductions" value={money(payrollSummary.totalDeductions)} />
-          <Mini label="Net Pay" value={money(payrollSummary.netPay)} />
+                <div style={summaryGrid}>
+          <Mini
+            label="Gross Pay"
+            value={money(
+              payrollSummary.grossPay
+            )}
+          />
+
+          <Mini
+            label="NIS Employee"
+            value={money(
+              payrollSummary.nisEmployee
+            )}
+          />
+
+          <Mini
+            label="NHT Employee"
+            value={money(
+              payrollSummary.nhtEmployee
+            )}
+          />
+
+          <Mini
+            label="Education Tax"
+            value={money(
+              payrollSummary
+                .educationTaxEmployee
+            )}
+          />
+
+          <Mini
+            label="PAYE"
+            value={money(
+              payrollSummary.paye
+            )}
+          />
+
+          <Mini
+            label="Total Employee Deductions"
+            value={money(
+              payrollSummary
+                .totalEmployeeDeductions
+            )}
+          />
+
+          <Mini
+            label="Net Pay"
+            value={money(
+              payrollSummary.netPay
+            )}
+          />
         </div>
       </div>
 
