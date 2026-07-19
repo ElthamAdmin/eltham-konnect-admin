@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import api from "../api";
 import TaxCenterOverview from "../components/TaxCenterOverview";
+import TaxRecordsWorkflowPanel from "../components/TaxRecordsWorkflowPanel";
 import TaxDocumentsPanel from "../components/TaxDocumentsPanel";
 
 function TaxCenter() {
@@ -305,86 +306,11 @@ function TaxCenter() {
         periodKey={taxScope.periodKey}
       />
 
-      <div style={panel(BORDER)}>
-        <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>
-          Tax Records
-        </h2>
-
-        <div
-          style={{
-            overflowX: "auto",
-            overflowY: "auto",
-            maxHeight: "70vh",
-            border: `1px solid ${BORDER}`,
-            borderRadius: "12px",
-          }}
-        >
-          <table
-            border="1"
-            cellPadding="10"
-            style={{
-              minWidth: "1300px",
-              width: "100%",
-              borderCollapse: "collapse",
-              borderColor: BORDER,
-            }}
-          >
-            <thead style={{ backgroundColor: "#eef4ff", position: "sticky", top: 0 }}>
-              <tr>
-                <th>Tax No.</th>
-                <th>Type</th>
-                <th>Period</th>
-                <th>Taxable Amount</th>
-                <th>Rate</th>
-                <th>Tax Due</th>
-                <th>Paid</th>
-                <th>Balance</th>
-                <th>Due Date</th>
-                <th>Status</th>
-                <th>Notes</th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {records.length > 0 ? (
-                records.map((record) => (
-                  <tr key={record._id}>
-                    <td style={{ fontWeight: "bold" }}>{record.taxNumber}</td>
-                    <td>{record.taxType}</td>
-                    <td>
-                      {record.periodStart} to {record.periodEnd}
-                    </td>
-                    <td>{money(record.taxableAmount)}</td>
-                    <td>{Number(record.taxRate || 0)}%</td>
-                    <td>{money(record.taxDue)}</td>
-                    <td>{money(record.amountPaid)}</td>
-                    <td style={{ fontWeight: "bold" }}>{money(record.balanceDue)}</td>
-                    <td>{record.dueDate || "—"}</td>
-                    <td>{record.status}</td>
-                    <td>{record.notes || "—"}</td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan="11" style={{ textAlign: "center", color: MUTED }}>
-                    No tax records found.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-
-            <tfoot style={{ backgroundColor: "#f8fafc", fontWeight: "bold" }}>
-              <tr>
-                <td colSpan="5">TOTALS</td>
-                <td>{money(summary.totalTaxDue)}</td>
-                <td>{money(summary.totalPaid)}</td>
-                <td>{money(summary.totalBalance)}</td>
-                <td colSpan="3"></td>
-              </tr>
-            </tfoot>
-          </table>
-        </div>
-      </div>
+            <TaxRecordsWorkflowPanel
+        records={records}
+        summary={summary}
+        onChanged={loadTaxCenter}
+      />
     </div>
   );
 }
