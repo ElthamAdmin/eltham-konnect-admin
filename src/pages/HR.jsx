@@ -240,6 +240,7 @@ function HR() {
   const [myPayslips, setMyPayslips] = useState([]);
   const [myDisciplineRecords, setMyDisciplineRecords] = useState([]);
   const [myPerformanceReviews, setMyPerformanceReviews] = useState([]);
+  const [myCompensation, setMyCompensation] = useState(null);
   const [analyticsSummary, setAnalyticsSummary] = useState(null);
   const [myEmployee, setMyEmployee] = useState(null);
   const [employeeForm, setEmployeeForm] = useState(emptyEmployeeForm);
@@ -487,6 +488,7 @@ setAnalyticsSummary(analyticsRes.data.data || null);
 setMyPayslips([]);
 setMyDisciplineRecords([]);
 setMyPerformanceReviews([]);
+setMyCompensation(null);
 setMyEmployee(null);
 
       if (!documentEmployeeId && employeesData.length > 0) {
@@ -514,12 +516,36 @@ setMyEmployee(null);
     console.error("Discipline self-service load failed:", error);
     return { data: { data: [] } };
   }),
-  api.get("/api/hr/me/performance").catch((error) => {
-    if (error?.response?.status === 404 || error?.response?.status === 403) {
+    api.get("/api/hr/me/performance").catch((error) => {
+    if (
+      error?.response?.status === 404 ||
+      error?.response?.status === 403
+    ) {
       return { data: { data: [] } };
     }
-    console.error("Performance self-service load failed:", error);
+
+    console.error(
+      "Performance self-service load failed:",
+      error
+    );
+
     return { data: { data: [] } };
+  }),
+
+  api.get("/api/hr/me/compensation").catch((error) => {
+    if (
+      error?.response?.status === 404 ||
+      error?.response?.status === 403
+    ) {
+      return { data: { data: null } };
+    }
+
+    console.error(
+      "Compensation self-service load failed:",
+      error
+    );
+
+    return { data: { data: null } };
   }),
 ];
       if (canSelfServiceHR) {
@@ -535,23 +561,43 @@ setMyEmployee(null);
 
       const responses = await Promise.all(requests);
 
-let myProfileRes = { data: { data: null } };
-let leaveRes = { data: { data: [] } };
-let payrollRes = { data: { data: [] } };
-let disciplineRes = { data: { data: [] } };
-let performanceRes = { data: { data: [] } };
+let myProfileRes = {
+  data: { data: null },
+};
 
-if (responses.length === 5) {
+let leaveRes = {
+  data: { data: [] },
+};
+
+let payrollRes = {
+  data: { data: [] },
+};
+
+let disciplineRes = {
+  data: { data: [] },
+};
+
+let performanceRes = {
+  data: { data: [] },
+};
+
+let compensationRes = {
+  data: { data: null },
+};
+
+if (responses.length === 6) {
   myProfileRes = responses[0];
   leaveRes = responses[1];
   payrollRes = responses[2];
   disciplineRes = responses[3];
   performanceRes = responses[4];
-} else if (responses.length === 4) {
+  compensationRes = responses[5];
+} else if (responses.length === 5) {
   leaveRes = responses[0];
   payrollRes = responses[1];
   disciplineRes = responses[2];
   performanceRes = responses[3];
+  compensationRes = responses[4];
 } else {
   leaveRes = responses[0];
 }
@@ -566,8 +612,17 @@ setAnalyticsSummary(null);
 setMyEmployee(myProfile);
 setLeaveRequests(leaveRes.data.data || []);
 setMyPayslips(payrollRes.data.data || []);
-setMyDisciplineRecords(disciplineRes.data.data || []);
-setMyPerformanceReviews(performanceRes.data.data || []);
+setMyDisciplineRecords(
+  disciplineRes.data.data || []
+);
+
+setMyPerformanceReviews(
+  performanceRes.data.data || []
+);
+
+setMyCompensation(
+  compensationRes.data.data || null
+);
       setLeaveForm((prev) => ({
         ...prev,
         employeeId: myProfile?.employeeId || "",
@@ -4535,10 +4590,35 @@ const showMyProfileTab = canSelfServiceHR && !isAdminHR;
                 {renderField("TRN", myEmployee.trn)}
                 {renderField("NIS Number", myEmployee.nisNumber)}
                 {renderField("Start Date", myEmployee.startDate)}
-                {renderField("Pay Type", myEmployee.payType)}
+                                {renderField(
+                  "Compensation Type",
+                  myCompensation?.baseCompensation
+                    ?.compensationType ||
+                    "Not currently configured"
+                )}
+
                 {renderField(
-                  "Pay Rate",
-                  `JMD ${Number(myEmployee.payRate || 0).toLocaleString()}`
+                  "Current Compensation",
+                  myCompensation?.baseCompensation
+                    ? `JMD ${Number(
+                        myCompensation.baseCompensation.amount || 0
+                      ).toLocaleString(undefined, {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}`
+                    : "No active compensation"
+                )}
+
+                {renderField(
+                  "Pay Frequency",
+                  myCompensation?.baseCompensation
+                    ?.payFrequency || "-"
+                )}
+
+                {renderField(
+                  "Compensation Effective From",
+                  myCompensation?.baseCompensation
+                    ?.effectiveFrom || "-"
                 )}
                 {renderField(
                   "Vacation Leave Balance",
