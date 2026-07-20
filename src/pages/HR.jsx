@@ -304,6 +304,49 @@ const [performanceForm, setPerformanceForm] = useState({
     fontSize: "14px",
   };
 
+    const employeeSectionStyle = {
+    border: `1px solid ${BORDER}`,
+    borderRadius: "12px",
+    padding: "18px",
+    backgroundColor: "#f8fafc",
+  };
+
+  const employeeSectionHeaderStyle = {
+    margin: "0 0 4px",
+    color: ROYAL_BLUE,
+    fontSize: "18px",
+  };
+
+  const employeeSectionDescriptionStyle = {
+    margin: "0 0 16px",
+    color: MUTED,
+    fontSize: "13px",
+  };
+
+  const employeeGridStyle = {
+    display: "grid",
+    gridTemplateColumns:
+      "repeat(auto-fit, minmax(230px, 1fr))",
+    gap: "14px",
+  };
+
+  const employeeToggleStyle = {
+    display: "flex",
+    alignItems: "flex-start",
+    gap: "10px",
+    padding: "12px",
+    border: `1px solid ${BORDER}`,
+    borderRadius: "10px",
+    backgroundColor: WHITE,
+  };
+
+  const protectedValueStyle = {
+    padding: "12px",
+    border: `1px solid ${BORDER}`,
+    borderRadius: "10px",
+    backgroundColor: "#eef2f7",
+  };
+
   const primaryButton = {
     backgroundColor: ROYAL_BLUE,
     color: WHITE,
@@ -1950,458 +1993,1716 @@ const showMyProfileTab = canSelfServiceHR && !isAdminHR;
   </div>
 )}
 
-      {activeTab === "employeeForm" && showEmployeeFormTab && (
-        <div style={{ display: "grid", gap: "20px" }}>
-          <div style={cardStyle}>
-            <h2 style={{ color: ROYAL_BLUE, marginTop: 0 }}>
-              {isEditing ? "Edit Employee" : "Add Employee"}
-            </h2>
-
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
-                gap: "14px",
-              }}
-            >
-              <div>
-                <label style={labelStyle}>Full Name</label>
-                <input
-                  name="fullName"
-                  value={employeeForm.fullName}
-                  onChange={handleEmployeeChange}
-                  style={inputStyle}
-                />
-              </div>
-
-              <div>
-                <label style={labelStyle}>First Name</label>
-                <input
-                  name="firstName"
-                  value={employeeForm.firstName}
-                  onChange={handleEmployeeChange}
-                  style={inputStyle}
-                />
-              </div>
-
-              <div>
-                <label style={labelStyle}>Last Name</label>
-                <input
-                  name="lastName"
-                  value={employeeForm.lastName}
-                  onChange={handleEmployeeChange}
-                  style={inputStyle}
-                />
-              </div>
-
-              <div>
-                <label style={labelStyle}>Gender</label>
-                <select
-                  name="gender"
-                  value={employeeForm.gender}
-                  onChange={handleEmployeeChange}
-                  style={inputStyle}
-                >
-                  <option value="">Select Gender</option>
-                  <option value="Male">Male</option>
-                  <option value="Female">Female</option>
-                  <option value="Other">Other</option>
-                </select>
-              </div>
-
-              <div>
-                <label style={labelStyle}>Date of Birth</label>
-                <input
-                  type="date"
-                  name="dateOfBirth"
-                  value={employeeForm.dateOfBirth}
-                  onChange={handleEmployeeChange}
-                  style={inputStyle}
-                />
-              </div>
-
-              <div>
-                <label style={labelStyle}>TRN</label>
-                <input
-                  name="trn"
-                  value={employeeForm.trn}
-                  onChange={handleEmployeeChange}
-                  style={inputStyle}
-                />
-              </div>
-
-              <div>
-                <label style={labelStyle}>NIS Number</label>
-                <input
-                  name="nisNumber"
-                  value={employeeForm.nisNumber}
-                  onChange={handleEmployeeChange}
-                  style={inputStyle}
-                />
-              </div>
-
-              <div>
-                <label style={labelStyle}>Email</label>
-                <input
-                  name="email"
-                  value={employeeForm.email}
-                  onChange={handleEmployeeChange}
-                  style={inputStyle}
-                />
-              </div>
-
-              <div>
-                <label style={labelStyle}>Phone</label>
-                <input
-                  name="phone"
-                  value={employeeForm.phone}
-                  onChange={handleEmployeeChange}
-                  style={inputStyle}
-                />
-              </div>
-
-              <div>
-                <label style={labelStyle}>Alternate Phone</label>
-                <input
-                  name="alternatePhone"
-                  value={employeeForm.alternatePhone}
-                  onChange={handleEmployeeChange}
-                  style={inputStyle}
-                />
-              </div>
-
-              <div style={{ gridColumn: "1 / -1" }}>
-                <label style={labelStyle}>Address</label>
-                <textarea
-                  name="address"
-                  value={employeeForm.address}
-                  onChange={handleEmployeeChange}
-                  style={{ ...inputStyle, minHeight: "90px" }}
-                />
-              </div>
-
-              <div>
-                <label style={labelStyle}>Emergency Contact Name</label>
-                <input
-                  name="emergencyContactName"
-                  value={employeeForm.emergencyContactName}
-                  onChange={handleEmployeeChange}
-                  style={inputStyle}
-                />
-              </div>
-
-              <div>
-                <label style={labelStyle}>Emergency Contact Phone</label>
-                <input
-                  name="emergencyContactPhone"
-                  value={employeeForm.emergencyContactPhone}
-                  onChange={handleEmployeeChange}
-                  style={inputStyle}
-                />
-              </div>
-
-              <div>
-                <label style={labelStyle}>Emergency Contact Relationship</label>
-                <input
-                  name="emergencyContactRelationship"
-                  value={employeeForm.emergencyContactRelationship}
-                  onChange={handleEmployeeChange}
-                  style={inputStyle}
-                />
-              </div>
-
-              <div>
-                <label style={labelStyle}>Department</label>
-                <select
-                  name="department"
-                  value={employeeForm.department}
-                  onChange={handleEmployeeChange}
-                  style={inputStyle}
-                >
-                  {DEPARTMENT_OPTIONS.map((department) => (
-                    <option key={department} value={department}>
-                      {department}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label style={labelStyle}>Job Title</label>
-                <input
-                  name="jobTitle"
-                  value={employeeForm.jobTitle}
-                  onChange={handleEmployeeChange}
-                  style={inputStyle}
-                />
-              </div>
-
-              <div>
-  <label style={labelStyle}>Job Level</label>
-  <select
-    name="jobLevel"
-    value={employeeForm.jobLevel}
-    onChange={handleEmployeeChange}
-    style={inputStyle}
-  >
-    <option value={1}>Level 1 - Staff</option>
-    <option value={2}>Level 2 - Senior Staff</option>
-    <option value={3}>Level 3 - Supervisor</option>
-    <option value={4}>Level 4 - Assistant Manager</option>
-    <option value={5}>Level 5 - Manager</option>
-    <option value={6}>Level 6 - Senior Manager</option>
-    <option value={7}>Level 7 - Department Head</option>
-    <option value={8}>Level 8 - Branch Head</option>
-    <option value={9}>Level 9 - Director</option>
-    <option value={10}>Level 10 - Managing Director / Owner</option>
-  </select>
-</div>
-
-<div>
-  <label style={labelStyle}>Reports To</label>
-  <select
-    name="reportsToEmployeeId"
-    value={employeeForm.reportsToEmployeeId}
-    onChange={handleEmployeeChange}
-    style={inputStyle}
-  >
-    <option value="">No Reporting Manager</option>
-    {employees
-      .filter((employee) => employee.employeeId !== editingEmployeeId)
-      .map((employee) => (
-        <option key={employee.employeeId} value={employee.employeeId}>
-          {employee.fullName} ({employee.jobTitle}) - {employee.employeeId}
-        </option>
-      ))}
-  </select>
-</div>
-
-<div style={{ display: "flex", alignItems: "center", gap: "10px", paddingTop: "26px" }}>
-  <input
-    id="isDepartmentHead"
-    type="checkbox"
-    name="isDepartmentHead"
-    checked={employeeForm.isDepartmentHead}
-    onChange={handleEmployeeChange}
-  />
-  <label htmlFor="isDepartmentHead" style={{ fontWeight: "bold", color: "#334155" }}>
-    Department Head
-  </label>
-</div>
-
-              <div>
-                <label style={labelStyle}>Branch</label>
-                <select
-                  name="branch"
-                  value={employeeForm.branch}
-                  onChange={handleEmployeeChange}
-                  style={inputStyle}
-                >
-                  {BRANCH_OPTIONS.map((branch) => (
-                    <option key={branch} value={branch}>
-                      {branch}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label style={labelStyle}>Employment Type</label>
-                <select
-                  name="employmentType"
-                  value={employeeForm.employmentType}
-                  onChange={handleEmployeeChange}
-                  style={inputStyle}
-                >
-                  {EMPLOYMENT_TYPE_OPTIONS.map((type) => (
-                    <option key={type} value={type}>
-                      {type}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label style={labelStyle}>Employment Status</label>
-                <select
-                  name="employmentStatus"
-                  value={employeeForm.employmentStatus}
-                  onChange={handleEmployeeChange}
-                  style={inputStyle}
-                >
-                  {EMPLOYMENT_STATUS_OPTIONS.map((status) => (
-                    <option key={status} value={status}>
-                      {status}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label style={labelStyle}>Start Date</label>
-                <input
-                  type="date"
-                  name="startDate"
-                  value={employeeForm.startDate}
-                  onChange={handleEmployeeChange}
-                  style={inputStyle}
-                />
-              </div>
-
-              <div>
-                <label style={labelStyle}>End Date</label>
-                <input
-                  type="date"
-                  name="endDate"
-                  value={employeeForm.endDate}
-                  onChange={handleEmployeeChange}
-                  style={inputStyle}
-                />
-              </div>
-
-              <div>
-                <label style={labelStyle}>Pay Type</label>
-                <select
-                  name="payType"
-                  value={employeeForm.payType}
-                  onChange={handleEmployeeChange}
-                  style={inputStyle}
-                >
-                  {PAY_TYPE_OPTIONS.map((type) => (
-                    <option key={type} value={type}>
-                      {type}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label style={labelStyle}>Pay Rate (JMD)</label>
-                <input
-                  type="number"
-                  name="payRate"
-                  value={employeeForm.payRate}
-                  onChange={handleEmployeeChange}
-                  style={inputStyle}
-                />
-              </div>
-
-              <div>
-                <label style={labelStyle}>Vacation Leave Balance</label>
-                <input
-                  type="number"
-                  name="leaveBalanceVacation"
-                  value={employeeForm.leaveBalanceVacation}
-                  onChange={handleEmployeeChange}
-                  style={inputStyle}
-                />
-              </div>
-
-              <div>
-                <label style={labelStyle}>Sick Leave Balance</label>
-                <input
-                  type="number"
-                  name="leaveBalanceSick"
-                  value={employeeForm.leaveBalanceSick}
-                  onChange={handleEmployeeChange}
-                  style={inputStyle}
-                />
-              </div>
-
-              <div>
-                <label style={labelStyle}>Unpaid Leave Balance</label>
-                <input
-                  type="number"
-                  name="leaveBalanceUnpaid"
-                  value={employeeForm.leaveBalanceUnpaid}
-                  onChange={handleEmployeeChange}
-                  style={inputStyle}
-                />
-              </div>
-
-              <div>
-                <label style={labelStyle}>Linked System User</label>
-                <select
-                  name="linkedUserId"
-                  value={employeeForm.linkedUserId}
-                  onChange={handleEmployeeChange}
-                  style={inputStyle}
-                >
-                  <option value="">Not Linked</option>
-                  {systemUsers.map((systemUser) => (
-                    <option key={systemUser.userId} value={systemUser.userId}>
-                      {systemUser.fullName} ({systemUser.role}) - {systemUser.userId}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div style={{ display: "flex", alignItems: "center", gap: "10px", paddingTop: "26px" }}>
-                <input
-                  id="payrollEnabled"
-                  type="checkbox"
-                  name="payrollEnabled"
-                  checked={employeeForm.payrollEnabled}
-                  onChange={handleEmployeeChange}
-                />
-                <label htmlFor="payrollEnabled" style={{ fontWeight: "bold", color: "#334155" }}>
-                  Payroll Enabled
-                </label>
-              </div>
-
-              <div style={{ display: "flex", alignItems: "center", gap: "10px", paddingTop: "26px" }}>
-                <input
-                  id="attendanceRequired"
-                  type="checkbox"
-                  name="attendanceRequired"
-                  checked={employeeForm.attendanceRequired}
-                  onChange={handleEmployeeChange}
-                />
-                <label htmlFor="attendanceRequired" style={{ fontWeight: "bold", color: "#334155" }}>
-                  Attendance Required
-                </label>
-              </div>
-
-              <div style={{ gridColumn: "1 / -1" }}>
-                <label style={labelStyle}>Notes</label>
-                <textarea
-                  name="notes"
-                  value={employeeForm.notes}
-                  onChange={handleEmployeeChange}
-                  style={{ ...inputStyle, minHeight: "100px" }}
-                />
-              </div>
-            </div>
-
-            <div style={{ display: "flex", gap: "10px", marginTop: "18px", flexWrap: "wrap" }}>
-              <button style={primaryButton} onClick={saveEmployee}>
-                {isEditing ? "Update Employee" : "Save Employee"}
-              </button>
-
-              <button
-                style={neutralButton}
-                onClick={() => {
-                  resetEmployeeForm();
+            {activeTab === "employeeForm" &&
+        showEmployeeFormTab && (
+          <div
+            style={{
+              display: "grid",
+              gap: "20px",
+            }}
+          >
+            <div style={cardStyle}>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent:
+                    "space-between",
+                  alignItems: "flex-start",
+                  gap: "16px",
+                  flexWrap: "wrap",
+                  marginBottom: "18px",
                 }}
               >
-                Reset Form
-              </button>
+                <div>
+                  <h2
+                    style={{
+                      color: ROYAL_BLUE,
+                      margin: 0,
+                    }}
+                  >
+                    {isEditing
+                      ? "Edit Employee Master Record"
+                      : "Add Employee Master Record"}
+                  </h2>
 
-              {isEditing && (
-                <button
-                  style={secondaryButton}
-                  onClick={() => {
-                    resetEmployeeForm();
-                    setActiveTab("employees");
+                  <p
+                    style={{
+                      color: MUTED,
+                      margin: "6px 0 0",
+                    }}
+                  >
+                    Maintain identity,
+                    employment, scheduling,
+                    organizational and payroll
+                    eligibility information.
+                  </p>
+                </div>
+
+                <div
+                  style={{
+                    padding: "8px 12px",
+                    borderRadius: "999px",
+                    backgroundColor: isEditing
+                      ? "#dbeafe"
+                      : "#dcfce7",
+                    color: isEditing
+                      ? "#1d4ed8"
+                      : "#166534",
+                    fontWeight: "bold",
+                    fontSize: "13px",
                   }}
                 >
-                  Cancel Edit
+                  {isEditing
+                    ? `Editing ${
+                        editingEmployeeId ||
+                        "employee"
+                      }`
+                    : "New employee"}
+                </div>
+              </div>
+
+              <div
+                style={{
+                  display: "grid",
+                  gap: "16px",
+                }}
+              >
+                <section
+                  style={
+                    employeeSectionStyle
+                  }
+                >
+                  <h3
+                    style={
+                      employeeSectionHeaderStyle
+                    }
+                  >
+                    1. Personal Identity
+                  </h3>
+
+                  <p
+                    style={
+                      employeeSectionDescriptionStyle
+                    }
+                  >
+                    Legal identity and Jamaican
+                    statutory identification.
+                  </p>
+
+                  <div
+                    style={employeeGridStyle}
+                  >
+                    <div>
+                      <label
+                        style={labelStyle}
+                      >
+                        Full Name *
+                      </label>
+                      <input
+                        name="fullName"
+                        value={
+                          employeeForm.fullName
+                        }
+                        onChange={
+                          handleEmployeeChange
+                        }
+                        placeholder="Employee's full legal name"
+                        style={inputStyle}
+                      />
+                    </div>
+
+                    <div>
+                      <label
+                        style={labelStyle}
+                      >
+                        First Name
+                      </label>
+                      <input
+                        name="firstName"
+                        value={
+                          employeeForm.firstName
+                        }
+                        onChange={
+                          handleEmployeeChange
+                        }
+                        style={inputStyle}
+                      />
+                    </div>
+
+                    <div>
+                      <label
+                        style={labelStyle}
+                      >
+                        Last Name
+                      </label>
+                      <input
+                        name="lastName"
+                        value={
+                          employeeForm.lastName
+                        }
+                        onChange={
+                          handleEmployeeChange
+                        }
+                        style={inputStyle}
+                      />
+                    </div>
+
+                    <div>
+                      <label
+                        style={labelStyle}
+                      >
+                        Gender
+                      </label>
+                      <select
+                        name="gender"
+                        value={
+                          employeeForm.gender
+                        }
+                        onChange={
+                          handleEmployeeChange
+                        }
+                        style={inputStyle}
+                      >
+                        <option value="">
+                          Select gender
+                        </option>
+                        <option value="Male">
+                          Male
+                        </option>
+                        <option value="Female">
+                          Female
+                        </option>
+                        <option value="Other">
+                          Other
+                        </option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label
+                        style={labelStyle}
+                      >
+                        Date of Birth
+                      </label>
+                      <input
+                        type="date"
+                        name="dateOfBirth"
+                        value={
+                          employeeForm.dateOfBirth
+                        }
+                        onChange={
+                          handleEmployeeChange
+                        }
+                        style={inputStyle}
+                      />
+                    </div>
+
+                    <div>
+                      <label
+                        style={labelStyle}
+                      >
+                        TRN
+                      </label>
+                      <input
+                        name="trn"
+                        inputMode="numeric"
+                        maxLength={11}
+                        value={
+                          employeeForm.trn
+                        }
+                        onChange={
+                          handleEmployeeChange
+                        }
+                        placeholder="Nine-digit TRN"
+                        style={inputStyle}
+                      />
+                      <small
+                        style={{ color: MUTED }}
+                      >
+                        Enter the employee’s
+                        nine-digit Jamaican TRN.
+                      </small>
+                    </div>
+
+                    <div>
+                      <label
+                        style={labelStyle}
+                      >
+                        NIS Number
+                      </label>
+                      <input
+                        name="nisNumber"
+                        value={
+                          employeeForm.nisNumber
+                        }
+                        onChange={
+                          handleEmployeeChange
+                        }
+                        placeholder="Employee NIS number"
+                        style={inputStyle}
+                      />
+                    </div>
+                  </div>
+                </section>
+
+                <section
+                  style={
+                    employeeSectionStyle
+                  }
+                >
+                  <h3
+                    style={
+                      employeeSectionHeaderStyle
+                    }
+                  >
+                    2. Contact and Emergency
+                    Contact
+                  </h3>
+
+                  <p
+                    style={
+                      employeeSectionDescriptionStyle
+                    }
+                  >
+                    Current contact details and
+                    the person to contact in an
+                    emergency.
+                  </p>
+
+                  <div
+                    style={employeeGridStyle}
+                  >
+                    <div>
+                      <label
+                        style={labelStyle}
+                      >
+                        Email
+                      </label>
+                      <input
+                        type="email"
+                        name="email"
+                        value={
+                          employeeForm.email
+                        }
+                        onChange={
+                          handleEmployeeChange
+                        }
+                        style={inputStyle}
+                      />
+                    </div>
+
+                    <div>
+                      <label
+                        style={labelStyle}
+                      >
+                        Phone
+                      </label>
+                      <input
+                        name="phone"
+                        value={
+                          employeeForm.phone
+                        }
+                        onChange={
+                          handleEmployeeChange
+                        }
+                        style={inputStyle}
+                      />
+                    </div>
+
+                    <div>
+                      <label
+                        style={labelStyle}
+                      >
+                        Alternate Phone
+                      </label>
+                      <input
+                        name="alternatePhone"
+                        value={
+                          employeeForm.alternatePhone
+                        }
+                        onChange={
+                          handleEmployeeChange
+                        }
+                        style={inputStyle}
+                      />
+                    </div>
+
+                    <div
+                      style={{
+                        gridColumn: "1 / -1",
+                      }}
+                    >
+                      <label
+                        style={labelStyle}
+                      >
+                        Address
+                      </label>
+                      <textarea
+                        name="address"
+                        value={
+                          employeeForm.address
+                        }
+                        onChange={
+                          handleEmployeeChange
+                        }
+                        style={{
+                          ...inputStyle,
+                          minHeight: "76px",
+                        }}
+                      />
+                    </div>
+
+                    <div>
+                      <label
+                        style={labelStyle}
+                      >
+                        Emergency Contact Name
+                      </label>
+                      <input
+                        name="emergencyContactName"
+                        value={
+                          employeeForm
+                            .emergencyContactName
+                        }
+                        onChange={
+                          handleEmployeeChange
+                        }
+                        style={inputStyle}
+                      />
+                    </div>
+
+                    <div>
+                      <label
+                        style={labelStyle}
+                      >
+                        Emergency Contact Phone
+                      </label>
+                      <input
+                        name="emergencyContactPhone"
+                        value={
+                          employeeForm
+                            .emergencyContactPhone
+                        }
+                        onChange={
+                          handleEmployeeChange
+                        }
+                        style={inputStyle}
+                      />
+                    </div>
+
+                    <div>
+                      <label
+                        style={labelStyle}
+                      >
+                        Relationship
+                      </label>
+                      <input
+                        name="emergencyContactRelationship"
+                        value={
+                          employeeForm
+                            .emergencyContactRelationship
+                        }
+                        onChange={
+                          handleEmployeeChange
+                        }
+                        placeholder="For example: Parent"
+                        style={inputStyle}
+                      />
+                    </div>
+                  </div>
+                </section>
+
+                <section
+                  style={
+                    employeeSectionStyle
+                  }
+                >
+                  <h3
+                    style={
+                      employeeSectionHeaderStyle
+                    }
+                  >
+                    3. Organization and Role
+                  </h3>
+
+                  <p
+                    style={
+                      employeeSectionDescriptionStyle
+                    }
+                  >
+                    Reporting line, department,
+                    job level and work location.
+                  </p>
+
+                  <div
+                    style={employeeGridStyle}
+                  >
+                    <div>
+                      <label
+                        style={labelStyle}
+                      >
+                        Job Title *
+                      </label>
+                      <input
+                        name="jobTitle"
+                        value={
+                          employeeForm.jobTitle
+                        }
+                        onChange={
+                          handleEmployeeChange
+                        }
+                        style={inputStyle}
+                      />
+                    </div>
+
+                    <div>
+                      <label
+                        style={labelStyle}
+                      >
+                        Department
+                      </label>
+                      <select
+                        name="department"
+                        value={
+                          employeeForm.department
+                        }
+                        onChange={
+                          handleEmployeeChange
+                        }
+                        style={inputStyle}
+                      >
+                        {DEPARTMENT_OPTIONS.map(
+                          (department) => (
+                            <option
+                              key={department}
+                              value={department}
+                            >
+                              {department}
+                            </option>
+                          )
+                        )}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label
+                        style={labelStyle}
+                      >
+                        Branch
+                      </label>
+                      <select
+                        name="branch"
+                        value={
+                          employeeForm.branch
+                        }
+                        onChange={
+                          handleEmployeeChange
+                        }
+                        style={inputStyle}
+                      >
+                        {BRANCH_OPTIONS.map(
+                          (branch) => (
+                            <option
+                              key={branch}
+                              value={branch}
+                            >
+                              {branch}
+                            </option>
+                          )
+                        )}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label
+                        style={labelStyle}
+                      >
+                        Job Level
+                      </label>
+                      <select
+                        name="jobLevel"
+                        value={
+                          employeeForm.jobLevel
+                        }
+                        onChange={
+                          handleEmployeeChange
+                        }
+                        style={inputStyle}
+                      >
+                        {Array.from(
+                          { length: 10 },
+                          (_, index) =>
+                            index + 1
+                        ).map((level) => (
+                          <option
+                            key={level}
+                            value={level}
+                          >
+                            Level {level}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label
+                        style={labelStyle}
+                      >
+                        Reports To
+                      </label>
+                      <select
+                        name="reportsToEmployeeId"
+                        value={
+                          employeeForm
+                            .reportsToEmployeeId
+                        }
+                        onChange={
+                          handleEmployeeChange
+                        }
+                        style={inputStyle}
+                      >
+                        <option value="">
+                          No reporting manager
+                        </option>
+                        {employees
+                          .filter(
+                            (employee) =>
+                              employee.employeeId !==
+                              editingEmployeeId
+                          )
+                          .map((employee) => (
+                            <option
+                              key={
+                                employee.employeeId
+                              }
+                              value={
+                                employee.employeeId
+                              }
+                            >
+                              {employee.fullName} —{" "}
+                              {employee.jobTitle}
+                            </option>
+                          ))}
+                      </select>
+                    </div>
+
+                    <label
+                      style={
+                        employeeToggleStyle
+                      }
+                    >
+                      <input
+                        type="checkbox"
+                        name="isDepartmentHead"
+                        checked={
+                          employeeForm
+                            .isDepartmentHead
+                        }
+                        onChange={
+                          handleEmployeeChange
+                        }
+                      />
+                      <span>
+                        <strong>
+                          Department Head
+                        </strong>
+                        <br />
+                        <small
+                          style={{
+                            color: MUTED,
+                          }}
+                        >
+                          Employee leads the
+                          selected department.
+                        </small>
+                      </span>
+                    </label>
+                  </div>
+                </section>
+
+                <section
+                  style={
+                    employeeSectionStyle
+                  }
+                >
+                  <h3
+                    style={
+                      employeeSectionHeaderStyle
+                    }
+                  >
+                    4. Employment and Contract
+                  </h3>
+
+                  <p
+                    style={
+                      employeeSectionDescriptionStyle
+                    }
+                  >
+                    Employment classification,
+                    contract basis and effective
+                    dates.
+                  </p>
+
+                  <div
+                    style={employeeGridStyle}
+                  >
+                    <div>
+                      <label
+                        style={labelStyle}
+                      >
+                        Legacy Employment Type
+                      </label>
+                      <select
+                        name="employmentType"
+                        value={
+                          employeeForm
+                            .employmentType
+                        }
+                        onChange={
+                          handleEmployeeChange
+                        }
+                        style={inputStyle}
+                      >
+                        {EMPLOYMENT_TYPE_OPTIONS.map(
+                          (type) => (
+                            <option
+                              key={type}
+                              value={type}
+                            >
+                              {type}
+                            </option>
+                          )
+                        )}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label
+                        style={labelStyle}
+                      >
+                        Employment Classification
+                      </label>
+                      <select
+                        name="employmentClassification"
+                        value={
+                          employeeForm
+                            .employmentClassification
+                        }
+                        onChange={
+                          handleEmployeeChange
+                        }
+                        style={inputStyle}
+                      >
+                        {EMPLOYMENT_CLASSIFICATION_OPTIONS.map(
+                          (classification) => (
+                            <option
+                              key={
+                                classification ||
+                                "unselected"
+                              }
+                              value={
+                                classification
+                              }
+                            >
+                              {classification ||
+                                "Select classification"}
+                            </option>
+                          )
+                        )}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label
+                        style={labelStyle}
+                      >
+                        Contract Type
+                      </label>
+                      <select
+                        name="contractType"
+                        value={
+                          employeeForm
+                            .contractType
+                        }
+                        onChange={
+                          handleEmployeeChange
+                        }
+                        style={inputStyle}
+                      >
+                        {CONTRACT_TYPE_OPTIONS.map(
+                          (contractType) => (
+                            <option
+                              key={
+                                contractType ||
+                                "unselected"
+                              }
+                              value={
+                                contractType
+                              }
+                            >
+                              {contractType ||
+                                "Select contract type"}
+                            </option>
+                          )
+                        )}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label
+                        style={labelStyle}
+                      >
+                        Employment Status
+                      </label>
+                      <select
+                        name="employmentStatus"
+                        value={
+                          employeeForm
+                            .employmentStatus
+                        }
+                        onChange={
+                          handleEmployeeChange
+                        }
+                        style={inputStyle}
+                      >
+                        {EMPLOYMENT_STATUS_OPTIONS.map(
+                          (status) => (
+                            <option
+                              key={status}
+                              value={status}
+                            >
+                              {status}
+                            </option>
+                          )
+                        )}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label
+                        style={labelStyle}
+                      >
+                        Start Date
+                      </label>
+                      <input
+                        type="date"
+                        name="startDate"
+                        value={
+                          employeeForm.startDate
+                        }
+                        onChange={
+                          handleEmployeeChange
+                        }
+                        style={inputStyle}
+                      />
+                    </div>
+
+                    <div>
+                      <label
+                        style={labelStyle}
+                      >
+                        End Date
+                      </label>
+                      <input
+                        type="date"
+                        name="endDate"
+                        value={
+                          employeeForm.endDate
+                        }
+                        onChange={
+                          handleEmployeeChange
+                        }
+                        style={inputStyle}
+                      />
+                    </div>
+                  </div>
+                </section>
+
+                <section
+                  style={
+                    employeeSectionStyle
+                  }
+                >
+                  <h3
+                    style={
+                      employeeSectionHeaderStyle
+                    }
+                  >
+                    5. Probation
+                  </h3>
+
+                  <p
+                    style={
+                      employeeSectionDescriptionStyle
+                    }
+                  >
+                    Track an applicable probation
+                    period and its review status.
+                  </p>
+
+                  <label
+                    style={{
+                      ...employeeToggleStyle,
+                      marginBottom: "14px",
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      name="applicable"
+                      checked={
+                        employeeForm.probation
+                          .applicable
+                      }
+                      onChange={
+                        handleProbationChange
+                      }
+                    />
+                    <span>
+                      <strong>
+                        Probation applies
+                      </strong>
+                      <br />
+                      <small
+                        style={{ color: MUTED }}
+                      >
+                        Enable probation dates and
+                        review tracking.
+                      </small>
+                    </span>
+                  </label>
+
+                  {employeeForm.probation
+                    .applicable && (
+                    <div
+                      style={employeeGridStyle}
+                    >
+                      <div>
+                        <label
+                          style={labelStyle}
+                        >
+                          Probation Start
+                        </label>
+                        <input
+                          type="date"
+                          name="startDate"
+                          value={
+                            employeeForm
+                              .probation.startDate
+                          }
+                          onChange={
+                            handleProbationChange
+                          }
+                          style={inputStyle}
+                        />
+                      </div>
+
+                      <div>
+                        <label
+                          style={labelStyle}
+                        >
+                          Probation End
+                        </label>
+                        <input
+                          type="date"
+                          name="endDate"
+                          value={
+                            employeeForm
+                              .probation.endDate
+                          }
+                          onChange={
+                            handleProbationChange
+                          }
+                          style={inputStyle}
+                        />
+                      </div>
+
+                      <div>
+                        <label
+                          style={labelStyle}
+                        >
+                          Duration in Months
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          max="24"
+                          name="durationMonths"
+                          value={
+                            employeeForm
+                              .probation
+                              .durationMonths
+                          }
+                          onChange={
+                            handleProbationChange
+                          }
+                          style={inputStyle}
+                        />
+                      </div>
+
+                      <div>
+                        <label
+                          style={labelStyle}
+                        >
+                          Status
+                        </label>
+                        <select
+                          name="status"
+                          value={
+                            employeeForm
+                              .probation.status
+                          }
+                          onChange={
+                            handleProbationChange
+                          }
+                          style={inputStyle}
+                        >
+                          {PROBATION_STATUS_OPTIONS.filter(
+                            (status) =>
+                              status !==
+                              "Not Applicable"
+                          ).map((status) => (
+                            <option
+                              key={status}
+                              value={status}
+                            >
+                              {status}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div>
+                        <label
+                          style={labelStyle}
+                        >
+                          Review Due Date
+                        </label>
+                        <input
+                          type="date"
+                          name="reviewDueDate"
+                          value={
+                            employeeForm
+                              .probation
+                              .reviewDueDate
+                          }
+                          onChange={
+                            handleProbationChange
+                          }
+                          style={inputStyle}
+                        />
+                      </div>
+
+                      <div>
+                        <label
+                          style={labelStyle}
+                        >
+                          Completed Date
+                        </label>
+                        <input
+                          type="date"
+                          name="completedDate"
+                          value={
+                            employeeForm
+                              .probation
+                              .completedDate
+                          }
+                          onChange={
+                            handleProbationChange
+                          }
+                          style={inputStyle}
+                        />
+                      </div>
+
+                      <div
+                        style={{
+                          gridColumn: "1 / -1",
+                        }}
+                      >
+                        <label
+                          style={labelStyle}
+                        >
+                          Probation Notes
+                        </label>
+                        <textarea
+                          name="notes"
+                          value={
+                            employeeForm
+                              .probation.notes
+                          }
+                          onChange={
+                            handleProbationChange
+                          }
+                          style={{
+                            ...inputStyle,
+                            minHeight: "70px",
+                          }}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </section>
+
+                <section
+                  style={
+                    employeeSectionStyle
+                  }
+                >
+                  <h3
+                    style={
+                      employeeSectionHeaderStyle
+                    }
+                  >
+                    6. Work Schedule
+                  </h3>
+
+                  <p
+                    style={
+                      employeeSectionDescriptionStyle
+                    }
+                  >
+                    Normal working hours and
+                    scheduled workdays. H3 will
+                    compare this schedule with
+                    actual attendance.
+                  </p>
+
+                  <div
+                    style={{
+                      ...employeeGridStyle,
+                      marginBottom: "14px",
+                    }}
+                  >
+                    <div>
+                      <label
+                        style={labelStyle}
+                      >
+                        Normal Hours per Day
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        max="24"
+                        step="0.5"
+                        name="hoursPerDay"
+                        value={
+                          employeeForm
+                            .normalWorkingHours
+                            .hoursPerDay
+                        }
+                        onChange={
+                          handleWorkingHoursChange
+                        }
+                        style={inputStyle}
+                      />
+                    </div>
+
+                    <div>
+                      <label
+                        style={labelStyle}
+                      >
+                        Normal Hours per Week
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        max="168"
+                        step="0.5"
+                        name="hoursPerWeek"
+                        value={
+                          employeeForm
+                            .normalWorkingHours
+                            .hoursPerWeek
+                        }
+                        onChange={
+                          handleWorkingHoursChange
+                        }
+                        style={inputStyle}
+                      />
+                    </div>
+                  </div>
+
+                  <label style={labelStyle}>
+                    Scheduled Workdays
+                  </label>
+
+                  <div
+                    style={{
+                      display: "flex",
+                      gap: "8px",
+                      flexWrap: "wrap",
+                    }}
+                  >
+                    {WORKDAY_OPTIONS.map(
+                      (workday) => {
+                        const selected =
+                          employeeForm.scheduledWorkdays.includes(
+                            workday
+                          );
+
+                        return (
+                          <button
+                            key={workday}
+                            type="button"
+                            onClick={() =>
+                              toggleScheduledWorkday(
+                                workday
+                              )
+                            }
+                            style={{
+                              border: selected
+                                ? `1px solid ${ROYAL_BLUE}`
+                                : `1px solid ${BORDER}`,
+                              backgroundColor:
+                                selected
+                                  ? ROYAL_BLUE
+                                  : WHITE,
+                              color: selected
+                                ? WHITE
+                                : "#334155",
+                              padding:
+                                "9px 12px",
+                              borderRadius:
+                                "999px",
+                              cursor: "pointer",
+                              fontWeight: "bold",
+                            }}
+                          >
+                            {workday}
+                          </button>
+                        );
+                      }
+                    )}
+                  </div>
+
+                  <label
+                    style={{
+                      ...employeeToggleStyle,
+                      marginTop: "14px",
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      name="attendanceRequired"
+                      checked={
+                        employeeForm
+                          .attendanceRequired
+                      }
+                      onChange={
+                        handleEmployeeChange
+                      }
+                    />
+                    <span>
+                      <strong>
+                        Attendance Required
+                      </strong>
+                      <br />
+                      <small
+                        style={{ color: MUTED }}
+                      >
+                        Include the employee in
+                        controlled attendance
+                        periods.
+                      </small>
+                    </span>
+                  </label>
+                </section>
+
+                <section
+                  style={
+                    employeeSectionStyle
+                  }
+                >
+                  <h3
+                    style={
+                      employeeSectionHeaderStyle
+                    }
+                  >
+                    7. Compensation
+                    Classification
+                  </h3>
+
+                  <p
+                    style={
+                      employeeSectionDescriptionStyle
+                    }
+                  >
+                    Classification only. H2 will
+                    manage effective-dated pay
+                    rates without overwriting
+                    history.
+                  </p>
+
+                  <div
+                    style={employeeGridStyle}
+                  >
+                    <div>
+                      <label
+                        style={labelStyle}
+                      >
+                        Compensation Type
+                      </label>
+                      <select
+                        name="compensationType"
+                        value={
+                          employeeForm
+                            .compensationType
+                        }
+                        onChange={
+                          handleEmployeeChange
+                        }
+                        style={inputStyle}
+                      >
+                        {COMPENSATION_TYPE_OPTIONS.map(
+                          (type) => (
+                            <option
+                              key={
+                                type ||
+                                "unselected"
+                              }
+                              value={type}
+                            >
+                              {type ||
+                                "Select compensation type"}
+                            </option>
+                          )
+                        )}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label
+                        style={labelStyle}
+                      >
+                        Pay Frequency
+                      </label>
+                      <select
+                        name="payFrequency"
+                        value={
+                          employeeForm
+                            .payFrequency
+                        }
+                        onChange={
+                          handleEmployeeChange
+                        }
+                        style={inputStyle}
+                      >
+                        {PAY_FREQUENCY_OPTIONS.map(
+                          (frequency) => (
+                            <option
+                              key={
+                                frequency ||
+                                "unselected"
+                              }
+                              value={frequency}
+                            >
+                              {frequency ||
+                                "Select pay frequency"}
+                            </option>
+                          )
+                        )}
+                      </select>
+                    </div>
+
+                    {isEditing && (
+                      <div
+                        style={{
+                          ...protectedValueStyle,
+                          gridColumn:
+                            "1 / -1",
+                        }}
+                      >
+                        <strong>
+                          Protected legacy pay
+                          snapshot
+                        </strong>
+                        <div
+                          style={{
+                            marginTop: "6px",
+                            color: MUTED,
+                          }}
+                        >
+                          {employeeForm.payType}:{" "}
+                          JMD{" "}
+                          {Number(
+                            employeeForm.payRate ||
+                              0
+                          ).toLocaleString()}
+                        </div>
+                        <small
+                          style={{
+                            color: "#92400e",
+                          }}
+                        >
+                          This rate cannot be
+                          changed here. H2 will
+                          provide effective-dated
+                          compensation history.
+                        </small>
+                      </div>
+                    )}
+                  </div>
+                </section>
+
+                <section
+                  style={
+                    employeeSectionStyle
+                  }
+                >
+                  <h3
+                    style={
+                      employeeSectionHeaderStyle
+                    }
+                  >
+                    8. Payroll Eligibility and
+                    System Access
+                  </h3>
+
+                  <p
+                    style={
+                      employeeSectionDescriptionStyle
+                    }
+                  >
+                    Control whether the employee
+                    may enter payroll and whether
+                    a system account is linked.
+                  </p>
+
+                  <div
+                    style={employeeGridStyle}
+                  >
+                    <label
+                      style={
+                        employeeToggleStyle
+                      }
+                    >
+                      <input
+                        type="checkbox"
+                        name="payrollEnabled"
+                        checked={
+                          employeeForm
+                            .payrollEnabled
+                        }
+                        onChange={
+                          handleEmployeeChange
+                        }
+                      />
+                      <span>
+                        <strong>
+                          Payroll Enabled
+                        </strong>
+                        <br />
+                        <small
+                          style={{
+                            color: MUTED,
+                          }}
+                        >
+                          Allows payroll
+                          processing after all
+                          eligibility checks pass.
+                        </small>
+                      </span>
+                    </label>
+
+                    <div>
+                      <label
+                        style={labelStyle}
+                      >
+                        Eligibility Status
+                      </label>
+                      <select
+                        name="payrollEligibilityStatus"
+                        value={
+                          employeeForm
+                            .payrollEligibilityStatus
+                        }
+                        onChange={
+                          handleEmployeeChange
+                        }
+                        style={inputStyle}
+                      >
+                        {PAYROLL_ELIGIBILITY_OPTIONS.map(
+                          (status) => (
+                            <option
+                              key={status}
+                              value={status}
+                            >
+                              {status}
+                            </option>
+                          )
+                        )}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label
+                        style={labelStyle}
+                      >
+                        Eligibility Effective From
+                      </label>
+                      <input
+                        type="date"
+                        name="payrollEligibilityEffectiveFrom"
+                        value={
+                          employeeForm
+                            .payrollEligibilityEffectiveFrom
+                        }
+                        onChange={
+                          handleEmployeeChange
+                        }
+                        style={inputStyle}
+                      />
+                    </div>
+
+                    <div>
+                      <label
+                        style={labelStyle}
+                      >
+                        Eligibility Effective To
+                      </label>
+                      <input
+                        type="date"
+                        name="payrollEligibilityEffectiveTo"
+                        value={
+                          employeeForm
+                            .payrollEligibilityEffectiveTo
+                        }
+                        onChange={
+                          handleEmployeeChange
+                        }
+                        style={inputStyle}
+                      />
+                    </div>
+
+                    <div
+                      style={{
+                        gridColumn: "1 / -1",
+                      }}
+                    >
+                      <label
+                        style={labelStyle}
+                      >
+                        Eligibility Reason or
+                        Review Notes
+                      </label>
+                      <textarea
+                        name="payrollEligibilityReason"
+                        value={
+                          employeeForm
+                            .payrollEligibilityReason
+                        }
+                        onChange={
+                          handleEmployeeChange
+                        }
+                        style={{
+                          ...inputStyle,
+                          minHeight: "70px",
+                        }}
+                      />
+                    </div>
+
+                    <div>
+                      <label
+                        style={labelStyle}
+                      >
+                        Linked System User
+                      </label>
+                      <select
+                        name="linkedUserId"
+                        value={
+                          employeeForm
+                            .linkedUserId
+                        }
+                        onChange={
+                          handleEmployeeChange
+                        }
+                        style={inputStyle}
+                      >
+                        <option value="">
+                          Not linked
+                        </option>
+                        {systemUsers.map(
+                          (systemUser) => (
+                            <option
+                              key={
+                                systemUser.userId
+                              }
+                              value={
+                                systemUser.userId
+                              }
+                            >
+                              {
+                                systemUser.fullName
+                              }{" "}
+                              ({systemUser.role})
+                            </option>
+                          )
+                        )}
+                      </select>
+                    </div>
+                  </div>
+                </section>
+
+                {isEditing && (
+                  <section
+                    style={
+                      employeeSectionStyle
+                    }
+                  >
+                    <h3
+                      style={
+                        employeeSectionHeaderStyle
+                      }
+                    >
+                      Protected Leave Balances
+                    </h3>
+
+                    <p
+                      style={
+                        employeeSectionDescriptionStyle
+                      }
+                    >
+                      These balances cannot be
+                      edited from the employee
+                      master. H5 will manage
+                      controlled adjustments.
+                    </p>
+
+                    <div
+                      style={employeeGridStyle}
+                    >
+                      <div
+                        style={
+                          protectedValueStyle
+                        }
+                      >
+                        <strong>
+                          Vacation
+                        </strong>
+                        <div>
+                          {Number(
+                            employeeForm
+                              .leaveBalanceVacation ||
+                              0
+                          )}{" "}
+                          days
+                        </div>
+                      </div>
+
+                      <div
+                        style={
+                          protectedValueStyle
+                        }
+                      >
+                        <strong>Sick</strong>
+                        <div>
+                          {Number(
+                            employeeForm
+                              .leaveBalanceSick ||
+                              0
+                          )}{" "}
+                          days
+                        </div>
+                      </div>
+
+                      <div
+                        style={
+                          protectedValueStyle
+                        }
+                      >
+                        <strong>Unpaid</strong>
+                        <div>
+                          {Number(
+                            employeeForm
+                              .leaveBalanceUnpaid ||
+                              0
+                          )}{" "}
+                          days
+                        </div>
+                      </div>
+                    </div>
+                  </section>
+                )}
+
+                <section
+                  style={
+                    employeeSectionStyle
+                  }
+                >
+                  <h3
+                    style={
+                      employeeSectionHeaderStyle
+                    }
+                  >
+                    Administrative Notes
+                  </h3>
+
+                  <textarea
+                    name="notes"
+                    value={
+                      employeeForm.notes
+                    }
+                    onChange={
+                      handleEmployeeChange
+                    }
+                    placeholder="Internal employee-master notes"
+                    style={{
+                      ...inputStyle,
+                      minHeight: "90px",
+                    }}
+                  />
+                </section>
+              </div>
+
+              <div
+                style={{
+                  display: "flex",
+                  gap: "10px",
+                  marginTop: "18px",
+                  flexWrap: "wrap",
+                  position: "sticky",
+                  bottom: "10px",
+                  padding: "12px",
+                  border: `1px solid ${BORDER}`,
+                  borderRadius: "12px",
+                  backgroundColor:
+                    "rgba(255,255,255,0.96)",
+                  boxShadow:
+                    "0 8px 24px rgba(15,23,42,0.12)",
+                }}
+              >
+                <button
+                  style={primaryButton}
+                  onClick={saveEmployee}
+                >
+                  {isEditing
+                    ? "Update Employee Master"
+                    : "Save Employee Master"}
                 </button>
-              )}
+
+                <button
+                  style={neutralButton}
+                  onClick={resetEmployeeForm}
+                >
+                  Reset Form
+                </button>
+
+                {isEditing && (
+                  <button
+                    style={secondaryButton}
+                    onClick={() => {
+                      resetEmployeeForm();
+                      setActiveTab(
+                        "employees"
+                      );
+                    }}
+                  >
+                    Cancel Edit
+                  </button>
+                )}
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
       {activeTab === "leaveRequests" && showLeaveRequestsTab && (
         <div style={{ display: "grid", gap: "20px" }}>
