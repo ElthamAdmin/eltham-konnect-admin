@@ -922,36 +922,308 @@ const savePerformanceReview = async () => {
     setActiveTab("employeeForm");
   };
 
-  const saveEmployee = async () => {
+    const saveEmployee = async () => {
     try {
-      const payload = {
-        ...employeeForm,
-        payRate: Number(employeeForm.payRate || 0),
-        leaveBalanceVacation: Number(employeeForm.leaveBalanceVacation || 0),
-        leaveBalanceSick: Number(employeeForm.leaveBalanceSick || 0),
-        leaveBalanceUnpaid: Number(employeeForm.leaveBalanceUnpaid || 0),
-      };
+      const normalizedTrn = String(
+        employeeForm.trn || ""
+      ).replace(/\D/g, "");
 
-      if (!payload.fullName || !payload.jobTitle) {
-        alert("Full name and job title are required.");
+      if (
+        !employeeForm.fullName.trim() ||
+        !employeeForm.jobTitle.trim()
+      ) {
+        alert(
+          "Full name and job title are required."
+        );
         return;
       }
 
-      const res = isEditing
-        ? await api.put(`/api/hr/${editingEmployeeId}`, payload)
-        : await api.post("/api/hr", payload);
+      if (
+        employeeForm.trn &&
+        normalizedTrn.length !== 9
+      ) {
+        alert(
+          "The employee TRN must contain exactly nine digits."
+        );
+        return;
+      }
 
-      alert(res.data.message || (isEditing ? "Employee updated" : "Employee added"));
+      if (
+        employeeForm.startDate &&
+        employeeForm.endDate &&
+        employeeForm.endDate <
+          employeeForm.startDate
+      ) {
+        alert(
+          "Employment end date cannot be earlier than the start date."
+        );
+        return;
+      }
+
+      const hoursPerDay = Number(
+        employeeForm.normalWorkingHours
+          ?.hoursPerDay || 0
+      );
+
+      const hoursPerWeek = Number(
+        employeeForm.normalWorkingHours
+          ?.hoursPerWeek || 0
+      );
+
+      if (
+        hoursPerDay > 0 &&
+        hoursPerWeek > 0 &&
+        hoursPerWeek < hoursPerDay
+      ) {
+        alert(
+          "Normal weekly hours cannot be less than normal daily hours."
+        );
+        return;
+      }
+
+      const scheduledWorkdays =
+        Array.from(
+          new Set(
+            employeeForm.scheduledWorkdays ||
+              []
+          )
+        );
+
+      if (
+        employeeForm.probation
+          ?.applicable &&
+        employeeForm.probation
+          ?.status === "Not Applicable"
+      ) {
+        alert(
+          "Select a valid status for the applicable probation period."
+        );
+        return;
+      }
+
+      if (
+        employeeForm.probation
+          ?.applicable &&
+        employeeForm.probation
+          ?.startDate &&
+        employeeForm.probation?.endDate &&
+        employeeForm.probation.endDate <
+          employeeForm.probation.startDate
+      ) {
+        alert(
+          "Probation end date cannot be earlier than its start date."
+        );
+        return;
+      }
+
+      if (
+        employeeForm
+          .payrollEligibilityEffectiveFrom &&
+        employeeForm
+          .payrollEligibilityEffectiveTo &&
+        employeeForm
+          .payrollEligibilityEffectiveTo <
+          employeeForm
+            .payrollEligibilityEffectiveFrom
+      ) {
+        alert(
+          "Payroll eligibility end date cannot be earlier than its effective date."
+        );
+        return;
+      }
+
+      if (
+        employeeForm
+          .payrollEligibilityStatus ===
+          "Eligible" &&
+        !employeeForm.payrollEnabled
+      ) {
+        alert(
+          "Payroll must be enabled before the employee can be marked Eligible."
+        );
+        return;
+      }
+
+      const payload = {
+        fullName:
+          employeeForm.fullName.trim(),
+        firstName:
+          employeeForm.firstName.trim(),
+        lastName:
+          employeeForm.lastName.trim(),
+        gender: employeeForm.gender,
+        dateOfBirth:
+          employeeForm.dateOfBirth,
+        trn: normalizedTrn,
+        nisNumber:
+          employeeForm.nisNumber.trim(),
+
+        email:
+          employeeForm.email.trim(),
+        phone:
+          employeeForm.phone.trim(),
+        alternatePhone:
+          employeeForm.alternatePhone.trim(),
+        address:
+          employeeForm.address.trim(),
+
+        emergencyContactName:
+          employeeForm
+            .emergencyContactName.trim(),
+        emergencyContactPhone:
+          employeeForm
+            .emergencyContactPhone.trim(),
+        emergencyContactRelationship:
+          employeeForm
+            .emergencyContactRelationship.trim(),
+
+        department:
+          employeeForm.department,
+        jobTitle:
+          employeeForm.jobTitle.trim(),
+        jobLevel: Number(
+          employeeForm.jobLevel || 1
+        ),
+        isDepartmentHead: Boolean(
+          employeeForm.isDepartmentHead
+        ),
+        reportsToEmployeeId:
+          employeeForm.reportsToEmployeeId,
+        branch: employeeForm.branch,
+
+        employmentType:
+          employeeForm.employmentType,
+        employmentClassification:
+          employeeForm
+            .employmentClassification,
+        contractType:
+          employeeForm.contractType,
+        employmentStatus:
+          employeeForm.employmentStatus,
+        startDate:
+          employeeForm.startDate,
+        endDate: employeeForm.endDate,
+
+        probation: {
+          applicable: Boolean(
+            employeeForm.probation
+              ?.applicable
+          ),
+          startDate:
+            employeeForm.probation
+              ?.startDate || "",
+          endDate:
+            employeeForm.probation
+              ?.endDate || "",
+          durationMonths: Number(
+            employeeForm.probation
+              ?.durationMonths || 0
+          ),
+          status:
+            employeeForm.probation
+              ?.status ||
+            "Not Applicable",
+          reviewDueDate:
+            employeeForm.probation
+              ?.reviewDueDate || "",
+          completedDate:
+            employeeForm.probation
+              ?.completedDate || "",
+          notes: String(
+            employeeForm.probation?.notes ||
+              ""
+          ).trim(),
+        },
+
+        normalWorkingHours: {
+          hoursPerDay,
+          hoursPerWeek,
+        },
+
+        scheduledWorkdays,
+
+        compensationType:
+          employeeForm.compensationType,
+        payFrequency:
+          employeeForm.payFrequency,
+
+        payrollEnabled: Boolean(
+          employeeForm.payrollEnabled
+        ),
+        payrollEligibilityStatus:
+          employeeForm
+            .payrollEligibilityStatus,
+        payrollEligibilityReason:
+          employeeForm
+            .payrollEligibilityReason.trim(),
+        payrollEligibilityEffectiveFrom:
+          employeeForm
+            .payrollEligibilityEffectiveFrom,
+        payrollEligibilityEffectiveTo:
+          employeeForm
+            .payrollEligibilityEffectiveTo,
+
+        linkedUserId:
+          employeeForm.linkedUserId,
+        attendanceRequired: Boolean(
+          employeeForm.attendanceRequired
+        ),
+
+        notes:
+          employeeForm.notes.trim(),
+      };
+
+      /*
+       * Existing compensation and leave values are never sent
+       * through an ordinary employee update.
+       */
+      if (!isEditing) {
+        payload.payType =
+          employeeForm.payType ||
+          "Monthly Salary";
+
+        payload.payRate = Number(
+          employeeForm.payRate || 0
+        );
+
+        payload.leaveBalanceVacation = 0;
+        payload.leaveBalanceSick = 0;
+        payload.leaveBalanceUnpaid = 0;
+      }
+
+      const response = isEditing
+        ? await api.put(
+            `/api/hr/${editingEmployeeId}`,
+            payload
+          )
+        : await api.post(
+            "/api/hr",
+            payload
+          );
+
+      alert(
+        response.data.message ||
+          (isEditing
+            ? "Employee updated successfully."
+            : "Employee added successfully.")
+      );
+
       resetEmployeeForm();
       await fetchHRData();
       setActiveTab("employees");
     } catch (error) {
-      console.error(error);
+      console.error(
+        "Employee save error:",
+        error
+      );
+
       alert(
-  error?.response?.data?.error ||
-    error?.response?.data?.message ||
-    (isEditing ? "Error updating employee" : "Error adding employee")
-);
+        error?.response?.data?.message ||
+          error?.response?.data?.error ||
+          (isEditing
+            ? "Could not update the employee."
+            : "Could not add the employee.")
+      );
     }
   };
 
