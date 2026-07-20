@@ -38,13 +38,86 @@ function HR() {
     "Probation",
   ];
   const EMPLOYMENT_STATUS_OPTIONS = ["Active", "Inactive", "On Leave", "Terminated"];
-  const PAY_TYPE_OPTIONS = [
+    const PAY_TYPE_OPTIONS = [
     "Monthly Salary",
     "Weekly Wage",
     "Daily Rate",
     "Hourly Rate",
   ];
-  const LEAVE_TYPE_OPTIONS = ["Vacation", "Sick", "Unpaid", "Emergency"];
+
+  const EMPLOYMENT_CLASSIFICATION_OPTIONS = [
+    "",
+    "Full-Time",
+    "Part-Time",
+    "Casual",
+    "Seasonal",
+    "Apprentice",
+    "Intern",
+    "Other",
+  ];
+
+  const CONTRACT_TYPE_OPTIONS = [
+    "",
+    "Permanent",
+    "Fixed-Term",
+    "Temporary",
+    "Casual",
+    "Probationary",
+    "Independent Contractor",
+    "Other",
+  ];
+
+  const COMPENSATION_TYPE_OPTIONS = [
+    "",
+    "Salary",
+    "Wage",
+    "Stipend",
+    "Allowance",
+    "Other",
+  ];
+
+  const PAY_FREQUENCY_OPTIONS = [
+    "",
+    "Weekly",
+    "Fortnightly",
+    "Semi-Monthly",
+    "Monthly",
+    "Annual",
+  ];
+
+  const WORKDAY_OPTIONS = [
+    "Monday",
+    "Tuesday",
+    "Wednesday",
+    "Thursday",
+    "Friday",
+    "Saturday",
+    "Sunday",
+  ];
+
+  const PROBATION_STATUS_OPTIONS = [
+    "Not Applicable",
+    "Pending",
+    "In Progress",
+    "Review Due",
+    "Completed",
+    "Extended",
+    "Failed",
+  ];
+
+  const PAYROLL_ELIGIBILITY_OPTIONS = [
+    "Pending Review",
+    "Eligible",
+    "On Hold",
+    "Not Eligible",
+  ];
+
+  const LEAVE_TYPE_OPTIONS = [
+    "Vacation",
+    "Sick",
+    "Unpaid",
+    "Emergency",
+  ];
 
   const DOCUMENT_TYPE_OPTIONS = [
   "Contract",
@@ -59,41 +132,86 @@ function HR() {
   "Other",
 ];
 
-  const emptyEmployeeForm = {
-  fullName: "",
-  firstName: "",
-  lastName: "",
-  gender: "",
-  dateOfBirth: "",
-  trn: "",
-  nisNumber: "",
-  email: "",
-  phone: "",
-  alternatePhone: "",
-  address: "",
-  emergencyContactName: "",
-  emergencyContactPhone: "",
-  emergencyContactRelationship: "",
-  department: "Operations",
-  jobTitle: "",
-  jobLevel: 1,
-  isDepartmentHead: false,
-  reportsToEmployeeId: "",
-  branch: "Eltham Park Mainstore",
-  employmentType: "Temporary",
-  startDate: "",
-  endDate: "",
-  employmentStatus: "Active",
-  payType: "Monthly Salary",
-  payRate: "",
-  payrollEnabled: true,
-  linkedUserId: "",
-  attendanceRequired: true,
-  leaveBalanceVacation: 0,
-  leaveBalanceSick: 0,
-  leaveBalanceUnpaid: 0,
-  notes: "",
-};
+    const emptyEmployeeForm = {
+    fullName: "",
+    firstName: "",
+    lastName: "",
+    gender: "",
+    dateOfBirth: "",
+    trn: "",
+    nisNumber: "",
+
+    email: "",
+    phone: "",
+    alternatePhone: "",
+    address: "",
+
+    emergencyContactName: "",
+    emergencyContactPhone: "",
+    emergencyContactRelationship: "",
+
+    department: "Operations",
+    jobTitle: "",
+    jobLevel: 1,
+    isDepartmentHead: false,
+    reportsToEmployeeId: "",
+    branch: "Eltham Park Mainstore",
+
+    employmentType: "Temporary",
+    employmentClassification: "",
+    contractType: "",
+    employmentStatus: "Active",
+    startDate: "",
+    endDate: "",
+
+    probation: {
+      applicable: false,
+      startDate: "",
+      endDate: "",
+      durationMonths: 0,
+      status: "Not Applicable",
+      reviewDueDate: "",
+      completedDate: "",
+      notes: "",
+    },
+
+    normalWorkingHours: {
+      hoursPerDay: 0,
+      hoursPerWeek: 0,
+    },
+
+    scheduledWorkdays: [],
+
+    compensationType: "",
+    payFrequency: "",
+
+    /*
+     * Legacy compensation fields remain available for display
+     * until H2 migrates compensation into effective-dated records.
+     */
+    payType: "Monthly Salary",
+    payRate: 0,
+
+    payrollEnabled: true,
+    payrollEligibilityStatus:
+      "Pending Review",
+    payrollEligibilityReason: "",
+    payrollEligibilityEffectiveFrom: "",
+    payrollEligibilityEffectiveTo: "",
+
+    linkedUserId: "",
+    attendanceRequired: true,
+
+    /*
+     * Leave balances are display-only during H1.
+     * H5 will provide controlled balance adjustments.
+     */
+    leaveBalanceVacation: 0,
+    leaveBalanceSick: 0,
+    leaveBalanceUnpaid: 0,
+
+    notes: "",
+  };
 
   const emptyLeaveForm = {
     employeeId: "",
@@ -437,21 +555,105 @@ setMyPerformanceReviews(performanceRes.data.data || []);
   }
 }, [activeTab, documentEmployeeId, myEmployee, isAdminHR]);
 
-  const handleEmployeeChange = (e) => {
-    const { name, value, type, checked } = e.target;
+    const handleEmployeeChange = (e) => {
+    const {
+      name,
+      value,
+      type,
+      checked,
+    } = e.target;
 
-    setEmployeeForm((prev) => ({
-      ...prev,
+    setEmployeeForm((previous) => ({
+      ...previous,
       [name]:
         type === "checkbox"
           ? checked
-          : name === "payRate" ||
-            name === "leaveBalanceVacation" ||
-            name === "leaveBalanceSick" ||
-            name === "leaveBalanceUnpaid"
-          ? value
           : value,
     }));
+  };
+
+  const handleProbationChange = (e) => {
+    const {
+      name,
+      value,
+      type,
+      checked,
+    } = e.target;
+
+    setEmployeeForm((previous) => {
+      const probation = {
+        ...previous.probation,
+        [name]:
+          type === "checkbox"
+            ? checked
+            : name === "durationMonths"
+            ? Number(value || 0)
+            : value,
+      };
+
+      if (
+        name === "applicable" &&
+        !checked
+      ) {
+        probation.status =
+          "Not Applicable";
+        probation.startDate = "";
+        probation.endDate = "";
+        probation.durationMonths = 0;
+        probation.reviewDueDate = "";
+        probation.completedDate = "";
+      }
+
+      if (
+        name === "applicable" &&
+        checked &&
+        probation.status ===
+          "Not Applicable"
+      ) {
+        probation.status = "Pending";
+      }
+
+      return {
+        ...previous,
+        probation,
+      };
+    });
+  };
+
+  const handleWorkingHoursChange = (e) => {
+    const { name, value } = e.target;
+
+    setEmployeeForm((previous) => ({
+      ...previous,
+      normalWorkingHours: {
+        ...previous.normalWorkingHours,
+        [name]: Number(value || 0),
+      },
+    }));
+  };
+
+  const toggleScheduledWorkday = (
+    workday
+  ) => {
+    setEmployeeForm((previous) => {
+      const selectedWorkdays =
+        previous.scheduledWorkdays || [];
+
+      const scheduledWorkdays =
+        selectedWorkdays.includes(workday)
+          ? selectedWorkdays.filter(
+              (day) => day !== workday
+            )
+          : [
+              ...selectedWorkdays,
+              workday,
+            ];
+
+      return {
+        ...previous,
+        scheduledWorkdays,
+      };
+    });
   };
 
   const handleLeaveChange = (e) => {
@@ -571,44 +773,151 @@ const savePerformanceReview = async () => {
     setEditingEmployeeId("");
   };
 
-  const loadEmployeeForEdit = (employee) => {
+    const loadEmployeeForEdit = (employee) => {
     setEmployeeForm({
       fullName: employee.fullName || "",
       firstName: employee.firstName || "",
       lastName: employee.lastName || "",
       gender: employee.gender || "",
-      dateOfBirth: employee.dateOfBirth || "",
+      dateOfBirth:
+        employee.dateOfBirth || "",
       trn: employee.trn || "",
       nisNumber: employee.nisNumber || "",
+
       email: employee.email || "",
       phone: employee.phone || "",
-      alternatePhone: employee.alternatePhone || "",
+      alternatePhone:
+        employee.alternatePhone || "",
       address: employee.address || "",
-      emergencyContactName: employee.emergencyContactName || "",
-      emergencyContactPhone: employee.emergencyContactPhone || "",
-      emergencyContactRelationship: employee.emergencyContactRelationship || "",
-      department: employee.department || "Operations",
+
+      emergencyContactName:
+        employee.emergencyContactName || "",
+      emergencyContactPhone:
+        employee.emergencyContactPhone || "",
+      emergencyContactRelationship:
+        employee.emergencyContactRelationship ||
+        "",
+
+      department:
+        employee.department || "Operations",
       jobTitle: employee.jobTitle || "",
       jobLevel: employee.jobLevel ?? 1,
-      isDepartmentHead: Boolean(employee.isDepartmentHead),
-      reportsToEmployeeId: employee.reportsToEmployeeId || "",
-      branch: employee.branch || "Eltham Park Mainstore",
-      employmentType: employee.employmentType || "Temporary",
+      isDepartmentHead: Boolean(
+        employee.isDepartmentHead
+      ),
+      reportsToEmployeeId:
+        employee.reportsToEmployeeId || "",
+      branch:
+        employee.branch ||
+        "Eltham Park Mainstore",
+
+      employmentType:
+        employee.employmentType ||
+        "Temporary",
+      employmentClassification:
+        employee.employmentClassification ||
+        "",
+      contractType:
+        employee.contractType || "",
+      employmentStatus:
+        employee.employmentStatus || "Active",
       startDate: employee.startDate || "",
       endDate: employee.endDate || "",
-      employmentStatus: employee.employmentStatus || "Active",
-      payType: employee.payType || "Monthly Salary",
-      payRate: employee.payRate ?? "",
-      payrollEnabled: Boolean(employee.payrollEnabled),
-      linkedUserId: employee.linkedUserId || "",
-      attendanceRequired: Boolean(employee.attendanceRequired),
-      leaveBalanceVacation: employee.leaveBalanceVacation ?? 0,
-      leaveBalanceSick: employee.leaveBalanceSick ?? 0,
-      leaveBalanceUnpaid: employee.leaveBalanceUnpaid ?? 0,
+
+      probation: {
+        applicable: Boolean(
+          employee.probation?.applicable
+        ),
+        startDate:
+          employee.probation?.startDate ||
+          "",
+        endDate:
+          employee.probation?.endDate || "",
+        durationMonths:
+          employee.probation
+            ?.durationMonths ?? 0,
+        status:
+          employee.probation?.status ||
+          "Not Applicable",
+        reviewDueDate:
+          employee.probation
+            ?.reviewDueDate || "",
+        completedDate:
+          employee.probation
+            ?.completedDate || "",
+        notes:
+          employee.probation?.notes || "",
+      },
+
+      normalWorkingHours: {
+        hoursPerDay:
+          employee.normalWorkingHours
+            ?.hoursPerDay ?? 0,
+        hoursPerWeek:
+          employee.normalWorkingHours
+            ?.hoursPerWeek ?? 0,
+      },
+
+      scheduledWorkdays: Array.isArray(
+        employee.scheduledWorkdays
+      )
+        ? [...employee.scheduledWorkdays]
+        : [],
+
+      compensationType:
+        employee.compensationType || "",
+      payFrequency:
+        employee.payFrequency || "",
+
+      payType:
+        employee.payType ||
+        "Monthly Salary",
+      payRate:
+        Number(employee.payRate || 0),
+
+      payrollEnabled: Boolean(
+        employee.payrollEnabled
+      ),
+      payrollEligibilityStatus:
+        employee.payrollEligibilityStatus ||
+        "Pending Review",
+      payrollEligibilityReason:
+        employee.payrollEligibilityReason ||
+        "",
+      payrollEligibilityEffectiveFrom:
+        employee
+          .payrollEligibilityEffectiveFrom ||
+        "",
+      payrollEligibilityEffectiveTo:
+        employee
+          .payrollEligibilityEffectiveTo ||
+        "",
+
+      linkedUserId:
+        employee.linkedUserId || "",
+      attendanceRequired: Boolean(
+        employee.attendanceRequired
+      ),
+
+      leaveBalanceVacation:
+        Number(
+          employee.leaveBalanceVacation || 0
+        ),
+      leaveBalanceSick:
+        Number(
+          employee.leaveBalanceSick || 0
+        ),
+      leaveBalanceUnpaid:
+        Number(
+          employee.leaveBalanceUnpaid || 0
+        ),
+
       notes: employee.notes || "",
     });
 
-    setEditingEmployeeId(employee.employeeId);
+    setEditingEmployeeId(
+      employee.employeeId
+    );
     setIsEditing(true);
     setActiveTab("employeeForm");
   };
