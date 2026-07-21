@@ -4675,9 +4675,22 @@ const showMyProfileTab = canSelfServiceHR && !isAdminHR;
         </div>
       )}
 
-      <div style={{ gridColumn: "1 / -1", marginTop: "10px" }}>
-  <div style={{ color: MUTED, fontSize: "13px", marginBottom: "8px" }}>
-    Performance Reviews
+            {activeTab === "myProfile" &&
+        showMyProfileTab && (
+          <div
+            style={{
+              gridColumn: "1 / -1",
+              marginTop: "10px",
+            }}
+          >
+            <div
+              style={{
+                color: MUTED,
+                fontSize: "13px",
+                marginBottom: "8px",
+              }}
+            >
+              Performance Reviews
   </div>
 
   {myPerformanceReviews.length > 0 ? (
@@ -4707,12 +4720,22 @@ const showMyProfileTab = canSelfServiceHR && !isAdminHR;
         </tbody>
       </table>
     </div>
-  ) : (
-    <div style={{ color: MUTED, fontWeight: "bold" }}>No performance reviews found.</div>
-  )}
-</div>
+                ) : (
+                <div
+                  style={{
+                    color: MUTED,
+                    fontWeight: "bold",
+                  }}
+                >
+                  No performance reviews found.
+                </div>
+              )}
+          </div>
+        )}
 
-      {activeTab === "myPayslips" && showMyPayslipsTab && !isAdminHR && (
+      {activeTab === "myPayslips" &&
+        showMyPayslipsTab &&
+        !isAdminHR && (
   <div style={{ display: "grid", gap: "20px" }}>
     <div style={cardStyle}>
       <h2 style={{ color: ROYAL_BLUE, marginTop: 0 }}>My Payslips</h2>
