@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import api from "../api";
+import CompensationWorkflowPanel from "./CompensationWorkflowPanel";
 
 const BLUE = "#0B3D91";
 const BORDER = "#dbe3ef";
@@ -58,6 +59,7 @@ function CompensationHistoryPanel({ employees = [] }) {
   const [records, setRecords] = useState([]);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState("");
+  const [refreshVersion, setRefreshVersion] = useState(0);
 
   useEffect(() => {
     if (!employeeId && employees.length > 0) {
@@ -99,7 +101,7 @@ function CompensationHistoryPanel({ employees = [] }) {
     };
 
     loadRecords();
-  }, [employeeId, status]);
+    }, [employeeId, status, refreshVersion]);
 
   const selectedEmployee = useMemo(
     () =>
@@ -257,8 +259,18 @@ function CompensationHistoryPanel({ employees = [] }) {
             detail="Superseded or cancelled"
             color="#64748b"
           />
-        </div>
+                </div>
       )}
+
+      <CompensationWorkflowPanel
+        employeeId={employeeId}
+        records={records}
+        onChanged={() =>
+          setRefreshVersion(
+            (currentVersion) => currentVersion + 1
+          )
+        }
+      />
 
       {loading && (
         <div style={messagePanel}>
