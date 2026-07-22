@@ -166,8 +166,13 @@ function AttendancePeriodsPanel({ employees = [] }) {
 
   const totals = selectedPeriod?.totals || {};
   const exceptions = (selectedPeriod?.dailyEntries || []).filter(
-    (entry) => entry.exceptionNotes || ["Absent", "Incomplete"].includes(entry.dayStatus)
-  );
+  (entry) =>
+    entry.dayStatus !== "No Record" &&
+    (
+      entry.exceptionNotes ||
+      ["Absent", "Incomplete"].includes(entry.dayStatus)
+    )
+);
   const maySubmit = selectedPeriod?.status === "Draft" && todayYmd() > selectedPeriod.periodEnd;
 
   return (
