@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import api from "../api";
 import { useAuth } from "../context/AuthContext";
 import CompensationHistoryPanel from "../components/CompensationHistoryPanel";
+import AttendancePeriodsPanel from "../components/AttendancePeriodsPanel";
 
 function HR() {
   const { user } = useAuth();
@@ -1672,6 +1673,7 @@ const OrgChartNode = ({ node, level, ROYAL_BLUE, BORDER, MUTED }) => {
 const showEmployeeFormTab = isAdminHR;
 const showOrgChartTab = isAdminHR;
 const showCompensationTab = isAdminHR;
+const showAttendanceTab = isAdminHR;
 const showLeaveRequestsTab = isAdminHR;
 const showDisciplineTab = isAdminHR || permissions.includes("hrSelfService");
 const showPerformanceTab = isAdminHR || permissions.includes("hrSelfService");
@@ -1726,6 +1728,15 @@ const showMyProfileTab = canSelfServiceHR && !isAdminHR;
             Compensation
           </button>
         )}
+
+        {showAttendanceTab && (
+  <button
+    style={tabButtonStyle("attendance")}
+    onClick={() => setActiveTab("attendance")}
+  >
+    Attendance
+  </button>
+)}
 
         {showEmployeeFormTab && (
           <button
@@ -2035,6 +2046,13 @@ const showMyProfileTab = canSelfServiceHR && !isAdminHR;
             employees={employees}
           />
         )}
+
+        {activeTab === "attendance" &&
+  showAttendanceTab && (
+    <AttendancePeriodsPanel
+      employees={employees}
+    />
+  )}
 
       {activeTab === "orgChart" && showOrgChartTab && (
   <div style={{ display: "grid", gap: "20px" }}>
