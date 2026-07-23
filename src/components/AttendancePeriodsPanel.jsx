@@ -38,6 +38,11 @@ function AttendancePeriodsPanel({ employees = [] }) {
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState("");
   const [showAdjustment, setShowAdjustment] = useState(false);
+  const [showLockForm, setShowLockForm] = useState(false);
+  const [lockForm, setLockForm] = useState({
+    payrollNumber: "",
+    notes: "",
+  });
   const [adjustment, setAdjustment] = useState({
     workDate: "",
     adjustmentType: "Worked Time",
@@ -144,6 +149,60 @@ function AttendancePeriodsPanel({ employees = [] }) {
     "Attendance period is payroll ready."
   );
 
+  const reopenPeriod = () => {
+    const reason = window.prompt(
+      "Enter the controlled reason for reopening this attendance period:"
+    );
+
+    if (!reason?.trim()) return;
+
+    runAction(
+      () => api.post(`/api/hr/attendance-periods/${selectedPeriod.periodNumber}/reopen`, {
+        reason: reason.trim(),
+      }),
+      "Attendance period reopened."
+    );
+  };
+
+  const reviewAdjustment = (adjustmentItem, action) => {
+    const reviewNotes = window.prompt(
+      `Enter review notes to ${action.toLowerCase()} ${adjustmentItem.adjustmentNumber}:`
+    );
+
+    if (!reviewNotes?.trim()) return;
+
+    runAction(
+      () => api.post(
+        `/api/hr/attendance-periods/${selectedPeriod.periodNumber}/adjustments/${adjustmentItem.adjustmentNumber}/review`,
+        {
+          action,
+          reviewNotes: reviewNotes.trim(),
+        }
+      ),
+      `Attendance adjustment ${action === "Approve" ? "approved" : "rejected"}.`
+    );
+  };
+
+  const lockPeriod = async () => {
+    if (!lockForm.payrollNumber.trim() || !lockForm.notes.trim()) {
+      alert("Payroll number and locking notes are required.");
+      return;
+    }
+
+    const saved = await runAction(
+      () => api.post(`/api/hr/attendance-periods/${selectedPeriod.periodNumber}/lock`, {
+        payrollNumber: lockForm.payrollNumber.trim(),
+        notes: lockForm.notes.trim(),
+      }),
+      "Attendance period locked to payroll."
+    );
+
+    if (saved) {
+      setShowLockForm(false);
+      setLockForm({ payrollNumber: "", notes: "" });
+    }
+  };
+
   const requestAdjustment = async () => {
     if (!adjustment.workDate || !adjustment.reason.trim()) {
       alert("Work date and reason are required.");
@@ -166,13 +225,10 @@ function AttendancePeriodsPanel({ employees = [] }) {
 
   const totals = selectedPeriod?.totals || {};
   const exceptions = (selectedPeriod?.dailyEntries || []).filter(
-  (entry) =>
-    entry.dayStatus !== "No Record" &&
-    (
-      entry.exceptionNotes ||
-      ["Absent", "Incomplete"].includes(entry.dayStatus)
-    )
-);
+    (entry) =>
+      entry.dayStatus !== "No Record" &&
+      (entry.exceptionNotes || ["Absent", "Incomplete"].includes(entry.dayStatus))
+  );
   const maySubmit = selectedPeriod?.status === "Draft" && todayYmd() > selectedPeriod.periodEnd;
 
   return (
@@ -262,6 +318,14 @@ function AttendancePeriodsPanel({ employees = [] }) {
                 {selectedPeriod.status === "Manager Approved" ? (
                   <button type="button" onClick={markPayrollReady} disabled={actionLoading} style={greenButton}>Mark Payroll Ready</button>
                 ) : null}
+                {["Submitted", "Manager Approved", "Payroll Ready"].includes(selectedPeriod.status) && !selectedPeriod.payrollNumber ? (
+                  <button type="button" onClick={reopenPeriod} disabled={actionLoading} style={orangeButton}>Reopen Period</button>
+                ) : null}
+                {selectedPeriod.status === "Payroll Ready" ? (
+                  <button type="button" onClick={() => setShowLockForm((value) => !value)} disabled={actionLoading} style={darkButton}>
+                    {showLockForm ? "Close Lock Form" : "Lock to Payroll"}
+                  </button>
+                ) : null}
                 {["Draft", "Reopened"].includes(selectedPeriod.status) ? (
                   <button type="button" onClick={() => setShowAdjustment((value) => !value)} style={secondaryButton}>
                     {showAdjustment ? "Close Adjustment" : "+ Request Adjustment"}
@@ -274,6 +338,20 @@ function AttendancePeriodsPanel({ employees = [] }) {
                 </div>
               ) : null}
             </div>
+
+            {showLockForm && selectedPeriod.status === "Payroll Ready" ? (
+              <div style={adjustmentGrid}>
+                <label style={label}>
+                  Payroll number
+                  <input value={lockForm.payrollNumber} onChange={(event) => setLockForm({ ...lockForm, payrollNumber: event.target.value })} placeholder="Required real payroll number" style={input} />
+                </label>
+                <label style={{ ...label, gridColumn: "1 / -1" }}>
+                  Locking notes
+                  <textarea value={lockForm.notes} onChange={(event) => setLockForm({ ...lockForm, notes: event.target.value })} placeholder="Explain why this approved period is being locked to payroll" style={{ ...input, minHeight: "70px" }} />
+                </label>
+                <button type="button" onClick={lockPeriod} disabled={actionLoading} style={darkButton}>Confirm Payroll Lock</button>
+              </div>
+            ) : null}
 
             {showAdjustment ? (
               <div style={adjustmentGrid}>
@@ -313,7 +391,15 @@ function AttendancePeriodsPanel({ employees = [] }) {
               {(selectedPeriod.adjustments || []).map((item) => (
                 <div key={item.adjustmentNumber} style={adjustmentRow}>
                   <div><strong>{item.workDate} · {item.adjustmentType}</strong><div style={subtitle}>{item.reason}</div></div>
-                  <span style={{ ...statusBadge, backgroundColor: statusColour(item.status) }}>{item.status}</span>
+                  <div style={buttonRow}>
+                    <span style={{ ...statusBadge, backgroundColor: statusColour(item.status) }}>{item.status}</span>
+                    {item.status === "Pending" && ["Draft", "Reopened"].includes(selectedPeriod.status) ? (
+                      <>
+                        <button type="button" onClick={() => reviewAdjustment(item, "Approve")} disabled={actionLoading} style={greenButton}>Approve</button>
+                        <button type="button" onClick={() => reviewAdjustment(item, "Reject")} disabled={actionLoading} style={redButton}>Reject</button>
+                      </>
+                    ) : null}
+                  </div>
                 </div>
               ))}
             </section>
@@ -342,6 +428,9 @@ const buttonRow = { display: "flex", flexWrap: "wrap", gap: "9px", marginTop: "1
 const baseButton = { border: 0, borderRadius: "8px", padding: "10px 14px", cursor: "pointer", fontWeight: 700 };
 const primaryButton = { ...baseButton, background: BLUE, color: "white" };
 const greenButton = { ...baseButton, background: "#16a34a", color: "white" };
+const orangeButton = { ...baseButton, background: "#d97706", color: "white" };
+const redButton = { ...baseButton, background: "#dc2626", color: "white" };
+const darkButton = { ...baseButton, background: "#1e293b", color: "white" };
 const secondaryButton = { ...baseButton, background: "#e2e8f0", color: "#334155" };
 const actionButton = (disabled) => ({ ...baseButton, background: disabled ? "#cbd5e1" : "#7c3aed", color: "white", cursor: disabled ? "not-allowed" : "pointer" });
 const workflowBox = { background: "#f8fafc", border: `1px solid ${BORDER}`, borderRadius: "10px", padding: "14px", marginTop: "15px" };
