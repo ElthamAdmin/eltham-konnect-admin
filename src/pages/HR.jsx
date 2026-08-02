@@ -3,6 +3,7 @@ import api from "../api";
 import { useAuth } from "../context/AuthContext";
 import CompensationHistoryPanel from "../components/CompensationHistoryPanel";
 import AttendancePeriodsPanel from "../components/AttendancePeriodsPanel";
+import LeaveManagementPanel from "../components/LeaveManagementPanel";
 
 function HR() {
   const { user } = useAuth();
@@ -3794,167 +3795,16 @@ const showMyProfileTab = canSelfServiceHR && !isAdminHR;
           </div>
         )}
 
-      {activeTab === "leaveRequests" && showLeaveRequestsTab && (
-        <div style={{ display: "grid", gap: "20px" }}>
-          <div style={cardStyle}>
-            <h2 style={{ color: ROYAL_BLUE, marginTop: 0 }}>Submit Leave Request</h2>
-
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-                gap: "12px",
-              }}
-            >
-              <div>
-                <label style={labelStyle}>Employee</label>
-                <select
-                  name="employeeId"
-                  value={leaveForm.employeeId}
-                  onChange={handleLeaveChange}
-                  style={inputStyle}
-                >
-                  <option value="">Select Employee</option>
-                  {employees.map((employee) => (
-                    <option key={employee.employeeId} value={employee.employeeId}>
-                      {employee.fullName} ({employee.employeeId})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label style={labelStyle}>Leave Type</label>
-                <select
-                  name="leaveType"
-                  value={leaveForm.leaveType}
-                  onChange={handleLeaveChange}
-                  style={inputStyle}
-                >
-                  {LEAVE_TYPE_OPTIONS.map((type) => (
-                    <option key={type} value={type}>
-                      {type}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label style={labelStyle}>Start Date</label>
-                <input
-                  type="date"
-                  name="startDate"
-                  value={leaveForm.startDate}
-                  onChange={handleLeaveChange}
-                  style={inputStyle}
-                />
-              </div>
-
-              <div>
-                <label style={labelStyle}>End Date</label>
-                <input
-                  type="date"
-                  name="endDate"
-                  value={leaveForm.endDate}
-                  onChange={handleLeaveChange}
-                  style={inputStyle}
-                />
-              </div>
-
-              <div style={{ gridColumn: "1 / -1" }}>
-                <label style={labelStyle}>Reason</label>
-                <textarea
-                  name="reason"
-                  value={leaveForm.reason}
-                  onChange={handleLeaveChange}
-                  style={{ ...inputStyle, minHeight: "90px" }}
-                />
-              </div>
-            </div>
-
-            <div style={{ marginTop: "12px" }}>
-              <button style={primaryButton} onClick={submitLeaveRequest}>
-                Submit Leave Request
-              </button>
-            </div>
-          </div>
-
-          <div style={cardStyle}>
-            <h2 style={{ color: ROYAL_BLUE, marginTop: 0 }}>All Leave Requests</h2>
-
-            <label style={labelStyle}>Admin Comment for Approve / Reject</label>
-            <textarea
-              placeholder="Enter comment"
-              value={leaveAdminComment}
-              onChange={(e) => setLeaveAdminComment(e.target.value)}
-              style={{ ...inputStyle, minHeight: "80px", marginBottom: "15px" }}
-            />
-
-            <div style={{ overflowX: "auto" }}>
-              <table width="100%" cellPadding="10" style={{ borderCollapse: "collapse" }}>
-                <thead style={{ backgroundColor: "#eef4ff" }}>
-                  <tr>
-                    <th align="left">Request ID</th>
-                    <th align="left">Employee</th>
-                    <th align="left">Department</th>
-                    <th align="left">Type</th>
-                    <th align="left">Dates</th>
-                    <th align="left">Days</th>
-                    <th align="left">Status</th>
-                    <th align="left">Reason</th>
-                    <th align="left">Action</th>
-                  </tr>
-                </thead>
-
-                <tbody>
-                  {leaveRequests.map((request) => (
-                    <tr key={request.leaveRequestId} style={{ borderBottom: `1px solid ${BORDER}` }}>
-                      <td>{request.leaveRequestId}</td>
-                      <td>{request.employeeName}</td>
-                      <td>{request.department || "-"}</td>
-                      <td>{request.leaveType}</td>
-                      <td>
-                        {request.startDate} to {request.endDate}
-                      </td>
-                      <td>{request.totalDays}</td>
-                      <td>{leaveStatusBadge(request.status)}</td>
-                      <td>{request.reason || "-"}</td>
-                      <td>
-                        {request.status === "Pending" ? (
-                          <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-                            <button
-                              style={successButton}
-                              onClick={() => approveLeaveRequest(request.leaveRequestId)}
-                            >
-                              Approve
-                            </button>
-                            <button
-                              style={dangerButton}
-                              onClick={() => rejectLeaveRequest(request.leaveRequestId)}
-                            >
-                              Reject
-                            </button>
-                          </div>
-                        ) : (
-                          <span style={{ color: MUTED }}>No action</span>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-
-                  {leaveRequests.length === 0 && (
-                    <tr>
-                      <td colSpan="9" style={{ textAlign: "center", padding: "20px", color: MUTED }}>
-                        No leave requests found
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      )}
+      {activeTab === "leaveRequests" &&
+  showLeaveRequestsTab && (
+    <LeaveManagementPanel
+      employees={employees}
+      leaveRequests={leaveRequests}
+      isAdminHR={isAdminHR}
+      myEmployee={myEmployee}
+      refreshData={fetchHRData}
+    />
+  )}
       {activeTab === "documents" && showDocumentsTab && (
   <div style={{ display: "grid", gap: "20px" }}>
     <div style={cardStyle}>
@@ -4812,155 +4662,16 @@ const showMyProfileTab = canSelfServiceHR && !isAdminHR;
     </div>
   </div>
 )}
-      {activeTab === "myLeave" && showMyLeaveTab && (
-        <div style={{ display: "grid", gap: "20px" }}>
-          <div style={cardStyle}>
-            <h2 style={{ color: ROYAL_BLUE, marginTop: 0 }}>
-              {isAdminHR ? "Submit Leave Request" : "Submit My Leave Request"}
-            </h2>
-
-            {!isAdminHR && !myEmployee ? (
-              <div style={{ color: "#dc2626", fontWeight: "bold" }}>
-                Your account is not yet linked to an HR employee record. Please contact admin.
-              </div>
-            ) : (
-              <>
-                {!isAdminHR && myEmployee && (
-                  <div
-                    style={{
-                      backgroundColor: "#eef4ff",
-                      border: `1px solid ${BORDER}`,
-                      borderRadius: "10px",
-                      padding: "14px",
-                      marginBottom: "12px",
-                    }}
-                  >
-                    <div style={{ color: ROYAL_BLUE, fontWeight: "bold" }}>
-                      {myEmployee.fullName}
-                    </div>
-                    <div style={{ color: MUTED, marginTop: "4px" }}>
-                      {myEmployee.jobTitle || "Employee"} • {myEmployee.employeeId}
-                    </div>
-                    <div style={{ color: MUTED, marginTop: "6px" }}>
-                      Vacation: {Number(myEmployee.leaveBalanceVacation || 0)} days | Sick:{" "}
-                      {Number(myEmployee.leaveBalanceSick || 0)} days | Unpaid:{" "}
-                      {Number(myEmployee.leaveBalanceUnpaid || 0)} days
-                    </div>
-                  </div>
-                )}
-
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-                    gap: "12px",
-                  }}
-                >
-                  <div>
-                    <label style={labelStyle}>Leave Type</label>
-                    <select
-                      name="leaveType"
-                      value={leaveForm.leaveType}
-                      onChange={handleLeaveChange}
-                      style={inputStyle}
-                    >
-                      {LEAVE_TYPE_OPTIONS.map((type) => (
-                        <option key={type} value={type}>
-                          {type}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label style={labelStyle}>Start Date</label>
-                    <input
-                      type="date"
-                      name="startDate"
-                      value={leaveForm.startDate}
-                      onChange={handleLeaveChange}
-                      style={inputStyle}
-                    />
-                  </div>
-
-                  <div>
-                    <label style={labelStyle}>End Date</label>
-                    <input
-                      type="date"
-                      name="endDate"
-                      value={leaveForm.endDate}
-                      onChange={handleLeaveChange}
-                      style={inputStyle}
-                    />
-                  </div>
-
-                  <div style={{ gridColumn: "1 / -1" }}>
-                    <label style={labelStyle}>Reason</label>
-                    <textarea
-                      name="reason"
-                      value={leaveForm.reason}
-                      onChange={handleLeaveChange}
-                      style={{ ...inputStyle, minHeight: "90px" }}
-                    />
-                  </div>
-                </div>
-
-                <div style={{ marginTop: "12px" }}>
-                  <button style={primaryButton} onClick={submitLeaveRequest}>
-                    {isAdminHR ? "Submit Leave Request" : "Submit My Leave Request"}
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-
-          <div style={cardStyle}>
-            <h2 style={{ color: ROYAL_BLUE, marginTop: 0 }}>
-              {isAdminHR ? "Leave Requests" : "My Leave Requests"}
-            </h2>
-
-            <div style={{ overflowX: "auto" }}>
-              <table width="100%" cellPadding="10" style={{ borderCollapse: "collapse" }}>
-                <thead style={{ backgroundColor: "#eef4ff" }}>
-                  <tr>
-                    <th align="left">Request ID</th>
-                    <th align="left">Type</th>
-                    <th align="left">Dates</th>
-                    <th align="left">Days</th>
-                    <th align="left">Status</th>
-                    <th align="left">Reason</th>
-                    <th align="left">Admin Comment</th>
-                  </tr>
-                </thead>
-
-                <tbody>
-                  {leaveRequests.map((request) => (
-                    <tr key={request.leaveRequestId} style={{ borderBottom: `1px solid ${BORDER}` }}>
-                      <td>{request.leaveRequestId}</td>
-                      <td>{request.leaveType}</td>
-                      <td>
-                        {request.startDate} to {request.endDate}
-                      </td>
-                      <td>{request.totalDays}</td>
-                      <td>{leaveStatusBadge(request.status)}</td>
-                      <td>{request.reason || "-"}</td>
-                      <td>{request.adminComment || "-"}</td>
-                    </tr>
-                  ))}
-
-                  {leaveRequests.length === 0 && (
-                    <tr>
-                      <td colSpan="7" style={{ textAlign: "center", padding: "20px", color: MUTED }}>
-                        No leave requests found
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      )}
+      {activeTab === "myLeave" &&
+  showMyLeaveTab && (
+    <LeaveManagementPanel
+      employees={employees}
+      leaveRequests={leaveRequests}
+      isAdminHR={isAdminHR}
+      myEmployee={myEmployee}
+      refreshData={fetchHRData}
+    />
+  )}
     </div>
   );
 }
