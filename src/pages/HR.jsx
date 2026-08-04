@@ -3,6 +3,7 @@ import api from "../api";
 import { useAuth } from "../context/AuthContext";
 import CompensationHistoryPanel from "../components/CompensationHistoryPanel";
 import AttendancePeriodsPanel from "../components/AttendancePeriodsPanel";
+import ControlledDocumentsPanel from "../components/ControlledDocumentsPanel";
 import LeaveManagementPanel from "../components/LeaveManagementPanel";
 
 function HR() {
@@ -3806,149 +3807,10 @@ const showMyProfileTab = canSelfServiceHR && !isAdminHR;
     />
   )}
       {activeTab === "documents" && showDocumentsTab && (
-  <div style={{ display: "grid", gap: "20px" }}>
-    <div style={cardStyle}>
-      <h2 style={{ color: ROYAL_BLUE, marginTop: 0 }}>
-        {isAdminHR ? "Employee Documents" : "My Documents"}
-      </h2>
-
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-          gap: "12px",
-        }}
-      >
-        {isAdminHR && (
-          <div>
-            <label style={labelStyle}>Employee</label>
-            <select
-              value={documentEmployeeId}
-              onChange={(e) => setDocumentEmployeeId(e.target.value)}
-              style={inputStyle}
-            >
-              <option value="">Select Employee</option>
-              {employees.map((employee) => (
-                <option key={employee.employeeId} value={employee.employeeId}>
-                  {employee.fullName} ({employee.employeeId})
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
-
-        <div>
-          <label style={labelStyle}>Document Type</label>
-          <select
-            name="documentType"
-            value={documentForm.documentType}
-            onChange={handleDocumentInputChange}
-            style={inputStyle}
-          >
-            {DOCUMENT_TYPE_OPTIONS.map((type) => (
-              <option key={type} value={type}>
-                {type}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div>
-          <label style={labelStyle}>Document Name</label>
-          <input
-            name="documentName"
-            value={documentForm.documentName}
-            onChange={handleDocumentInputChange}
-            placeholder="e.g. Signed Contract"
-            style={inputStyle}
-          />
-        </div>
-
-        <div>
-          <label style={labelStyle}>Choose File</label>
-          <input
-            type="file"
-            name="file"
-            onChange={handleDocumentInputChange}
-            style={inputStyle}
-          />
-        </div>
-      </div>
-
-      <div style={{ marginTop: "14px" }}>
-        <button style={primaryButton} onClick={uploadEmployeeDocument}>
-          Upload Document
-        </button>
-      </div>
-    </div>
-
-    <div style={cardStyle}>
-      <h2 style={{ color: ROYAL_BLUE, marginTop: 0 }}>Document List</h2>
-
-      {documentsLoading ? (
-        <div style={{ color: MUTED }}>Loading documents...</div>
-      ) : employeeDocuments.length === 0 ? (
-        <div style={{ color: MUTED }}>No documents found.</div>
-      ) : (
-        <div style={{ overflowX: "auto" }}>
-          <table width="100%" cellPadding="10" style={{ borderCollapse: "collapse" }}>
-            <thead style={{ backgroundColor: "#eef4ff" }}>
-              <tr>
-                <th align="left">Document Name</th>
-                <th align="left">Type</th>
-                <th align="left">Uploaded</th>
-                <th align="left">File</th>
-                {isAdminHR && <th align="left">Action</th>}
-              </tr>
-            </thead>
-            <tbody>
-              {employeeDocuments.map((doc, index) => (
-                <tr key={`${doc.fileUrl}-${index}`} style={{ borderBottom: `1px solid ${BORDER}` }}>
-                  <td>{doc.documentName || "-"}</td>
-                  <td>{doc.documentType || "-"}</td>
-                  <td>
-                    {doc.uploadedAt
-                      ? new Date(doc.uploadedAt).toLocaleDateString()
-                      : "-"}
-                  </td>
-                  <td>
-  {doc.fileUrl ? (
-    doc.fileExists ? (
-      <a
-        href={`${api.defaults.baseURL}${doc.fileUrl}`}
-        target="_blank"
-        rel="noreferrer"
-        style={{ color: ROYAL_BLUE, fontWeight: "bold" }}
-      >
-        View File
-      </a>
-    ) : (
-      <span style={{ color: "#dc2626", fontWeight: "bold" }}>
-        Missing File
-      </span>
-    )
-  ) : (
-    "-"
-  )}
-</td>
-                  {isAdminHR && (
-                    <td>
-                      <button
-                        style={dangerButton}
-                        onClick={() => deleteEmployeeDocument(index)}
-                      >
-                        Delete
-                      </button>
-                    </td>
-                  )}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
-  </div>
+  <ControlledDocumentsPanel
+    employees={employees}
+    isAdminHR={isAdminHR}
+  />
 )}
 
 {activeTab === "performance" && showPerformanceTab && (
