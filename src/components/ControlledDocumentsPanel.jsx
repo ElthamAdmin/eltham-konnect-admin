@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import api from "../api";
 import { useAuth } from "../context/AuthContext";
 import ControlledDocumentAdminPanel from "./ControlledDocumentAdminPanel";
+import ControlledDocumentAcknowledgementPanel from "./ControlledDocumentAcknowledgementPanel";
 
 const ROYAL_BLUE = "#0B3D91";
 const BORDER = "#dbe3ef";
@@ -490,12 +491,19 @@ function ControlledDocumentsPanel({ employees = [], isAdminHR = false }) {
         </div>
       )}
 
-      {isAdminHR && (
+            {isAdminHR ? (
         <ControlledDocumentAdminPanel
           selectedEmployeeId={selectedEmployeeId}
           documents={documents}
           onChanged={refreshView}
         />
+      ) : (
+        selectedEmployeeId && (
+          <ControlledDocumentAcknowledgementPanel
+            documents={documents}
+            onChanged={refreshView}
+          />
+        )
       )}
 
       <div
