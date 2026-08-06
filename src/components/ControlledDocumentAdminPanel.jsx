@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import api from "../api";
+import ControlledDocumentLifecyclePanel from "./ControlledDocumentLifecyclePanel";
 
 const ROYAL_BLUE = "#0B3D91";
 const BORDER = "#dbe3ef";
@@ -821,9 +822,15 @@ function ControlledDocumentAdminPanel({
                     </div>
                   </div>
                 )}
-              </>
+                            </>
             )}
           </div>
+
+          <ControlledDocumentLifecyclePanel
+            selectedDocument={selectedDocument}
+            documents={documents}
+            onChanged={notifyChanged}
+          />
         </div>
       )}
     </div>
