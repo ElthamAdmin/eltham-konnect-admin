@@ -5,6 +5,7 @@ import CompensationHistoryPanel from "../components/CompensationHistoryPanel";
 import AttendancePeriodsPanel from "../components/AttendancePeriodsPanel";
 import ControlledDocumentsPanel from "../components/ControlledDocumentsPanel";
 import LeaveManagementPanel from "../components/LeaveManagementPanel";
+import EmployeeRelationsPanel from "../components/EmployeeRelationsPanel";
 
 function HR() {
   const { user } = useAuth();
@@ -1677,8 +1678,24 @@ const showOrgChartTab = isAdminHR;
 const showCompensationTab = isAdminHR;
 const showAttendanceTab = isAdminHR;
 const showLeaveRequestsTab = isAdminHR;
-const showDisciplineTab = isAdminHR || permissions.includes("hrSelfService");
-const showPerformanceTab = isAdminHR || permissions.includes("hrSelfService");
+
+const showEmployeeRelationsTab =
+  isAdminHR ||
+  permissions.includes(
+    "hrSelfService"
+  );
+
+const showDisciplineTab =
+  isAdminHR ||
+  permissions.includes(
+    "hrSelfService"
+  );
+
+const showPerformanceTab =
+  isAdminHR ||
+  permissions.includes(
+    "hrSelfService"
+  );
 const showAnalyticsTab = isAdminHR;
 const showDocumentsTab =
   permissions.includes("documentSelfService") ||
@@ -1761,19 +1778,46 @@ const showMyProfileTab = canSelfServiceHR && !isAdminHR;
           </button>
         )}
 
-        {showDocumentsTab && (
-  <button
-    style={tabButtonStyle("documents")}
-    onClick={() => {
-      setActiveTab("documents");
-      if (isAdminHR && employees.length > 0 && !documentEmployeeId) {
-        setDocumentEmployeeId(employees[0].employeeId);
-      }
-    }}
-  >
-    Documents
-  </button>
-)}
+                {showDocumentsTab && (
+          <button
+            style={tabButtonStyle(
+              "documents"
+            )}
+            onClick={() => {
+              setActiveTab(
+                "documents"
+              );
+
+              if (
+                isAdminHR &&
+                employees.length > 0 &&
+                !documentEmployeeId
+              ) {
+                setDocumentEmployeeId(
+                  employees[0]
+                    .employeeId
+                );
+              }
+            }}
+          >
+            Documents
+          </button>
+        )}
+
+        {showEmployeeRelationsTab && (
+          <button
+            style={tabButtonStyle(
+              "employeeRelations"
+            )}
+            onClick={() =>
+              setActiveTab(
+                "employeeRelations"
+              )
+            }
+          >
+            Employee Relations
+          </button>
+        )}
 
         {showMyProfileTab && (
           <button style={tabButtonStyle("myProfile")} onClick={() => setActiveTab("myProfile")}>
@@ -3806,12 +3850,31 @@ const showMyProfileTab = canSelfServiceHR && !isAdminHR;
       refreshData={fetchHRData}
     />
   )}
-      {activeTab === "documents" && showDocumentsTab && (
-  <ControlledDocumentsPanel
-    employees={employees}
-    isAdminHR={isAdminHR}
-  />
-)}
+            {activeTab ===
+        "documents" &&
+        showDocumentsTab && (
+          <ControlledDocumentsPanel
+            employees={
+              employees
+            }
+            isAdminHR={
+              isAdminHR
+            }
+          />
+        )}
+
+      {activeTab ===
+        "employeeRelations" &&
+        showEmployeeRelationsTab && (
+          <EmployeeRelationsPanel
+            employees={
+              employees
+            }
+            isAdminHR={
+              isAdminHR
+            }
+          />
+        )}
 
 {activeTab === "performance" && showPerformanceTab && (
   <div style={{ display: "grid", gap: "20px" }}>
