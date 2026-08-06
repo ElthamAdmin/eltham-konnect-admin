@@ -258,10 +258,10 @@ function EmployeeRelationsPanel({
     setError("");
 
     try {
-      const endpoint =
+            const endpoint =
         isAdminHR
-          ? "/employee-relations"
-          : "/employee-relations/me";
+          ? "/api/employee-relations"
+          : "/api/employee-relations/me";
 
       const response =
         await api.get(
@@ -322,9 +322,9 @@ function EmployeeRelationsPanel({
     setNotice("");
 
     try {
-      const response =
+            const response =
         await api.get(
-          `/employee-relations/${caseNumber}`
+          `/api/employee-relations/${caseNumber}`
         );
 
       setSelectedCase(
@@ -437,9 +437,9 @@ function EmployeeRelationsPanel({
         delete payload
           .policyReference;
 
-        const response =
+                const response =
           await api.post(
-            "/employee-relations/discipline",
+            "/api/employee-relations/discipline",
             payload
           );
 
@@ -542,9 +542,9 @@ function EmployeeRelationsPanel({
             .complainantEmployeeId;
         }
 
-        const response =
+                const response =
           await api.post(
-            "/employee-relations/grievances",
+            "/api/employee-relations/grievances",
             payload
           );
 
