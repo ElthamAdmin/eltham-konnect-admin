@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import api from "../api";
 import EmployeeRelationsWorkflowPanel from "./EmployeeRelationsWorkflowPanel";
+import EmployeeRelationsEvidencePanel from "./EmployeeRelationsEvidencePanel";
 
 const DISCIPLINE_CATEGORIES = [
   "Attendance",
@@ -1725,9 +1726,23 @@ function EmployeeRelationsPanel({
             </div>
           </div>
 
-                    <EmployeeRelationsWorkflowPanel
+                              <EmployeeRelationsWorkflowPanel
             record={selectedCase}
             employees={employees}
+            isAdminHR={isAdminHR}
+            onChanged={async (
+              caseNumber
+            ) => {
+              await loadCase(
+                caseNumber
+              );
+
+              await loadCases();
+            }}
+          />
+
+          <EmployeeRelationsEvidencePanel
+            record={selectedCase}
             isAdminHR={isAdminHR}
             onChanged={async (
               caseNumber
