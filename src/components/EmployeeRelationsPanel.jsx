@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import api from "../api";
+import EmployeeRelationsWorkflowPanel from "./EmployeeRelationsWorkflowPanel";
 
 const DISCIPLINE_CATEGORIES = [
   "Attendance",
@@ -1724,18 +1725,20 @@ function EmployeeRelationsPanel({
             </div>
           </div>
 
-          <div
-            style={{
-              marginTop: "18px",
-              color: MUTED,
-              fontSize: "13px",
+                    <EmployeeRelationsWorkflowPanel
+            record={selectedCase}
+            employees={employees}
+            isAdminHR={isAdminHR}
+            onChanged={async (
+              caseNumber
+            ) => {
+              await loadCase(
+                caseNumber
+              );
+
+              await loadCases();
             }}
-          >
-            Workflow, evidence and
-            decision controls will appear
-            here in the next controlled
-            frontend stage.
-          </div>
+          />
         </div>
       )}
     </div>
