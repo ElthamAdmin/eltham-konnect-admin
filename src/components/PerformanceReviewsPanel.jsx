@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import api from "../api";
+import PerformanceReviewWorkflowPanel from "./PerformanceReviewWorkflowPanel";
 
 const REVIEW_TYPES = [
   "Annual",
@@ -411,6 +412,14 @@ function PerformanceReviewsPanel({
             "Failed to load the controlled performance review."
         );
       }
+    };
+
+      const refreshSelectedReview =
+    async (reviewNumber) => {
+      await loadPerformanceData();
+      await openReview(
+        reviewNumber
+      );
     };
 
   const badgeStyle = (
@@ -1399,6 +1408,14 @@ function PerformanceReviewsPanel({
                 </div>
               </div>
             )}
+
+                        <PerformanceReviewWorkflowPanel
+              review={selectedReview}
+              isAdminHR={isAdminHR}
+              onChanged={
+                refreshSelectedReview
+              }
+            />
           </div>
         )}
     </div>
