@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import api from "../api";
 import PerformanceReviewWorkflowPanel from "./PerformanceReviewWorkflowPanel";
+import PerformanceSelfAssessmentPanel from "./PerformanceSelfAssessmentPanel";
 
 const REVIEW_TYPES = [
   "Annual",
@@ -1410,6 +1411,13 @@ function PerformanceReviewsPanel({
             )}
 
                         <PerformanceReviewWorkflowPanel
+              review={selectedReview}
+              isAdminHR={isAdminHR}
+              onChanged={
+                refreshSelectedReview
+              }
+            />
+                        <PerformanceSelfAssessmentPanel
               review={selectedReview}
               isAdminHR={isAdminHR}
               onChanged={
