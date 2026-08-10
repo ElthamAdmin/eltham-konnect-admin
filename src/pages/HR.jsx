@@ -6,6 +6,7 @@ import AttendancePeriodsPanel from "../components/AttendancePeriodsPanel";
 import ControlledDocumentsPanel from "../components/ControlledDocumentsPanel";
 import LeaveManagementPanel from "../components/LeaveManagementPanel";
 import EmployeeRelationsPanel from "../components/EmployeeRelationsPanel";
+import PerformanceReviewsPanel from "../components/PerformanceReviewsPanel";
 
 function HR() {
   const { user } = useAuth();
@@ -1848,13 +1849,14 @@ const showMyProfileTab = canSelfServiceHR && !isAdminHR;
 
 {showPerformanceTab && (
   <button
-    style={tabButtonStyle("performance")}
-    onClick={() => {
-      setActiveTab("performance");
-      if (isAdminHR && employees.length > 0 && !performanceEmployeeId) {
-        setPerformanceEmployeeId(employees[0].employeeId);
-      }
-    }}
+    style={tabButtonStyle(
+      "performance"
+    )}
+    onClick={() =>
+      setActiveTab(
+        "performance"
+      )
+    }
   >
     Performance
   </button>
@@ -3876,185 +3878,14 @@ const showMyProfileTab = canSelfServiceHR && !isAdminHR;
           />
         )}
 
-{activeTab === "performance" && showPerformanceTab && (
-  <div style={{ display: "grid", gap: "20px" }}>
-    {isAdminHR ? (
-      <div style={cardStyle}>
-        <h2 style={{ color: ROYAL_BLUE, marginTop: 0 }}>Add Performance Review</h2>
-
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-            gap: "12px",
-          }}
-        >
-          <div>
-            <label style={labelStyle}>Employee</label>
-            <select
-              value={performanceEmployeeId}
-              onChange={(e) => setPerformanceEmployeeId(e.target.value)}
-              style={inputStyle}
-            >
-              <option value="">Select Employee</option>
-              {employees.map((employee) => (
-                <option key={employee.employeeId} value={employee.employeeId}>
-                  {employee.fullName} ({employee.employeeId})
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label style={labelStyle}>Review Period</label>
-            <input
-              name="reviewPeriod"
-              value={performanceForm.reviewPeriod}
-              onChange={handlePerformanceChange}
-              placeholder="e.g. Q1 2026"
-              style={inputStyle}
-            />
-          </div>
-
-          <div>
-            <label style={labelStyle}>Review Date</label>
-            <input
-              type="date"
-              name="reviewDate"
-              value={performanceForm.reviewDate}
-              onChange={handlePerformanceChange}
-              style={inputStyle}
-            />
-          </div>
-
-          <div>
-            <label style={labelStyle}>Rating</label>
-            <select
-              name="rating"
-              value={performanceForm.rating}
-              onChange={handlePerformanceChange}
-              style={inputStyle}
-            >
-              <option value="Excellent">Excellent</option>
-              <option value="Very Good">Very Good</option>
-              <option value="Good">Good</option>
-              <option value="Needs Improvement">Needs Improvement</option>
-              <option value="Unsatisfactory">Unsatisfactory</option>
-            </select>
-          </div>
-
-          <div style={{ gridColumn: "1 / -1" }}>
-            <label style={labelStyle}>Strengths</label>
-            <textarea
-              name="strengths"
-              value={performanceForm.strengths}
-              onChange={handlePerformanceChange}
-              style={{ ...inputStyle, minHeight: "90px" }}
-            />
-          </div>
-
-          <div style={{ gridColumn: "1 / -1" }}>
-            <label style={labelStyle}>Areas for Improvement</label>
-            <textarea
-              name="areasForImprovement"
-              value={performanceForm.areasForImprovement}
-              onChange={handlePerformanceChange}
-              style={{ ...inputStyle, minHeight: "90px" }}
-            />
-          </div>
-
-          <div style={{ gridColumn: "1 / -1" }}>
-            <label style={labelStyle}>Goals / Development Plan</label>
-            <textarea
-              name="goals"
-              value={performanceForm.goals}
-              onChange={handlePerformanceChange}
-              style={{ ...inputStyle, minHeight: "90px" }}
-            />
-          </div>
-
-          <div style={{ gridColumn: "1 / -1" }}>
-            <label style={labelStyle}>Manager Comments</label>
-            <textarea
-              name="managerComments"
-              value={performanceForm.managerComments}
-              onChange={handlePerformanceChange}
-              style={{ ...inputStyle, minHeight: "90px" }}
-            />
-          </div>
-
-          <div style={{ gridColumn: "1 / -1" }}>
-            <label style={labelStyle}>Employee Comments</label>
-            <textarea
-              name="employeeComments"
-              value={performanceForm.employeeComments}
-              onChange={handlePerformanceChange}
-              style={{ ...inputStyle, minHeight: "90px" }}
-            />
-          </div>
-
-          <div style={{ display: "flex", alignItems: "center", gap: "10px", paddingTop: "10px" }}>
-            <input
-              id="performanceAcknowledged"
-              type="checkbox"
-              name="employeeAcknowledged"
-              checked={performanceForm.employeeAcknowledged}
-              onChange={handlePerformanceChange}
-            />
-            <label htmlFor="performanceAcknowledged" style={{ fontWeight: "bold", color: "#334155" }}>
-              Employee Acknowledged
-            </label>
-          </div>
-        </div>
-
-        <div style={{ marginTop: "16px" }}>
-          <button style={primaryButton} onClick={savePerformanceReview}>
-            Save Performance Review
-          </button>
-        </div>
-      </div>
-    ) : (
-      <div style={cardStyle}>
-        <h2 style={{ color: ROYAL_BLUE, marginTop: 0 }}>My Performance Reviews</h2>
-
-        <div style={{ overflowX: "auto" }}>
-          <table width="100%" cellPadding="10" style={{ borderCollapse: "collapse" }}>
-            <thead style={{ backgroundColor: "#eef4ff" }}>
-              <tr>
-                <th align="left">Review Period</th>
-                <th align="left">Review Date</th>
-                <th align="left">Rating</th>
-                <th align="left">Strengths</th>
-                <th align="left">Areas for Improvement</th>
-                <th align="left">Goals</th>
-              </tr>
-            </thead>
-            <tbody>
-              {myPerformanceReviews.length > 0 ? (
-                myPerformanceReviews.map((review, index) => (
-                  <tr key={review.reviewId || index} style={{ borderBottom: `1px solid ${BORDER}` }}>
-                    <td>{review.reviewPeriod || "-"}</td>
-                    <td>{review.reviewDate || "-"}</td>
-                    <td>{review.rating || "-"}</td>
-                    <td>{review.strengths || "-"}</td>
-                    <td>{review.areasForImprovement || "-"}</td>
-                    <td>{review.goals || "-"}</td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan="6" style={{ textAlign: "center", padding: "20px", color: MUTED }}>
-                    No performance reviews found
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    )}
-  </div>
-)}
+{activeTab ===
+  "performance" &&
+  showPerformanceTab && (
+    <PerformanceReviewsPanel
+      employees={employees}
+      isAdminHR={isAdminHR}
+    />
+  )}
 
 {activeTab === "analytics" && showAnalyticsTab && (
   <div style={{ display: "grid", gap: "20px" }}>
