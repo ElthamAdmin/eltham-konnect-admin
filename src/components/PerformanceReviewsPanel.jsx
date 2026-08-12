@@ -3,6 +3,7 @@ import api from "../api";
 import PerformanceReviewWorkflowPanel from "./PerformanceReviewWorkflowPanel";
 import PerformanceSelfAssessmentPanel from "./PerformanceSelfAssessmentPanel";
 import PerformanceManagerAssessmentPanel from "./PerformanceManagerAssessmentPanel";
+import PerformanceHrReviewPanel from "./PerformanceHrReviewPanel";
 
 const REVIEW_TYPES = [
   "Annual",
@@ -1431,6 +1432,13 @@ function PerformanceReviewsPanel({
               currentUser={
                 currentUser
               }
+              onChanged={
+                refreshSelectedReview
+              }
+            />
+                        <PerformanceHrReviewPanel
+              review={selectedReview}
+              isAdminHR={isAdminHR}
               onChanged={
                 refreshSelectedReview
               }
