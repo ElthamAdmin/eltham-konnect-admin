@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import api from "../api";
 import PerformanceReviewWorkflowPanel from "./PerformanceReviewWorkflowPanel";
 import PerformanceSelfAssessmentPanel from "./PerformanceSelfAssessmentPanel";
+import PerformanceManagerAssessmentPanel from "./PerformanceManagerAssessmentPanel";
 
 const REVIEW_TYPES = [
   "Annual",
@@ -42,6 +43,7 @@ const emptyDraftForm = {
 function PerformanceReviewsPanel({
   employees = [],
   isAdminHR = false,
+  currentUser = null,
 }) {
   const [reviews, setReviews] =
     useState([]);
@@ -1420,6 +1422,15 @@ function PerformanceReviewsPanel({
                         <PerformanceSelfAssessmentPanel
               review={selectedReview}
               isAdminHR={isAdminHR}
+              onChanged={
+                refreshSelectedReview
+              }
+            />
+                        <PerformanceManagerAssessmentPanel
+              review={selectedReview}
+              currentUser={
+                currentUser
+              }
               onChanged={
                 refreshSelectedReview
               }

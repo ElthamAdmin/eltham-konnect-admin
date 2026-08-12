@@ -3884,6 +3884,7 @@ const showMyProfileTab = canSelfServiceHR && !isAdminHR;
     <PerformanceReviewsPanel
       employees={employees}
       isAdminHR={isAdminHR}
+      currentUser={user}
     />
   )}
 
