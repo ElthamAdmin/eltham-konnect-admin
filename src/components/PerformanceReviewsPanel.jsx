@@ -4,6 +4,7 @@ import PerformanceReviewWorkflowPanel from "./PerformanceReviewWorkflowPanel";
 import PerformanceSelfAssessmentPanel from "./PerformanceSelfAssessmentPanel";
 import PerformanceManagerAssessmentPanel from "./PerformanceManagerAssessmentPanel";
 import PerformanceHrReviewPanel from "./PerformanceHrReviewPanel";
+import PerformanceReviewCompletionPanel from "./PerformanceReviewCompletionPanel";
 
 const REVIEW_TYPES = [
   "Annual",
@@ -1437,6 +1438,13 @@ function PerformanceReviewsPanel({
               }
             />
                         <PerformanceHrReviewPanel
+              review={selectedReview}
+              isAdminHR={isAdminHR}
+              onChanged={
+                refreshSelectedReview
+              }
+            />
+                        <PerformanceReviewCompletionPanel
               review={selectedReview}
               isAdminHR={isAdminHR}
               onChanged={
