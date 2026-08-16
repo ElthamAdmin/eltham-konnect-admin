@@ -514,7 +514,11 @@ setMyEmployee(null);
     error
   );
 
-  throw error;
+  return {
+    data: {
+      data: [],
+    },
+  };
 }),
   api.get("/api/hr/me/discipline").catch((error) => {
     if (error?.response?.status === 404 || error?.response?.status === 403) {
