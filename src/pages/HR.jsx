@@ -508,13 +508,14 @@ setMyEmployee(null);
     }
     throw error;
   }),
-  api.get("/api/finance/payroll/my-records").catch((error) => {
-    if (error?.response?.status === 404 || error?.response?.status === 403) {
-      return { data: { data: [] } };
-    }
-    console.error("Payroll self-service load failed:", error);
-    return { data: { data: [] } };
-  }),
+  api.get("/api/payroll/my-records").catch((error) => {
+  console.error(
+    "Payroll self-service load failed:",
+    error
+  );
+
+  throw error;
+}),
   api.get("/api/hr/me/discipline").catch((error) => {
     if (error?.response?.status === 404 || error?.response?.status === 403) {
       return { data: { data: [] } };
