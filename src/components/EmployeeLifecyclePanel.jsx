@@ -92,8 +92,12 @@ function EmployeeLifecyclePanel({
     useState(false);
   const [loading, setLoading] =
     useState(false);
-  const [saving, setSaving] =
+    const [saving, setSaving] =
     useState(false);
+  const [workflowSaving, setWorkflowSaving] =
+    useState(false);
+  const [workflowNotes, setWorkflowNotes] =
+    useState("");
   const [error, setError] =
     useState("");
   const [notice, setNotice] =
@@ -336,6 +340,113 @@ function EmployeeLifecyclePanel({
       setSaving(false);
     }
   };
+
+    const runWorkflowAction = async ({
+    endpoint,
+    payload,
+    successMessage,
+  }) => {
+    const lifecycleCaseNumber =
+      selectedCase
+        ?.lifecycleCaseNumber;
+
+    if (!lifecycleCaseNumber) {
+      setError(
+        "Open a controlled lifecycle case before performing a workflow action."
+      );
+      return;
+    }
+
+    if (!workflowNotes.trim()) {
+      setError(
+        "Enter workflow notes before performing this action."
+      );
+      return;
+    }
+
+    resetMessages();
+    setWorkflowSaving(true);
+
+    try {
+      const response =
+        await api.post(
+          `/api/employee-lifecycle/${lifecycleCaseNumber}/${endpoint}`,
+          payload
+        );
+
+      setNotice(
+        response?.data?.message ||
+          successMessage
+      );
+
+      setWorkflowNotes("");
+
+      await loadCases();
+      await loadCaseDetails(
+        lifecycleCaseNumber
+      );
+    } catch (requestError) {
+      setError(
+        getErrorMessage(
+          requestError,
+          "The controlled lifecycle workflow action could not be completed."
+        )
+      );
+    } finally {
+      setWorkflowSaving(false);
+    }
+  };
+
+  const submitSelectedCase = () =>
+    runWorkflowAction({
+      endpoint: "submit",
+      payload: {
+        submissionNotes:
+          workflowNotes.trim(),
+      },
+      successMessage:
+        "Employee lifecycle case submitted successfully.",
+    });
+
+  const decideSelectedCaseByManager = (
+    decision
+  ) =>
+    runWorkflowAction({
+      endpoint:
+        "manager-decision",
+      payload: {
+        decision,
+        notes:
+          workflowNotes.trim(),
+      },
+      successMessage:
+        `Manager decision recorded as ${decision}.`,
+    });
+
+  const decideSelectedCaseByHr = (
+    decision
+  ) =>
+    runWorkflowAction({
+      endpoint: "hr-decision",
+      payload: {
+        decision,
+        notes:
+          workflowNotes.trim(),
+      },
+      successMessage:
+        `HR decision recorded as ${decision}.`,
+    });
+
+  const startSelectedCase = () =>
+    runWorkflowAction({
+      endpoint: "start",
+      payload: {
+        startNotes:
+          workflowNotes.trim(),
+      },
+      successMessage:
+        "Employee lifecycle case started successfully.",
+    });
 
   return (
     <div
@@ -1044,7 +1155,7 @@ function EmployeeLifecyclePanel({
               </div>
             </div>
 
-            <div>
+                        <div>
               <strong>
                 Completion summary
               </strong>
@@ -1054,6 +1165,209 @@ function EmployeeLifecyclePanel({
                   "-"}
               </div>
             </div>
+          </div>
+
+          <div
+            style={{
+              borderTop:
+                `1px solid ${BORDER}`,
+              marginTop: "20px",
+              paddingTop: "18px",
+            }}
+          >
+            <h3
+              style={{
+                color: ROYAL_BLUE,
+                marginTop: 0,
+                marginBottom: "6px",
+              }}
+            >
+              Approval and Start
+              Controls
+            </h3>
+
+            <div
+              style={{
+                color: MUTED,
+                marginBottom: "12px",
+              }}
+            >
+              Record notes for the
+              selected controlled
+              workflow action.
+            </div>
+
+            <textarea
+              style={{
+                ...fieldStyle,
+                minHeight: "90px",
+                resize: "vertical",
+              }}
+              value={workflowNotes}
+              onChange={(event) =>
+                setWorkflowNotes(
+                  event.target.value
+                )
+              }
+              placeholder="Enter submission, approval, rejection or start notes"
+            />
+
+            <div
+              style={{
+                display: "flex",
+                gap: "10px",
+                flexWrap: "wrap",
+                marginTop: "12px",
+              }}
+            >
+              {selectedCase.status ===
+                "Draft" && (
+                <button
+                  type="button"
+                  style={
+                    primaryButtonStyle
+                  }
+                  disabled={
+                    workflowSaving
+                  }
+                  onClick={
+                    submitSelectedCase
+                  }
+                >
+                  Submit Case
+                </button>
+              )}
+
+              {selectedCase.status ===
+                "Pending Approval" && (
+                <>
+                  <button
+                    type="button"
+                    style={{
+                      ...primaryButtonStyle,
+                      backgroundColor:
+                        "#2563eb",
+                    }}
+                    disabled={
+                      workflowSaving
+                    }
+                    onClick={() =>
+                      decideSelectedCaseByManager(
+                        "Approved"
+                      )
+                    }
+                  >
+                    Manager Approve
+                  </button>
+
+                  <button
+                    type="button"
+                    style={{
+                      ...primaryButtonStyle,
+                      backgroundColor:
+                        "#dc2626",
+                    }}
+                    disabled={
+                      workflowSaving
+                    }
+                    onClick={() =>
+                      decideSelectedCaseByManager(
+                        "Rejected"
+                      )
+                    }
+                  >
+                    Manager Reject
+                  </button>
+
+                  <button
+                    type="button"
+                    style={{
+                      ...primaryButtonStyle,
+                      backgroundColor:
+                        "#15803d",
+                    }}
+                    disabled={
+                      workflowSaving
+                    }
+                    onClick={() =>
+                      decideSelectedCaseByHr(
+                        "Approved"
+                      )
+                    }
+                  >
+                    HR Approve
+                  </button>
+
+                  <button
+                    type="button"
+                    style={{
+                      ...primaryButtonStyle,
+                      backgroundColor:
+                        "#b91c1c",
+                    }}
+                    disabled={
+                      workflowSaving
+                    }
+                    onClick={() =>
+                      decideSelectedCaseByHr(
+                        "Rejected"
+                      )
+                    }
+                  >
+                    HR Reject
+                  </button>
+                </>
+              )}
+
+              {selectedCase.status ===
+                "Approved" && (
+                <button
+                  type="button"
+                  style={{
+                    ...primaryButtonStyle,
+                    backgroundColor:
+                      "#15803d",
+                  }}
+                  disabled={
+                    workflowSaving
+                  }
+                  onClick={
+                    startSelectedCase
+                  }
+                >
+                  Start Lifecycle Case
+                </button>
+              )}
+            </div>
+
+            {workflowSaving && (
+              <div
+                style={{
+                  color: MUTED,
+                  marginTop: "10px",
+                  fontWeight: "bold",
+                }}
+              >
+                Recording controlled
+                workflow action...
+              </div>
+            )}
+
+            {selectedCase.status ===
+              "Pending Approval" && (
+              <div
+                style={{
+                  color: MUTED,
+                  marginTop: "12px",
+                  fontSize: "13px",
+                }}
+              >
+                Manager and HR decisions
+                remain subject to the
+                backend approval sequence
+                and separation controls.
+              </div>
+            )}
           </div>
         </div>
       )}
