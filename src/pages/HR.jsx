@@ -7,6 +7,7 @@ import ControlledDocumentsPanel from "../components/ControlledDocumentsPanel";
 import LeaveManagementPanel from "../components/LeaveManagementPanel";
 import EmployeeRelationsPanel from "../components/EmployeeRelationsPanel";
 import PerformanceReviewsPanel from "../components/PerformanceReviewsPanel";
+import EmployeeLifecyclePanel from "../components/EmployeeLifecyclePanel";
 
 function HR() {
   const { user } = useAuth();
@@ -1697,6 +1698,8 @@ const showPerformanceTab =
   permissions.includes(
     "hrSelfService"
   );
+  const showEmployeeLifecycleTab =
+  isAdminHR;
 const showAnalyticsTab = isAdminHR;
 const showDocumentsTab =
   permissions.includes("documentSelfService") ||
@@ -1859,6 +1862,21 @@ const showMyProfileTab = canSelfServiceHR && !isAdminHR;
     }
   >
     Performance
+  </button>
+)}
+
+{showEmployeeLifecycleTab && (
+  <button
+    style={tabButtonStyle(
+      "employeeLifecycle"
+    )}
+    onClick={() =>
+      setActiveTab(
+        "employeeLifecycle"
+      )
+    }
+  >
+    Onboarding & Offboarding
   </button>
 )}
 
@@ -3885,6 +3903,14 @@ const showMyProfileTab = canSelfServiceHR && !isAdminHR;
       employees={employees}
       isAdminHR={isAdminHR}
       currentUser={user}
+    />
+  )}
+
+  {activeTab ===
+  "employeeLifecycle" &&
+  showEmployeeLifecycleTab && (
+    <EmployeeLifecyclePanel
+      employees={employees}
     />
   )}
 
