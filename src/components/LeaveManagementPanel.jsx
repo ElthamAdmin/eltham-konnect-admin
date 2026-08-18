@@ -554,6 +554,51 @@ function LeaveManagementPanel({
             </button>
           )}
 
+                  {!isAdminHR &&
+          ["Approved", "Completed"].includes(
+            request.status
+          ) &&
+          request
+            .employeeAcknowledgement
+            ?.required &&
+          !request
+            .employeeAcknowledgement
+            ?.acknowledged && (
+            <button
+              disabled={working}
+              style={buttonStyle(
+                COLORS.green
+              )}
+              onClick={() => {
+                const confirmed =
+                  window.confirm(
+                    `Confirm that you have reviewed and acknowledged ${request.leaveRequestId}?`
+                  );
+
+                if (!confirmed) {
+                  return;
+                }
+
+                runRequestAction({
+                  actionKey:
+                    "acknowledge",
+                  request,
+                  path:
+                    "acknowledge",
+                  body: {
+                    confirmed: true,
+                    comments:
+                      actionNotes,
+                  },
+                  successMessage:
+                    "Leave decision acknowledged.",
+                });
+              }}
+            >
+              Acknowledge
+            </button>
+          )}
+
         {cancelAllowed && (
           <button
             disabled={working}
@@ -1353,6 +1398,32 @@ function LeaveManagementPanel({
                 Reversal:{" "}
                 {selectedRequest.balanceReversalTransactionNumber ||
                   "None"}
+              </small>
+            </div>
+
+                        <div>
+              <strong>
+                Employee acknowledgement
+              </strong>
+              <br />
+              {selectedRequest
+                .employeeAcknowledgement
+                ?.required
+                ? selectedRequest
+                    .employeeAcknowledgement
+                    ?.acknowledged
+                  ? "Acknowledged"
+                  : "Awaiting acknowledgement"
+                : "Not required"}
+              <br />
+              <small>
+                {selectedRequest
+                  .employeeAcknowledgement
+                  ?.acknowledged
+                  ? `${selectedRequest.employeeAcknowledgement.acknowledgedBy} · ${new Date(
+                      selectedRequest.employeeAcknowledgement.acknowledgedAt
+                    ).toLocaleString()}`
+                  : "No acknowledgement recorded"}
               </small>
             </div>
 
