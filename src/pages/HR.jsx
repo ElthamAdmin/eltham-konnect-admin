@@ -1683,7 +1683,11 @@ const OrgChartNode = ({ node, level, ROYAL_BLUE, BORDER, MUTED }) => {
 const showEmployeeFormTab = isAdminHR;
 const showOrgChartTab = isAdminHR;
 const showCompensationTab = isAdminHR;
-const showAttendanceTab = isAdminHR;
+const showAttendanceTab =
+  isAdminHR ||
+  permissions.includes(
+    "hrSelfService"
+  );
 const showLeaveRequestsTab = isAdminHR;
 
 const showEmployeeRelationsTab =
@@ -1761,8 +1765,10 @@ const showMyProfileTab = canSelfServiceHR && !isAdminHR;
   <button
     style={tabButtonStyle("attendance")}
     onClick={() => setActiveTab("attendance")}
-  >
-    Attendance
+    >
+    {isAdminHR
+      ? "Attendance"
+      : "My Attendance"}
   </button>
 )}
 
@@ -2118,12 +2124,19 @@ const showMyProfileTab = canSelfServiceHR && !isAdminHR;
           />
         )}
 
-        {activeTab === "attendance" &&
-  showAttendanceTab && (
-    <AttendancePeriodsPanel
-      employees={employees}
-    />
-  )}
+                {activeTab === "attendance" &&
+          showAttendanceTab && (
+            <AttendancePeriodsPanel
+              employees={
+                isAdminHR
+                  ? employees
+                  : myEmployee
+                    ? [myEmployee]
+                    : []
+              }
+              selfService={!isAdminHR}
+            />
+          )}
 
       {activeTab === "orgChart" && showOrgChartTab && (
   <div style={{ display: "grid", gap: "20px" }}>

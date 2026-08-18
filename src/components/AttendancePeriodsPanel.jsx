@@ -29,7 +29,10 @@ const statusColour = (status) => ({
   Cancelled: "#dc2626",
 }[status] || "#64748b");
 
-function AttendancePeriodsPanel({ employees = [] }) {
+function AttendancePeriodsPanel({
+  employees = [],
+  selfService = false,
+}) {
   const [employeeId, setEmployeeId] = useState(employees[0]?.employeeId || "");
   const [periodKey, setPeriodKey] = useState(new Date().toISOString().slice(0, 7));
   const [periods, setPeriods] = useState([]);
@@ -60,12 +63,19 @@ function AttendancePeriodsPanel({ employees = [] }) {
   );
 
   const loadPeriods = async () => {
-    if (!employeeId || !periodKey) return;
+        if (
+      (!selfService && !employeeId) ||
+      !periodKey
+    ) {
+      return;
+    }
     setLoading(true);
     setError("");
     try {
       const response = await api.get("/api/hr/attendance-periods", {
-        params: { employeeId, periodKey },
+                params: selfService
+          ? { periodKey }
+          : { employeeId, periodKey },
       });
       const rows = response.data.data || [];
       setPeriods(rows);
@@ -236,25 +246,52 @@ function AttendancePeriodsPanel({ employees = [] }) {
       <section style={card}>
         <div style={headerRow}>
           <div>
-            <h2 style={title}>Attendance Periods</h2>
+                        <h2 style={title}>
+              {selfService
+                ? "My Attendance"
+                : "Attendance Periods"}
+            </h2>
+
             <div style={subtitle}>
-              Scheduled versus actual time, exceptions, adjustments, approval and payroll readiness.
+              {selfService
+                ? "Review your scheduled and recorded attendance, exceptions, payable time and adjustment requests."
+                : "Scheduled versus actual time, exceptions, adjustments, approval and payroll readiness."}
             </div>
           </div>
           <span style={checkpoint}>H3 Controlled Attendance</span>
         </div>
 
         <div style={filterGrid}>
-          <label style={label}>
-            Employee
-            <select value={employeeId} onChange={(event) => setEmployeeId(event.target.value)} style={input}>
-              {employees.map((employee) => (
-                <option key={employee.employeeId} value={employee.employeeId}>
-                  {employee.fullName} ({employee.employeeId})
-                </option>
-              ))}
-            </select>
-          </label>
+                    {!selfService ? (
+            <label style={label}>
+              Employee
+              <select
+                value={employeeId}
+                onChange={(event) =>
+                  setEmployeeId(
+                    event.target.value
+                  )
+                }
+                style={input}
+              >
+                {employees.map(
+                  (employee) => (
+                    <option
+                      key={
+                        employee.employeeId
+                      }
+                      value={
+                        employee.employeeId
+                      }
+                    >
+                      {employee.fullName} (
+                      {employee.employeeId})
+                    </option>
+                  )
+                )}
+              </select>
+            </label>
+          ) : null}
           <label style={label}>
             Attendance month
             <input type="month" value={periodKey} onChange={(event) => setPeriodKey(event.target.value)} style={input} />
@@ -270,10 +307,21 @@ function AttendancePeriodsPanel({ employees = [] }) {
       {!loading && periods.length === 0 ? (
         <section style={{ ...card, textAlign: "center" }}>
           <h3 style={{ color: BLUE, marginTop: 0 }}>No attendance period exists for this scope.</h3>
-          <p style={{ color: MUTED }}>Create one controlled Draft from the employee schedule and recorded punches.</p>
-          <button type="button" onClick={createDraft} disabled={actionLoading} style={primaryButton}>
-            + Create Attendance Draft
-          </button>
+                    <p style={{ color: MUTED }}>
+            {selfService
+              ? "No controlled attendance record is currently available for this month."
+              : "Create one controlled Draft from the employee schedule and recorded punches."}
+          </p>
+                    {!selfService ? (
+            <button
+              type="button"
+              onClick={createDraft}
+              disabled={actionLoading}
+              style={primaryButton}
+            >
+              + Create Attendance Draft
+            </button>
+          ) : null}
         </section>
       ) : null}
 
@@ -301,27 +349,36 @@ function AttendancePeriodsPanel({ employees = [] }) {
               </span>
             </div>
 
-            <div style={workflowBox}>
-              <strong>Workflow actions</strong>
+                        <div style={workflowBox}>
+              <strong>
+                {selfService
+                  ? "Attendance actions"
+                  : "Workflow actions"}
+              </strong>
               <div style={buttonRow}>
-                {selectedPeriod.status === "Draft" ? (
+                {!selfService &&
+selectedPeriod.status === "Draft" ? (
                   <button type="button" onClick={refreshDraft} disabled={actionLoading} style={secondaryButton}>Refresh Draft</button>
                 ) : null}
-                {selectedPeriod.status === "Draft" ? (
+                {!selfService &&
+                selectedPeriod.status === "Draft" ? (
                   <button type="button" onClick={submitPeriod} disabled={actionLoading || !maySubmit} style={actionButton(!maySubmit)}>
                     Submit for Review
                   </button>
                 ) : null}
-                {selectedPeriod.status === "Submitted" ? (
+                {!selfService &&
+                selectedPeriod.status === "Submitted" ? (
                   <button type="button" onClick={approvePeriod} disabled={actionLoading} style={primaryButton}>Manager Approve</button>
                 ) : null}
-                {selectedPeriod.status === "Manager Approved" ? (
+                {!selfService &&
+                selectedPeriod.status === "Manager Approved" ? (
                   <button type="button" onClick={markPayrollReady} disabled={actionLoading} style={greenButton}>Mark Payroll Ready</button>
                 ) : null}
                 {["Submitted", "Manager Approved", "Payroll Ready"].includes(selectedPeriod.status) && !selectedPeriod.payrollNumber ? (
                   <button type="button" onClick={reopenPeriod} disabled={actionLoading} style={orangeButton}>Reopen Period</button>
                 ) : null}
-                {selectedPeriod.status === "Payroll Ready" ? (
+                {!selfService &&
+                selectedPeriod.status === "Payroll Ready" ? (
                   <button type="button" onClick={() => setShowLockForm((value) => !value)} disabled={actionLoading} style={darkButton}>
                     {showLockForm ? "Close Lock Form" : "Lock to Payroll"}
                   </button>
@@ -332,14 +389,16 @@ function AttendancePeriodsPanel({ employees = [] }) {
                   </button>
                 ) : null}
               </div>
-              {selectedPeriod.status === "Draft" && !maySubmit ? (
+              {!selfService &&
+              selectedPeriod.status === "Draft" && !maySubmit ? (
                 <div style={warningBox}>
                   This period remains open through {selectedPeriod.periodEnd}. Submission is correctly blocked until the period has ended.
                 </div>
               ) : null}
             </div>
 
-            {showLockForm && selectedPeriod.status === "Payroll Ready" ? (
+            {!selfService &&
+            showLockForm && selectedPeriod.status === "Payroll Ready" ? (
               <div style={adjustmentGrid}>
                 <label style={label}>
                   Payroll number
@@ -393,7 +452,11 @@ function AttendancePeriodsPanel({ employees = [] }) {
                   <div><strong>{item.workDate} · {item.adjustmentType}</strong><div style={subtitle}>{item.reason}</div></div>
                   <div style={buttonRow}>
                     <span style={{ ...statusBadge, backgroundColor: statusColour(item.status) }}>{item.status}</span>
-                    {item.status === "Pending" && ["Draft", "Reopened"].includes(selectedPeriod.status) ? (
+                                        {!selfService &&
+                    item.status === "Pending" &&
+                    ["Draft", "Reopened"].includes(
+                      selectedPeriod.status
+                    ) ? (
                       <>
                         <button type="button" onClick={() => reviewAdjustment(item, "Approve")} disabled={actionLoading} style={greenButton}>Approve</button>
                         <button type="button" onClick={() => reviewAdjustment(item, "Reject")} disabled={actionLoading} style={redButton}>Reject</button>
