@@ -37,18 +37,16 @@ function ControlledDocumentAcknowledgementPanel({
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
 
-  const acknowledgementDueDocuments = useMemo(
+    const acknowledgementDueDocuments = useMemo(
     () =>
       documents.filter(
         (document) =>
           document.acknowledgementRequired &&
           document.acknowledgement?.status !== "Acknowledged" &&
-          ![
-            "Archived",
-            "Superseded",
-            "Cancelled",
-            "Rejected",
-          ].includes(document.status)
+          document.status === "Verified" &&
+          document.confidentialityLevel === "Employee Visible" &&
+          document.employeeCanDownload === true &&
+          !document.archived
       ),
     [documents]
   );
