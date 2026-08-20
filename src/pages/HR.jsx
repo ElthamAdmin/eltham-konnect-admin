@@ -8,6 +8,7 @@ import LeaveManagementPanel from "../components/LeaveManagementPanel";
 import EmployeeRelationsPanel from "../components/EmployeeRelationsPanel";
 import PerformanceReviewsPanel from "../components/PerformanceReviewsPanel";
 import EmployeeLifecyclePanel from "../components/EmployeeLifecyclePanel";
+import ProfileUpdateRequestsPanel from "../components/ProfileUpdateRequestsPanel";
 
 function HR() {
   const { user } = useAuth();
@@ -1723,6 +1724,8 @@ const showMyPayslipsTab =
   permissions.includes("hrSelfService") ||
   isAdminHR;
 const showMyProfileTab = canSelfServiceHR && !isAdminHR;
+const showProfileUpdatesTab =
+  isAdminHR || showMyProfileTab;
 
   return (
     <div style={{ backgroundColor: LIGHT_BG, minHeight: "100vh", padding: "20px" }}>
@@ -1839,6 +1842,21 @@ const showMyProfileTab = canSelfServiceHR && !isAdminHR;
             My Profile
           </button>
         )}
+
+        {showProfileUpdatesTab && (
+  <button
+    style={tabButtonStyle(
+      "profileUpdates"
+    )}
+    onClick={() =>
+      setActiveTab("profileUpdates")
+    }
+  >
+    {isAdminHR
+      ? "Profile Requests"
+      : "Update My Profile"}
+  </button>
+)}
 
         {showMyLeaveTab && (
           <button style={tabButtonStyle("myLeave")} onClick={() => setActiveTab("myLeave")}>
@@ -4229,6 +4247,15 @@ const showMyProfileTab = canSelfServiceHR && !isAdminHR;
     )}
   </div>
 )}
+
+{activeTab === "profileUpdates" &&
+  showProfileUpdatesTab && (
+    <ProfileUpdateRequestsPanel
+      isAdminHR={isAdminHR}
+      myEmployee={myEmployee}
+      onProfileUpdated={fetchHRData}
+    />
+  )}
 
       {activeTab === "myProfile" && showMyProfileTab && (
         <div style={{ display: "grid", gap: "20px" }}>
