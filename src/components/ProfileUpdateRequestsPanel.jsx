@@ -11,6 +11,11 @@ const BORDER = "#d8e1ee";
 const MUTED = "#58708f";
 
 const emptyForm = {
+  fullName: "",
+  gender: "",
+  dateOfBirth: "",
+  trn: "",
+  nisNumber: "",
   email: "",
   phone: "",
   alternatePhone: "",
@@ -97,12 +102,25 @@ export default function ProfileUpdateRequestsPanel({
 
   useEffect(() => {
     if (!isAdminHR && myEmployee) {
-      setForm({
-        email: myEmployee.email || "",
-        phone: myEmployee.phone || "",
+            setForm({
+        fullName:
+          myEmployee.fullName || "",
+        gender:
+          myEmployee.gender || "",
+        dateOfBirth:
+          myEmployee.dateOfBirth || "",
+        trn:
+          myEmployee.trn || "",
+        nisNumber:
+          myEmployee.nisNumber || "",
+        email:
+          myEmployee.email || "",
+        phone:
+          myEmployee.phone || "",
         alternatePhone:
           myEmployee.alternatePhone || "",
-        address: myEmployee.address || "",
+        address:
+          myEmployee.address || "",
         emergencyContactName:
           myEmployee.emergencyContactName || "",
         emergencyContactPhone:
@@ -174,7 +192,12 @@ export default function ProfileUpdateRequestsPanel({
       setError("");
       setNotice("");
 
-      const requestedChanges = {
+            const requestedChanges = {
+        fullName: form.fullName,
+        gender: form.gender,
+        dateOfBirth: form.dateOfBirth,
+        trn: form.trn,
+        nisNumber: form.nisNumber,
         email: form.email,
         phone: form.phone,
         alternatePhone:
@@ -447,6 +470,97 @@ export default function ProfileUpdateRequestsPanel({
               gap: "14px",
             }}
           >
+                        <label>
+              Legal full name
+              <input
+                style={inputStyle}
+                value={form.fullName}
+                onChange={(event) =>
+                  updateField(
+                    "fullName",
+                    event.target.value
+                  )
+                }
+              />
+            </label>
+
+            <label>
+              Gender
+              <select
+                style={inputStyle}
+                value={form.gender}
+                onChange={(event) =>
+                  updateField(
+                    "gender",
+                    event.target.value
+                  )
+                }
+              >
+                <option value="">
+                  Not specified
+                </option>
+                <option value="Male">
+                  Male
+                </option>
+                <option value="Female">
+                  Female
+                </option>
+                <option value="Other">
+                  Other
+                </option>
+              </select>
+            </label>
+
+            <label>
+              Date of birth
+              <input
+                type="date"
+                style={inputStyle}
+                value={form.dateOfBirth}
+                max={new Date()
+                  .toISOString()
+                  .slice(0, 10)}
+                onChange={(event) =>
+                  updateField(
+                    "dateOfBirth",
+                    event.target.value
+                  )
+                }
+              />
+            </label>
+
+            <label>
+              TRN
+              <input
+                style={inputStyle}
+                inputMode="numeric"
+                maxLength="9"
+                value={form.trn}
+                onChange={(event) =>
+                  updateField(
+                    "trn",
+                    event.target.value.replace(
+                      /\D/g,
+                      ""
+                    )
+                  )
+                }
+              />
+            </label>
+
+            <label>
+              NIS number
+              <input
+                style={inputStyle}
+                value={form.nisNumber}
+                onChange={(event) =>
+                  updateField(
+                    "nisNumber",
+                    event.target.value
+                  )
+                }
+              />
+            </label>
             <label>
               HR contact email
               <input
