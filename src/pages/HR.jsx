@@ -504,11 +504,19 @@ setMyEmployee(null);
     } else {
       const requests = [
   api.get("/api/leave-requests").catch((error) => {
-    if (error?.response?.status === 404) {
-      return { data: { data: [] } };
-    }
-    throw error;
-  }),
+  if (
+    error?.response?.status === 403 ||
+    error?.response?.status === 404
+  ) {
+    return {
+      data: {
+        data: [],
+      },
+    };
+  }
+
+  throw error;
+}),
   api.get("/api/payroll/my-records").catch((error) => {
   console.error(
     "Payroll self-service load failed:",
