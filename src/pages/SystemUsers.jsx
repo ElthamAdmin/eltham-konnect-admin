@@ -73,6 +73,7 @@ function SystemUsers() {
     password: "",
     permissions: ["dashboard"],
     linkedEmployeeId: "",
+    reason: "",
   });
 
   const fetchUsers = async () => {
@@ -146,6 +147,11 @@ function SystemUsers() {
         return;
       }
 
+      if (!formData.reason.trim()) {
+        alert("Enter the controlled reason for creating this account.");
+        return;
+      }
+
       if (formData.role !== "Admin" && formData.permissions.length === 0) {
         alert("Please select at least one module permission for this staff member.");
         return;
@@ -173,6 +179,7 @@ function SystemUsers() {
         password: "",
         permissions: ["dashboard"],
         linkedEmployeeId: "",
+        reason: "",
       });
 
       setShowForm(false);
@@ -184,8 +191,11 @@ function SystemUsers() {
   };
 
   const updateStatus = async (userId, status) => {
+    const reason = prompt("Enter the required reason for this status change:", "");
+    if (!reason?.trim()) return;
+    if (!window.confirm(`Confirm changing ${userId} to ${status}? Existing sessions will be revoked.`)) return;
     try {
-      const res = await api.put(`/api/system-users/${userId}/status`, { status });
+      const res = await api.put(`/api/system-users/${userId}/status`, { status, reason: reason.trim() });
       alert(res.data.message);
       await fetchUsers();
     } catch (error) {
@@ -201,10 +211,14 @@ function SystemUsers() {
     );
 
     if (!newRole) return;
+    const reason = prompt("Enter the required reason for this role change:", "");
+    if (!reason?.trim()) return;
+    if (!window.confirm(`Confirm changing ${user.userId} from ${user.role} to ${newRole}? Existing sessions will be revoked.`)) return;
 
     try {
       const res = await api.put(`/api/system-users/${user.userId}/role`, {
         role: newRole,
+        reason: reason.trim(),
       });
 
       alert(res.data.message);
@@ -229,6 +243,9 @@ function SystemUsers() {
     );
 
     if (entered === null) return;
+    const reason = prompt("Enter the required reason for this permission change:", "");
+    if (!reason?.trim()) return;
+    if (!window.confirm(`Confirm replacing permissions for ${user.userId}? Existing sessions will be revoked.`)) return;
 
     const permissions = entered
       .split(",")
@@ -238,6 +255,7 @@ function SystemUsers() {
     try {
       const res = await api.put(`/api/system-users/${user.userId}/permissions`, {
         permissions,
+        reason: reason.trim(),
       });
 
       alert(res.data.message);
@@ -252,10 +270,14 @@ function SystemUsers() {
     const newPassword = prompt(`Enter a new password for ${user.fullName}:`, "");
 
     if (!newPassword) return;
+    const reason = prompt("Enter the required reason for this password reset:", "");
+    if (!reason?.trim()) return;
+    if (!window.confirm(`Confirm password reset for ${user.userId}? Existing sessions will be revoked.`)) return;
 
     try {
       const res = await api.put(`/api/system-users/${user.userId}/reset-password`, {
         password: newPassword,
+        reason: reason.trim(),
       });
 
       alert(res.data.message);
@@ -418,6 +440,15 @@ function SystemUsers() {
               name="linkedEmployeeId"
               placeholder="Linked Employee ID (optional)"
               value={formData.linkedEmployeeId}
+              onChange={handleChange}
+              style={{ padding: "10px" }}
+            />
+
+            <input
+              type="text"
+              name="reason"
+              placeholder="Required account-creation reason"
+              value={formData.reason}
               onChange={handleChange}
               style={{ padding: "10px" }}
             />
