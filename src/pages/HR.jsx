@@ -249,6 +249,22 @@ function HR() {
   const [myPerformanceReviews, setMyPerformanceReviews] = useState([]);
   const [myCompensation, setMyCompensation] = useState(null);
   const [analyticsSummary, setAnalyticsSummary] = useState(null);
+  const [workforceFilters, setWorkforceFilters] =
+  useState({
+    search: "",
+    branch: "",
+    department: "",
+    employmentStatus: "",
+    employmentType: "",
+    asOfDate:
+      new Date().toISOString().slice(0, 10),
+  });
+
+const [analyticsLoading, setAnalyticsLoading] =
+  useState(false);
+
+const [analyticsError, setAnalyticsError] =
+  useState("");
   const [myEmployee, setMyEmployee] = useState(null);
   const [employeeForm, setEmployeeForm] = useState(emptyEmployeeForm);
   const [leaveForm, setLeaveForm] = useState(emptyLeaveForm);
@@ -606,13 +622,50 @@ const [performanceForm, setPerformanceForm] = useState({
     border: `1px solid ${BORDER}`,
   });
 
-  const fetchHRAnalytics = async () => {
+  const fetchHRAnalytics = async (
+  filterOverrides = workforceFilters
+) => {
   try {
-    const res = await api.get("/api/hr-analytics/dashboard");
-    setAnalyticsSummary(res.data.data || null);
+    setAnalyticsLoading(true);
+    setAnalyticsError("");
+
+    const params = {};
+
+    Object.entries(
+      filterOverrides || {}
+    ).forEach(([key, value]) => {
+      const normalizedValue =
+        String(value || "").trim();
+
+      if (normalizedValue) {
+        params[key] = normalizedValue;
+      }
+    });
+
+    const res = await api.get(
+      "/api/hr-analytics/dashboard",
+      {
+        params,
+      }
+    );
+
+    setAnalyticsSummary(
+      res.data.data || null
+    );
   } catch (error) {
-    console.error("Failed to load HR analytics:", error);
+    console.error(
+      "Failed to load HR analytics:",
+      error
+    );
+
     setAnalyticsSummary(null);
+
+    setAnalyticsError(
+      error?.response?.data?.message ||
+        "Failed to load the headcount and workforce report."
+    );
+  } finally {
+    setAnalyticsLoading(false);
   }
 };
 
@@ -4135,6 +4188,122 @@ const showProfileUpdatesTab =
                             workday
                           );
 
+                          const workforceBreakdowns =
+  analyticsSummary?.workforceBreakdowns ||
+  {};
+
+const workforceRegister =
+  analyticsSummary?.employeeRegister || [];
+
+const updateWorkforceFilter = (
+  field,
+  value
+) => {
+  setWorkforceFilters((current) => ({
+    ...current,
+    [field]: value,
+  }));
+};
+
+const resetWorkforceFilters = () => {
+  const clearedFilters = {
+    search: "",
+    branch: "",
+    department: "",
+    employmentStatus: "",
+    employmentType: "",
+    asOfDate:
+      new Date().toISOString().slice(0, 10),
+  };
+
+  setWorkforceFilters(clearedFilters);
+  fetchHRAnalytics(clearedFilters);
+};
+
+const WorkforceBreakdown = ({
+  title,
+  rows = [],
+}) => (
+  <div style={cardStyle}>
+    <h3
+      style={{
+        color: ROYAL_BLUE,
+        marginTop: 0,
+      }}
+    >
+      {title}
+    </h3>
+
+    {rows.length === 0 ? (
+      <div style={{ color: MUTED }}>
+        No workforce data found.
+      </div>
+    ) : (
+      <div
+        style={{
+          display: "grid",
+          gap: "10px",
+        }}
+      >
+        {rows.map((row) => {
+          const total =
+            Number(
+              analyticsSummary?.workforce
+                ?.totalEmployees || 0
+            );
+
+          const percentage =
+            total > 0
+              ? (
+                  (
+                    Number(row.count || 0) /
+                    total
+                  ) * 100
+                ).toFixed(1)
+              : "0.0";
+
+          return (
+            <div key={row.label}>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent:
+                    "space-between",
+                  gap: "12px",
+                  marginBottom: "5px",
+                }}
+              >
+                <span>{row.label}</span>
+
+                <strong>
+                  {row.count} ({percentage}%)
+                </strong>
+              </div>
+
+              <div
+                style={{
+                  height: "8px",
+                  borderRadius: "999px",
+                  background: "#e2e8f0",
+                  overflow: "hidden",
+                }}
+              >
+                <div
+                  style={{
+                    width: `${percentage}%`,
+                    height: "100%",
+                    background: ROYAL_BLUE,
+                  }}
+                />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    )}
+  </div>
+);
+
                         return (
                           <button
                             key={workday}
@@ -4753,141 +4922,736 @@ const showProfileUpdatesTab =
     />
   )}
 
-{activeTab === "analytics" && showAnalyticsTab && (
-  <div style={{ display: "grid", gap: "20px" }}>
-    <div style={cardStyle}>
-      <h2 style={{ color: ROYAL_BLUE, marginTop: 0 }}>HR Analytics Dashboard</h2>
+{activeTab === "analytics" &&
+  showAnalyticsTab && (
+    <div
+      style={{
+        display: "grid",
+        gap: "20px",
+      }}
+    >
+      <div style={cardStyle}>
+        <div
+          style={{
+            display: "flex",
+            justifyContent:
+              "space-between",
+            alignItems: "flex-start",
+            gap: "14px",
+            flexWrap: "wrap",
+          }}
+        >
+          <div>
+            <h2
+              style={{
+                color: ROYAL_BLUE,
+                margin: 0,
+              }}
+            >
+              Headcount and Workforce
+              Reporting
+            </h2>
 
-      {!analyticsSummary ? (
-        <div style={{ color: MUTED, fontWeight: "bold" }}>No analytics data found.</div>
+            <p
+              style={{
+                color: MUTED,
+                marginBottom: 0,
+              }}
+            >
+              Review workforce composition,
+              employment status, organizational
+              coverage, tenure and payroll
+              eligibility.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            style={primaryButton}
+            onClick={() =>
+              fetchHRAnalytics()
+            }
+            disabled={analyticsLoading}
+          >
+            {analyticsLoading
+              ? "Refreshing..."
+              : "Refresh Report"}
+          </button>
+        </div>
+      </div>
+
+      <div style={cardStyle}>
+        <h3
+          style={{
+            color: ROYAL_BLUE,
+            marginTop: 0,
+          }}
+        >
+          Workforce Filters
+        </h3>
+
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns:
+              "repeat(auto-fit, minmax(190px, 1fr))",
+            gap: "12px",
+          }}
+        >
+          <input
+            value={
+              workforceFilters.search
+            }
+            onChange={(event) =>
+              updateWorkforceFilter(
+                "search",
+                event.target.value
+              )
+            }
+            placeholder="Search employee, role or ID"
+            style={inputStyle}
+          />
+
+          <select
+            value={
+              workforceFilters.department
+            }
+            onChange={(event) =>
+              updateWorkforceFilter(
+                "department",
+                event.target.value
+              )
+            }
+            style={inputStyle}
+          >
+            <option value="">
+              All Departments
+            </option>
+
+            {DEPARTMENTS.map(
+              (department) => (
+                <option
+                  key={department}
+                  value={department}
+                >
+                  {department}
+                </option>
+              )
+            )}
+          </select>
+
+          <select
+            value={workforceFilters.branch}
+            onChange={(event) =>
+              updateWorkforceFilter(
+                "branch",
+                event.target.value
+              )
+            }
+            style={inputStyle}
+          >
+            <option value="">
+              All Branches
+            </option>
+
+            {BRANCHES.map((branch) => (
+              <option
+                key={branch}
+                value={branch}
+              >
+                {branch}
+              </option>
+            ))}
+          </select>
+
+          <select
+            value={
+              workforceFilters.employmentStatus
+            }
+            onChange={(event) =>
+              updateWorkforceFilter(
+                "employmentStatus",
+                event.target.value
+              )
+            }
+            style={inputStyle}
+          >
+            <option value="">
+              All Statuses
+            </option>
+            <option value="Active">
+              Active
+            </option>
+            <option value="Inactive">
+              Inactive
+            </option>
+            <option value="On Leave">
+              On Leave
+            </option>
+            <option value="Terminated">
+              Terminated
+            </option>
+          </select>
+
+          <select
+            value={
+              workforceFilters.employmentType
+            }
+            onChange={(event) =>
+              updateWorkforceFilter(
+                "employmentType",
+                event.target.value
+              )
+            }
+            style={inputStyle}
+          >
+            <option value="">
+              All Employment Types
+            </option>
+
+            {EMPLOYMENT_TYPES.map(
+              (employmentType) => (
+                <option
+                  key={employmentType}
+                  value={employmentType}
+                >
+                  {employmentType}
+                </option>
+              )
+            )}
+          </select>
+
+          <input
+            type="date"
+            value={
+              workforceFilters.asOfDate
+            }
+            onChange={(event) =>
+              updateWorkforceFilter(
+                "asOfDate",
+                event.target.value
+              )
+            }
+            style={inputStyle}
+          />
+        </div>
+
+        <div
+          style={{
+            display: "flex",
+            gap: "10px",
+            marginTop: "14px",
+            flexWrap: "wrap",
+          }}
+        >
+          <button
+            type="button"
+            style={primaryButton}
+            onClick={() =>
+              fetchHRAnalytics()
+            }
+            disabled={analyticsLoading}
+          >
+            Apply Filters
+          </button>
+
+          <button
+            type="button"
+            style={neutralButton}
+            onClick={resetWorkforceFilters}
+            disabled={analyticsLoading}
+          >
+            Clear Filters
+          </button>
+        </div>
+      </div>
+
+      {analyticsError && (
+        <div
+          style={{
+            padding: "14px",
+            borderRadius: "10px",
+            background: "#fef2f2",
+            border:
+              "1px solid #fecaca",
+            color: "#991b1b",
+          }}
+        >
+          {analyticsError}
+        </div>
+      )}
+
+      {!analyticsSummary &&
+      !analyticsLoading ? (
+        <div style={cardStyle}>
+          <div
+            style={{
+              color: MUTED,
+              fontWeight: "bold",
+            }}
+          >
+            No workforce data found.
+          </div>
+        </div>
       ) : (
         <>
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+              gridTemplateColumns:
+                "repeat(auto-fit, minmax(170px, 1fr))",
               gap: "14px",
-              marginBottom: "20px",
             }}
           >
-            <div style={statCardStyle("#eef4ff")}>
-              <div style={{ fontSize: "28px", fontWeight: "bold", color: ROYAL_BLUE }}>
-                {analyticsSummary?.workforce?.totalEmployees || 0}
+            <div
+              style={statCardStyle(
+                "#eef4ff"
+              )}
+            >
+              <div
+                style={{
+                  fontSize: "28px",
+                  fontWeight: "bold",
+                  color: ROYAL_BLUE,
+                }}
+              >
+                {analyticsSummary
+                  ?.workforce
+                  ?.totalEmployees || 0}
               </div>
-              <div style={{ color: MUTED }}>Total Employees</div>
+              <div style={{ color: MUTED }}>
+                Employees
+              </div>
             </div>
 
-            <div style={statCardStyle("#f0fdf4")}>
-              <div style={{ fontSize: "28px", fontWeight: "bold", color: "#16a34a" }}>
-                {analyticsSummary?.workforce?.activeEmployees || 0}
+            <div
+              style={statCardStyle(
+                "#f0fdf4"
+              )}
+            >
+              <div
+                style={{
+                  fontSize: "28px",
+                  fontWeight: "bold",
+                  color: "#16a34a",
+                }}
+              >
+                {analyticsSummary
+                  ?.workforce
+                  ?.activeEmployees || 0}
               </div>
-              <div style={{ color: MUTED }}>Active Employees</div>
+              <div style={{ color: MUTED }}>
+                Active
+              </div>
             </div>
 
-            <div style={statCardStyle("#fffbeb")}>
-              <div style={{ fontSize: "28px", fontWeight: "bold", color: "#f59e0b" }}>
-                {analyticsSummary?.workforce?.onLeaveEmployees || 0}
+            <div
+              style={statCardStyle(
+                "#fffbeb"
+              )}
+            >
+              <div
+                style={{
+                  fontSize: "28px",
+                  fontWeight: "bold",
+                  color: "#d97706",
+                }}
+              >
+                {analyticsSummary
+                  ?.workforce
+                  ?.onLeaveEmployees || 0}
               </div>
-              <div style={{ color: MUTED }}>On Leave</div>
+              <div style={{ color: MUTED }}>
+                On Leave
+              </div>
             </div>
 
-            <div style={statCardStyle("#fef2f2")}>
-              <div style={{ fontSize: "28px", fontWeight: "bold", color: "#dc2626" }}>
-                {analyticsSummary?.workforce?.terminatedEmployees || 0}
+            <div
+              style={statCardStyle(
+                "#fef2f2"
+              )}
+            >
+              <div
+                style={{
+                  fontSize: "28px",
+                  fontWeight: "bold",
+                  color: "#dc2626",
+                }}
+              >
+                {analyticsSummary
+                  ?.workforce
+                  ?.terminatedEmployees ||
+                  0}
               </div>
-              <div style={{ color: MUTED }}>Terminated</div>
+              <div style={{ color: MUTED }}>
+                Terminated
+              </div>
             </div>
 
-            <div style={statCardStyle("#f8fafc")}>
-              <div style={{ fontSize: "28px", fontWeight: "bold", color: "#475569" }}>
-                {analyticsSummary?.workforce?.payrollEnabledEmployees || 0}
+            <div
+              style={statCardStyle(
+                "#f5f3ff"
+              )}
+            >
+              <div
+                style={{
+                  fontSize: "28px",
+                  fontWeight: "bold",
+                  color: "#7c3aed",
+                }}
+              >
+                {analyticsSummary
+                  ?.workforce
+                  ?.payrollEnabledEmployees ||
+                  0}
               </div>
-              <div style={{ color: MUTED }}>Payroll Enabled</div>
+              <div style={{ color: MUTED }}>
+                Payroll Enabled
+              </div>
             </div>
 
-            <div style={statCardStyle("#eff6ff")}>
-              <div style={{ fontSize: "28px", fontWeight: "bold", color: ROYAL_BLUE }}>
-                {analyticsSummary?.discipline?.totalDisciplineRecords || 0}
+            <div
+              style={statCardStyle(
+                "#ecfeff"
+              )}
+            >
+              <div
+                style={{
+                  fontSize: "28px",
+                  fontWeight: "bold",
+                  color: "#0891b2",
+                }}
+              >
+                {analyticsSummary
+                  ?.workforce
+                  ?.employeesWithPhotos ||
+                  0}
               </div>
-              <div style={{ color: MUTED }}>Discipline Records</div>
-            </div>
-
-            <div style={statCardStyle("#f5f3ff")}>
-              <div style={{ fontSize: "28px", fontWeight: "bold", color: "#7c3aed" }}>
-                {analyticsSummary?.performance?.totalPerformanceReviews || 0}
+              <div style={{ color: MUTED }}>
+                Staff Photos
               </div>
-              <div style={{ color: MUTED }}>Performance Reviews</div>
-            </div>
-
-            <div style={statCardStyle("#fff7ed")}>
-              <div style={{ fontSize: "28px", fontWeight: "bold", color: "#ea580c" }}>
-                {analyticsSummary?.documents?.totalEmployeeDocuments || 0}
-              </div>
-              <div style={{ color: MUTED }}>Employee Documents</div>
             </div>
           </div>
 
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+              gridTemplateColumns:
+                "repeat(auto-fit, minmax(280px, 1fr))",
               gap: "20px",
             }}
           >
-            <div style={cardStyle}>
-              <h3 style={{ color: ROYAL_BLUE, marginTop: 0 }}>Leave Insights</h3>
-              <div style={{ display: "grid", gap: "8px" }}>
-                <div>Total Leave Requests: {analyticsSummary?.leave?.totalLeaveRequests || 0}</div>
-                <div>Pending: {analyticsSummary?.leave?.pendingLeaveRequests || 0}</div>
-                <div>Approved: {analyticsSummary?.leave?.approvedLeaveRequests || 0}</div>
-                <div>Rejected: {analyticsSummary?.leave?.rejectedLeaveRequests || 0}</div>
-              </div>
-            </div>
+            <WorkforceBreakdown
+              title="Employees by Department"
+              rows={
+                workforceBreakdowns.byDepartment ||
+                []
+              }
+            />
 
-            <div style={cardStyle}>
-              <h3 style={{ color: ROYAL_BLUE, marginTop: 0 }}>Payroll Insights</h3>
-              <div style={{ display: "grid", gap: "8px" }}>
-                <div>
-                  Total Payroll Records: {analyticsSummary?.payroll?.totalPayrollRecords || 0}
-                </div>
-                <div>
-                  Total Gross Payroll: JMD{" "}
-                  {Number(analyticsSummary?.payroll?.totalGrossPayroll || 0).toLocaleString()}
-                </div>
-                <div>
-                  Total Net Payroll: JMD{" "}
-                  {Number(analyticsSummary?.payroll?.totalNetPayroll || 0).toLocaleString()}
-                </div>
-                <div>
-                  Average Net Pay: JMD{" "}
-                  {Number(analyticsSummary?.payroll?.averageNetPay || 0).toLocaleString()}
-                </div>
-              </div>
-            </div>
+            <WorkforceBreakdown
+              title="Employees by Branch"
+              rows={
+                workforceBreakdowns.byBranch ||
+                []
+              }
+            />
 
-            <div style={cardStyle}>
-              <h3 style={{ color: ROYAL_BLUE, marginTop: 0 }}>Attendance Insights</h3>
-              <div style={{ display: "grid", gap: "8px" }}>
-                <div>
-                  Total Attendance Records: {analyticsSummary?.attendance?.totalAttendanceRecords || 0}
-                </div>
-                <div>
-                  Total Worked Time: {analyticsSummary?.attendance?.totalWorkedLabel || "0h 0m"}
-                </div>
-                <div>
-                  Total Lunch Time: {analyticsSummary?.attendance?.totalLunchLabel || "0h 0m"}
-                </div>
-                <div>
-                  Average Worked Time: {analyticsSummary?.attendance?.averageWorkedLabel || "0h 0m"}
-                </div>
-              </div>
+            <WorkforceBreakdown
+              title="Employment Status"
+              rows={
+                workforceBreakdowns.byEmploymentStatus ||
+                []
+              }
+            />
+
+            <WorkforceBreakdown
+              title="Employment Type"
+              rows={
+                workforceBreakdowns.byEmploymentType ||
+                []
+              }
+            />
+
+            <WorkforceBreakdown
+              title="Workforce Tenure"
+              rows={
+                workforceBreakdowns.byTenure ||
+                []
+              }
+            />
+
+            <WorkforceBreakdown
+              title="Gender Composition"
+              rows={
+                workforceBreakdowns.byGender ||
+                []
+              }
+            />
+
+            <WorkforceBreakdown
+              title="Job Levels"
+              rows={
+                workforceBreakdowns.byJobLevel ||
+                []
+              }
+            />
+
+            <WorkforceBreakdown
+              title="Payroll Eligibility"
+              rows={
+                workforceBreakdowns.byPayrollEligibility ||
+                []
+              }
+            />
+          </div>
+
+          <div style={cardStyle}>
+            <h3
+              style={{
+                color: ROYAL_BLUE,
+                marginTop: 0,
+              }}
+            >
+              Workforce Register
+            </h3>
+
+            <div
+              style={{
+                overflowX: "auto",
+              }}
+            >
+              <table
+                style={{
+                  width: "100%",
+                  borderCollapse:
+                    "collapse",
+                  minWidth: "1050px",
+                }}
+              >
+                <thead>
+                  <tr
+                    style={{
+                      background:
+                        "#eef4ff",
+                    }}
+                  >
+                    {[
+                      "Employee",
+                      "Role",
+                      "Department",
+                      "Branch",
+                      "Type",
+                      "Status",
+                      "Tenure",
+                      "Manager",
+                      "Payroll",
+                    ].map((heading) => (
+                      <th
+                        key={heading}
+                        style={{
+                          padding: "11px",
+                          textAlign: "left",
+                          border:
+                            `1px solid ${BORDER}`,
+                        }}
+                      >
+                        {heading}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {workforceRegister.length ===
+                  0 ? (
+                    <tr>
+                      <td
+                        colSpan="9"
+                        style={{
+                          padding: "18px",
+                          textAlign:
+                            "center",
+                          color: MUTED,
+                          border:
+                            `1px solid ${BORDER}`,
+                        }}
+                      >
+                        No employees match
+                        the selected filters.
+                      </td>
+                    </tr>
+                  ) : (
+                    workforceRegister.map(
+                      (employee) => (
+                        <tr
+                          key={
+                            employee.employeeId
+                          }
+                        >
+                          <td
+                            style={{
+                              padding:
+                                "10px",
+                              border:
+                                `1px solid ${BORDER}`,
+                            }}
+                          >
+                            <strong>
+                              {
+                                employee.fullName
+                              }
+                            </strong>
+                            <div
+                              style={{
+                                color:
+                                  MUTED,
+                                fontSize:
+                                  "12px",
+                              }}
+                            >
+                              {
+                                employee.employeeId
+                              }
+                            </div>
+                          </td>
+
+                          <td
+                            style={{
+                              padding:
+                                "10px",
+                              border:
+                                `1px solid ${BORDER}`,
+                            }}
+                          >
+                            {employee.jobTitle}
+                            <div
+                              style={{
+                                color:
+                                  MUTED,
+                                fontSize:
+                                  "12px",
+                              }}
+                            >
+                              Level{" "}
+                              {
+                                employee.jobLevel
+                              }
+                            </div>
+                          </td>
+
+                          <td
+                            style={{
+                              padding:
+                                "10px",
+                              border:
+                                `1px solid ${BORDER}`,
+                            }}
+                          >
+                            {
+                              employee.department
+                            }
+                          </td>
+
+                          <td
+                            style={{
+                              padding:
+                                "10px",
+                              border:
+                                `1px solid ${BORDER}`,
+                            }}
+                          >
+                            {employee.branch}
+                          </td>
+
+                          <td
+                            style={{
+                              padding:
+                                "10px",
+                              border:
+                                `1px solid ${BORDER}`,
+                            }}
+                          >
+                            {
+                              employee.employmentType
+                            }
+                          </td>
+
+                          <td
+                            style={{
+                              padding:
+                                "10px",
+                              border:
+                                `1px solid ${BORDER}`,
+                            }}
+                          >
+                            {
+                              employee.employmentStatus
+                            }
+                          </td>
+
+                          <td
+                            style={{
+                              padding:
+                                "10px",
+                              border:
+                                `1px solid ${BORDER}`,
+                            }}
+                          >
+                            {employee.tenureYears ===
+                            null
+                              ? "Not available"
+                              : `${employee.tenureYears} years`}
+                          </td>
+
+                          <td
+                            style={{
+                              padding:
+                                "10px",
+                              border:
+                                `1px solid ${BORDER}`,
+                            }}
+                          >
+                            {employee.reportsToName ||
+                              "Not assigned"}
+                          </td>
+
+                          <td
+                            style={{
+                              padding:
+                                "10px",
+                              border:
+                                `1px solid ${BORDER}`,
+                            }}
+                          >
+                            {employee.payrollEnabled
+                              ? "Enabled"
+                              : "Disabled"}
+
+                            <div
+                              style={{
+                                color:
+                                  MUTED,
+                                fontSize:
+                                  "12px",
+                              }}
+                            >
+                              {employee.payrollEligibilityStatus ||
+                                "Not specified"}
+                            </div>
+                          </td>
+                        </tr>
+                      )
+                    )
+                  )}
+                </tbody>
+              </table>
             </div>
           </div>
         </>
       )}
     </div>
-  </div>
-)}
+  )}
 
 {activeTab === "discipline" && showDisciplineTab && (
   <div style={{ display: "grid", gap: "20px" }}>
