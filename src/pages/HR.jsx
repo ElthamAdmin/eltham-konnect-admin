@@ -2322,6 +2322,120 @@ const OrgChartNode = ({
     </div>
   );
 
+    const workforceBreakdowns =
+    analyticsSummary?.workforceBreakdowns || {};
+
+  const workforceRegister =
+    analyticsSummary?.employeeRegister || [];
+
+  const updateWorkforceFilter = (
+    field,
+    value
+  ) => {
+    setWorkforceFilters((current) => ({
+      ...current,
+      [field]: value,
+    }));
+  };
+
+  const resetWorkforceFilters = () => {
+    const clearedFilters = {
+      search: "",
+      branch: "",
+      department: "",
+      employmentStatus: "",
+      employmentType: "",
+      asOfDate: new Date()
+        .toISOString()
+        .slice(0, 10),
+    };
+
+    setWorkforceFilters(clearedFilters);
+    fetchHRAnalytics(clearedFilters);
+  };
+
+  const WorkforceBreakdown = ({
+    title,
+    rows = [],
+  }) => (
+    <div style={cardStyle}>
+      <h3
+        style={{
+          color: ROYAL_BLUE,
+          marginTop: 0,
+        }}
+      >
+        {title}
+      </h3>
+
+      {rows.length === 0 ? (
+        <div style={{ color: MUTED }}>
+          No workforce data found.
+        </div>
+      ) : (
+        <div
+          style={{
+            display: "grid",
+            gap: "10px",
+          }}
+        >
+          {rows.map((row) => {
+            const total = Number(
+              analyticsSummary?.workforce
+                ?.totalEmployees || 0
+            );
+
+            const percentage =
+              total > 0
+                ? (
+                    (Number(row.count || 0) /
+                      total) *
+                    100
+                  ).toFixed(1)
+                : "0.0";
+
+            return (
+              <div key={row.label}>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent:
+                      "space-between",
+                    gap: "12px",
+                    marginBottom: "5px",
+                  }}
+                >
+                  <span>{row.label}</span>
+
+                  <strong>
+                    {row.count} ({percentage}%)
+                  </strong>
+                </div>
+
+                <div
+                  style={{
+                    height: "8px",
+                    borderRadius: "999px",
+                    background: "#e2e8f0",
+                    overflow: "hidden",
+                  }}
+                >
+                  <div
+                    style={{
+                      width: `${percentage}%`,
+                      height: "100%",
+                      background: ROYAL_BLUE,
+                    }}
+                  />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+
   const showEmployeesTab = isAdminHR;
 const showEmployeeFormTab = isAdminHR;
 const showOrgChartTab = isAdminHR;
@@ -4188,122 +4302,6 @@ const showProfileUpdatesTab =
                             workday
                           );
 
-                          const workforceBreakdowns =
-  analyticsSummary?.workforceBreakdowns ||
-  {};
-
-const workforceRegister =
-  analyticsSummary?.employeeRegister || [];
-
-const updateWorkforceFilter = (
-  field,
-  value
-) => {
-  setWorkforceFilters((current) => ({
-    ...current,
-    [field]: value,
-  }));
-};
-
-const resetWorkforceFilters = () => {
-  const clearedFilters = {
-    search: "",
-    branch: "",
-    department: "",
-    employmentStatus: "",
-    employmentType: "",
-    asOfDate:
-      new Date().toISOString().slice(0, 10),
-  };
-
-  setWorkforceFilters(clearedFilters);
-  fetchHRAnalytics(clearedFilters);
-};
-
-const WorkforceBreakdown = ({
-  title,
-  rows = [],
-}) => (
-  <div style={cardStyle}>
-    <h3
-      style={{
-        color: ROYAL_BLUE,
-        marginTop: 0,
-      }}
-    >
-      {title}
-    </h3>
-
-    {rows.length === 0 ? (
-      <div style={{ color: MUTED }}>
-        No workforce data found.
-      </div>
-    ) : (
-      <div
-        style={{
-          display: "grid",
-          gap: "10px",
-        }}
-      >
-        {rows.map((row) => {
-          const total =
-            Number(
-              analyticsSummary?.workforce
-                ?.totalEmployees || 0
-            );
-
-          const percentage =
-            total > 0
-              ? (
-                  (
-                    Number(row.count || 0) /
-                    total
-                  ) * 100
-                ).toFixed(1)
-              : "0.0";
-
-          return (
-            <div key={row.label}>
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent:
-                    "space-between",
-                  gap: "12px",
-                  marginBottom: "5px",
-                }}
-              >
-                <span>{row.label}</span>
-
-                <strong>
-                  {row.count} ({percentage}%)
-                </strong>
-              </div>
-
-              <div
-                style={{
-                  height: "8px",
-                  borderRadius: "999px",
-                  background: "#e2e8f0",
-                  overflow: "hidden",
-                }}
-              >
-                <div
-                  style={{
-                    width: `${percentage}%`,
-                    height: "100%",
-                    background: ROYAL_BLUE,
-                  }}
-                />
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    )}
-  </div>
-);
-
                         return (
                           <button
                             key={workday}
@@ -5028,7 +5026,7 @@ const WorkforceBreakdown = ({
               All Departments
             </option>
 
-            {DEPARTMENTS.map(
+            {DEPARTMENT_OPTIONS.map(
               (department) => (
                 <option
                   key={department}
@@ -5054,7 +5052,7 @@ const WorkforceBreakdown = ({
               All Branches
             </option>
 
-            {BRANCHES.map((branch) => (
+            {BRANCH_OPTIONS.map((branch) => (
               <option
                 key={branch}
                 value={branch}
@@ -5109,7 +5107,7 @@ const WorkforceBreakdown = ({
               All Employment Types
             </option>
 
-            {EMPLOYMENT_TYPES.map(
+            {EMPLOYMENT_TYPE_OPTIONS.map(
               (employmentType) => (
                 <option
                   key={employmentType}
