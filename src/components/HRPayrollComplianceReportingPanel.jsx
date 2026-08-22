@@ -12,6 +12,15 @@ const formatMoney = (value) =>
     minimumFractionDigits: 2,
   }).format(Number(value || 0));
 
+  const formatRate = (value) => {
+  const percentage =
+    Number(value || 0) * 100;
+
+  return `${percentage
+    .toFixed(4)
+    .replace(/\.?0+$/, "")}%`;
+};
+
 const inputStyle = {
   width: "100%",
   minWidth: 0,
@@ -509,7 +518,13 @@ function HRPayrollComplianceReportingPanel({ employees = [] }) {
                   <td style={tdStyle}><strong>{rule.name}</strong><br /><small>{rule.ruleCode}</small></td>
                   <td style={tdStyle}>Statutory deductions</td>
                   <td style={tdStyle}>{String(rule.effectiveFrom).slice(0, 10)} to {rule.effectiveTo ? String(rule.effectiveTo).slice(0, 10) : "Open"}</td>
-                  <td style={tdStyle}>NIS {rule.employeeRates?.nis}% · NHT {rule.employeeRates?.nht}% · Ed Tax {rule.employeeRates?.educationTax}%</td>
+                  <td style={tdStyle}>
+  NIS {formatRate(rule.employeeRates?.nis)} ·{" "}
+  NHT {formatRate(rule.employeeRates?.nht)} ·{" "}
+  Ed Tax {formatRate(
+    rule.employeeRates?.educationTax
+  )}
+</td>
                   <td style={tdStyle}>{rule.sourceNotes || "Controlled rule"}</td>
                 </tr>
               ))}
