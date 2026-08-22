@@ -9,6 +9,7 @@ import EmployeeRelationsPanel from "../components/EmployeeRelationsPanel";
 import PerformanceReviewsPanel from "../components/PerformanceReviewsPanel";
 import EmployeeLifecyclePanel from "../components/EmployeeLifecyclePanel";
 import ProfileUpdateRequestsPanel from "../components/ProfileUpdateRequestsPanel";
+import HRAttendanceReportingPanel from "../components/HRAttendanceReportingPanel";
 
 function HR() {
   const { user } = useAuth();
@@ -5648,7 +5649,14 @@ const showProfileUpdatesTab =
           </div>
         </>
       )}
-    </div>
+        </div>
+  )}
+
+{activeTab === "analytics" &&
+  showAnalyticsTab && (
+    <HRAttendanceReportingPanel
+      employees={employees}
+    />
   )}
 
 {activeTab === "discipline" && showDisciplineTab && (
