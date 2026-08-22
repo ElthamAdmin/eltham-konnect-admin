@@ -259,6 +259,179 @@ const [departmentFilter, setDepartmentFilter] = useState("All");
 const [isEditing, setIsEditing] = useState(false);
 const [editingEmployeeId, setEditingEmployeeId] = useState("");
 const [loading, setLoading] = useState(false);
+const [orgChartSearch, setOrgChartSearch] =
+  useState("");
+
+const [
+  orgChartDepartment,
+  setOrgChartDepartment,
+] = useState("All");
+
+const [
+  orgChartBranch,
+  setOrgChartBranch,
+] = useState("All");
+
+const [
+  orgPhotoBusyEmployeeId,
+  setOrgPhotoBusyEmployeeId,
+] = useState("");
+
+const flatOrganizationChart = useMemo(
+  () => {
+    const results = [];
+
+    const walk = (nodes = []) => {
+      nodes.forEach((node) => {
+        results.push(node);
+        walk(node.children || []);
+      });
+    };
+
+    walk(organizationChart);
+
+    return results;
+  },
+  [organizationChart]
+);
+
+const organizationDepartments =
+  useMemo(
+    () =>
+      Array.from(
+        new Set(
+          flatOrganizationChart
+            .map(
+              (employee) =>
+                employee.department
+            )
+            .filter(Boolean)
+        )
+      ).sort(),
+    [flatOrganizationChart]
+  );
+
+const organizationBranches =
+  useMemo(
+    () =>
+      Array.from(
+        new Set(
+          flatOrganizationChart
+            .map(
+              (employee) =>
+                employee.branch
+            )
+            .filter(Boolean)
+        )
+      ).sort(),
+    [flatOrganizationChart]
+  );
+
+const filteredOrganizationChart =
+  useMemo(() => {
+    const normalizedSearch =
+      orgChartSearch
+        .trim()
+        .toLowerCase();
+
+    const filterNodes = (
+      nodes = []
+    ) =>
+      nodes.reduce(
+        (results, node) => {
+          const searchableText = [
+            node.fullName,
+            node.employeeId,
+            node.jobTitle,
+            node.department,
+            node.branch,
+          ]
+            .join(" ")
+            .toLowerCase();
+
+          const matchesSearch =
+            !normalizedSearch ||
+            searchableText.includes(
+              normalizedSearch
+            );
+
+          const matchesDepartment =
+            orgChartDepartment ===
+              "All" ||
+            node.department ===
+              orgChartDepartment;
+
+          const matchesBranch =
+            orgChartBranch === "All" ||
+            node.branch ===
+              orgChartBranch;
+
+          const filteredChildren =
+            filterNodes(
+              node.children || []
+            );
+
+          if (
+            (matchesSearch &&
+              matchesDepartment &&
+              matchesBranch) ||
+            filteredChildren.length > 0
+          ) {
+            results.push({
+              ...node,
+              children:
+                filteredChildren,
+            });
+          }
+
+          return results;
+        },
+        []
+      );
+
+    return filterNodes(
+      organizationChart
+    );
+  }, [
+    organizationChart,
+    orgChartSearch,
+    orgChartDepartment,
+    orgChartBranch,
+  ]);
+
+const organizationSummary =
+  useMemo(
+    () => ({
+      total:
+        flatOrganizationChart.length,
+
+      active:
+        flatOrganizationChart.filter(
+          (employee) =>
+            employee.employmentStatus ===
+            "Active"
+        ).length,
+
+      departments:
+        organizationDepartments.length,
+
+      branches:
+        organizationBranches.length,
+
+      photos:
+        flatOrganizationChart.filter(
+          (employee) =>
+            Boolean(
+              employee.profilePhoto?.url
+            )
+        ).length,
+    }),
+    [
+      flatOrganizationChart,
+      organizationDepartments,
+      organizationBranches,
+    ]
+  );
 
 const [documentForm, setDocumentForm] = useState(emptyDocumentForm);
 const [employeeDocuments, setEmployeeDocuments] = useState([]);
@@ -1629,54 +1802,462 @@ const deleteEmployeeDocument = async (index) => {
   }
 };
 
-const OrgChartNode = ({ node, level, ROYAL_BLUE, BORDER, MUTED }) => {
+const uploadOrganizationPhoto =
+  async (employee, file) => {
+    if (!file) return;
+
+    try {
+      setOrgPhotoBusyEmployeeId(
+        employee.employeeId
+      );
+
+      const formData =
+        new FormData();
+
+      formData.append(
+        "photo",
+        file
+      );
+
+      const response =
+        await api.post(
+          `/api/hr/${employee.employeeId}/profile-photo`,
+          formData,
+          {
+            headers: {
+              "Content-Type":
+                "multipart/form-data",
+            },
+          }
+        );
+
+      alert(
+        response.data?.message ||
+          "Employee photo uploaded successfully."
+      );
+
+      await fetchHRData();
+    } catch (error) {
+      console.error(
+        "Employee photo upload failed:",
+        error
+      );
+
+      alert(
+        error?.response?.data
+          ?.message ||
+          "Employee photo upload failed."
+      );
+    } finally {
+      setOrgPhotoBusyEmployeeId(
+        ""
+      );
+    }
+  };
+
+const removeOrganizationPhoto =
+  async (employee) => {
+    const confirmed =
+      window.confirm(
+        `Remove ${employee.fullName}'s organization-chart photo?`
+      );
+
+    if (!confirmed) return;
+
+    try {
+      setOrgPhotoBusyEmployeeId(
+        employee.employeeId
+      );
+
+      const response =
+        await api.delete(
+          `/api/hr/${employee.employeeId}/profile-photo`
+        );
+
+      alert(
+        response.data?.message ||
+          "Employee photo removed successfully."
+      );
+
+      await fetchHRData();
+    } catch (error) {
+      console.error(
+        "Employee photo removal failed:",
+        error
+      );
+
+      alert(
+        error?.response?.data
+          ?.message ||
+          "Employee photo removal failed."
+      );
+    } finally {
+      setOrgPhotoBusyEmployeeId(
+        ""
+      );
+    }
+  };
+
+const OrgChartNode = ({
+  node,
+  level,
+  ROYAL_BLUE,
+  BORDER,
+  MUTED,
+  photoBusyEmployeeId,
+  onPhotoSelected,
+  onRemovePhoto,
+}) => {
+  const initials = String(
+    node.fullName || "Employee"
+  )
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((name) => name[0])
+    .join("")
+    .toUpperCase();
+
+  const hasChildren =
+    Array.isArray(node.children) &&
+    node.children.length > 0;
+
+  const photoBusy =
+    photoBusyEmployeeId ===
+    node.employeeId;
+
   return (
     <div
       style={{
-        marginLeft: level === 0 ? 0 : "24px",
-        borderLeft: level === 0 ? "none" : `3px solid ${BORDER}`,
-        paddingLeft: level === 0 ? 0 : "14px",
+        position: "relative",
+        paddingLeft:
+          level === 0
+            ? 0
+            : "30px",
       }}
     >
+      {level > 0 && (
+        <>
+          <div
+            style={{
+              position: "absolute",
+              left: "10px",
+              top: "-12px",
+              bottom: "50%",
+              width: "2px",
+              background: BORDER,
+            }}
+          />
+
+          <div
+            style={{
+              position: "absolute",
+              left: "10px",
+              top: "50%",
+              width: "20px",
+              height: "2px",
+              background: BORDER,
+            }}
+          />
+        </>
+      )}
+
       <div
         style={{
-          backgroundColor: level === 0 ? "#eef4ff" : "#ffffff",
-          border: `1px solid ${BORDER}`,
-          borderRadius: "12px",
-          padding: "14px",
-          marginBottom: "10px",
+          position: "relative",
+          display: "grid",
+          gridTemplateColumns:
+            "72px minmax(0, 1fr)",
+          gap: "14px",
+          padding: "16px",
+          marginBottom: "14px",
+          border:
+            node.isDepartmentHead
+              ? `2px solid ${ROYAL_BLUE}`
+              : `1px solid ${BORDER}`,
+          borderRadius: "16px",
+          background:
+            level === 0
+              ? "linear-gradient(135deg, #eef4ff 0%, #ffffff 100%)"
+              : "#ffffff",
+          boxShadow:
+            "0 8px 24px rgba(15, 23, 42, 0.07)",
         }}
       >
-        <div style={{ fontWeight: "bold", color: ROYAL_BLUE, fontSize: "16px" }}>
-          {node.fullName}
-        </div>
-        <div style={{ color: "#0f172a", marginTop: "4px", fontWeight: "bold" }}>
-          {node.jobTitle || "-"}
-        </div>
-        <div style={{ color: MUTED, fontSize: "13px", marginTop: "4px" }}>
-          {node.employeeId} • Level {node.jobLevel || 1} • {node.department || "-"}
-        </div>
-        <div style={{ color: MUTED, fontSize: "13px", marginTop: "4px" }}>
-          {node.branch || "-"} • {node.employmentStatus || "-"}
-        </div>
-        {node.isDepartmentHead ? (
-          <div style={{ color: "#7c3aed", fontSize: "12px", fontWeight: "bold", marginTop: "6px" }}>
-            Department Head
+        <div>
+          <div
+            style={{
+              width: "68px",
+              height: "68px",
+              borderRadius: "50%",
+              overflow: "hidden",
+              display: "grid",
+              placeItems: "center",
+              background:
+                "linear-gradient(135deg, #0B3D91, #2563eb)",
+              color: "#ffffff",
+              fontSize: "20px",
+              fontWeight: 800,
+              border: "3px solid #ffffff",
+              boxShadow:
+                "0 4px 12px rgba(11, 61, 145, 0.24)",
+            }}
+          >
+            {node.profilePhoto?.url ? (
+              <img
+                src={
+                  node.profilePhoto.url
+                }
+                alt={`${node.fullName} profile`}
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  objectFit: "cover",
+                }}
+              />
+            ) : (
+              initials
+            )}
           </div>
-        ) : null}
+        </div>
+
+        <div
+          style={{
+            minWidth: 0,
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              justifyContent:
+                "space-between",
+              gap: "10px",
+            }}
+          >
+            <div>
+              <div
+                style={{
+                  color: ROYAL_BLUE,
+                  fontSize: "17px",
+                  fontWeight: 800,
+                }}
+              >
+                {node.fullName}
+              </div>
+
+              <div
+                style={{
+                  color: "#0f172a",
+                  marginTop: "3px",
+                  fontWeight: 700,
+                }}
+              >
+                {node.jobTitle || "-"}
+              </div>
+            </div>
+
+            <span
+              style={{
+                alignSelf: "flex-start",
+                borderRadius: "999px",
+                padding: "5px 10px",
+                background:
+                  node.employmentStatus ===
+                  "Active"
+                    ? "#dcfce7"
+                    : "#f1f5f9",
+                color:
+                  node.employmentStatus ===
+                  "Active"
+                    ? "#166534"
+                    : "#475569",
+                fontSize: "12px",
+                fontWeight: 800,
+              }}
+            >
+              {node.employmentStatus ||
+                "Unknown"}
+            </span>
+          </div>
+
+          <div
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              gap: "6px",
+              marginTop: "10px",
+            }}
+          >
+            {[
+              node.employeeId,
+              `Level ${node.jobLevel || 1}`,
+              node.department || "No department",
+              node.branch || "No branch",
+            ].map((value) => (
+              <span
+                key={value}
+                style={{
+                  padding: "4px 8px",
+                  borderRadius: "999px",
+                  background: "#f1f5f9",
+                  color: MUTED,
+                  fontSize: "12px",
+                  fontWeight: 700,
+                }}
+              >
+                {value}
+              </span>
+            ))}
+          </div>
+
+          {node.reportsToName && (
+            <div
+              style={{
+                color: MUTED,
+                fontSize: "13px",
+                marginTop: "9px",
+              }}
+            >
+              Reports to:{" "}
+              <strong>
+                {node.reportsToName}
+              </strong>
+            </div>
+          )}
+
+          {node.isDepartmentHead && (
+            <div
+              style={{
+                color: "#7c3aed",
+                fontSize: "12px",
+                fontWeight: 800,
+                marginTop: "8px",
+              }}
+            >
+              Department Head
+            </div>
+          )}
+
+          <div
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              gap: "8px",
+              marginTop: "12px",
+            }}
+          >
+            <label
+              style={{
+                border: "none",
+                borderRadius: "8px",
+                padding: "8px 11px",
+                background: ROYAL_BLUE,
+                color: "#ffffff",
+                fontWeight: 700,
+                fontSize: "12px",
+                cursor:
+                  photoBusy
+                    ? "not-allowed"
+                    : "pointer",
+                opacity:
+                  photoBusy
+                    ? 0.65
+                    : 1,
+              }}
+            >
+              {photoBusy
+                ? "Processing..."
+                : node.profilePhoto?.url
+                  ? "Change Photo"
+                  : "Add Photo"}
+
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                disabled={photoBusy}
+                style={{
+                  display: "none",
+                }}
+                onChange={(event) => {
+                  const file =
+                    event.target
+                      .files?.[0];
+
+                  if (file) {
+                    onPhotoSelected(
+                      node,
+                      file
+                    );
+                  }
+
+                  event.target.value =
+                    "";
+                }}
+              />
+            </label>
+
+            {node.profilePhoto?.url && (
+              <button
+                type="button"
+                disabled={photoBusy}
+                onClick={() =>
+                  onRemovePhoto(node)
+                }
+                style={{
+                  border:
+                    "1px solid #fecaca",
+                  borderRadius: "8px",
+                  padding: "8px 11px",
+                  background: "#fff1f2",
+                  color: "#b91c1c",
+                  fontWeight: 700,
+                  fontSize: "12px",
+                  cursor:
+                    photoBusy
+                      ? "not-allowed"
+                      : "pointer",
+                }}
+              >
+                Remove Photo
+              </button>
+            )}
+          </div>
+        </div>
       </div>
 
-      {node.children?.length > 0 &&
-        node.children.map((child) => (
-          <OrgChartNode
-            key={child.employeeId}
-            node={child}
-            level={level + 1}
-            ROYAL_BLUE={ROYAL_BLUE}
-            BORDER={BORDER}
-            MUTED={MUTED}
-          />
-        ))}
+      {hasChildren && (
+        <div
+          style={{
+            display: "grid",
+            gap: "2px",
+          }}
+        >
+          {node.children.map(
+            (child) => (
+              <OrgChartNode
+                key={child.employeeId}
+                node={child}
+                level={level + 1}
+                ROYAL_BLUE={
+                  ROYAL_BLUE
+                }
+                BORDER={BORDER}
+                MUTED={MUTED}
+                photoBusyEmployeeId={
+                  photoBusyEmployeeId
+                }
+                onPhotoSelected={
+                  onPhotoSelected
+                }
+                onRemovePhoto={
+                  onRemovePhoto
+                }
+              />
+            )
+          )}
+        </div>
+      )}
     </div>
   );
 };
@@ -2164,35 +2745,249 @@ const showProfileUpdatesTab =
             />
           )}
 
-      {activeTab === "orgChart" && showOrgChartTab && (
-  <div style={{ display: "grid", gap: "20px" }}>
-    <div style={cardStyle}>
-      <h2 style={{ color: ROYAL_BLUE, marginTop: 0 }}>Organization Chart</h2>
-      <div style={{ color: MUTED, marginBottom: "16px" }}>
-        This shows the reporting hierarchy for Eltham Konnect.
+      {activeTab === "orgChart" &&
+  showOrgChartTab && (
+    <div
+      style={{
+        display: "grid",
+        gap: "20px",
+      }}
+    >
+      <div style={cardStyle}>
+        <div
+          style={{
+            display: "flex",
+            justifyContent:
+              "space-between",
+            alignItems: "flex-start",
+            flexWrap: "wrap",
+            gap: "12px",
+          }}
+        >
+          <div>
+            <h2
+              style={{
+                color: ROYAL_BLUE,
+                margin: 0,
+              }}
+            >
+              Modern Organization Chart
+            </h2>
+
+            <div
+              style={{
+                color: MUTED,
+                marginTop: "5px",
+              }}
+            >
+              Staff hierarchy, reporting
+              relationships, departments,
+              branches and profile photos.
+            </div>
+          </div>
+
+          <button
+            type="button"
+            style={primaryButton}
+            onClick={fetchHRData}
+          >
+            Refresh Chart
+          </button>
+        </div>
+
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns:
+              "repeat(auto-fit, minmax(145px, 1fr))",
+            gap: "12px",
+            marginTop: "18px",
+          }}
+        >
+          {[
+            [
+              "Employees",
+              organizationSummary.total,
+              ROYAL_BLUE,
+            ],
+            [
+              "Active",
+              organizationSummary.active,
+              "#16a34a",
+            ],
+            [
+              "Departments",
+              organizationSummary.departments,
+              "#7c3aed",
+            ],
+            [
+              "Branches",
+              organizationSummary.branches,
+              "#d97706",
+            ],
+            [
+              "Staff Photos",
+              organizationSummary.photos,
+              "#0891b2",
+            ],
+          ].map(
+            ([label, value, color]) => (
+              <div
+                key={label}
+                style={{
+                  border:
+                    `1px solid ${BORDER}`,
+                  borderRadius: "12px",
+                  padding: "14px",
+                  background: "#f8fafc",
+                }}
+              >
+                <div
+                  style={{
+                    color,
+                    fontSize: "24px",
+                    fontWeight: 800,
+                  }}
+                >
+                  {value}
+                </div>
+
+                <div
+                  style={{
+                    color: MUTED,
+                    marginTop: "3px",
+                  }}
+                >
+                  {label}
+                </div>
+              </div>
+            )
+          )}
+        </div>
+
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns:
+              "repeat(auto-fit, minmax(210px, 1fr))",
+            gap: "12px",
+            marginTop: "18px",
+          }}
+        >
+          <input
+            value={orgChartSearch}
+            onChange={(event) =>
+              setOrgChartSearch(
+                event.target.value
+              )
+            }
+            placeholder="Search name, employee ID, role, department or branch"
+            style={inputStyle}
+          />
+
+          <select
+            value={
+              orgChartDepartment
+            }
+            onChange={(event) =>
+              setOrgChartDepartment(
+                event.target.value
+              )
+            }
+            style={inputStyle}
+          >
+            <option value="All">
+              All Departments
+            </option>
+
+            {organizationDepartments.map(
+              (department) => (
+                <option
+                  key={department}
+                  value={department}
+                >
+                  {department}
+                </option>
+              )
+            )}
+          </select>
+
+          <select
+            value={orgChartBranch}
+            onChange={(event) =>
+              setOrgChartBranch(
+                event.target.value
+              )
+            }
+            style={inputStyle}
+          >
+            <option value="All">
+              All Branches
+            </option>
+
+            {organizationBranches.map(
+              (branch) => (
+                <option
+                  key={branch}
+                  value={branch}
+                >
+                  {branch}
+                </option>
+              )
+            )}
+          </select>
+        </div>
       </div>
 
-      {organizationChart.length === 0 ? (
-        <div style={{ color: MUTED, fontWeight: "bold" }}>
-          No organization chart data found.
-        </div>
-      ) : (
-        <div style={{ display: "grid", gap: "12px" }}>
-          {organizationChart.map((node) => (
-            <OrgChartNode
-              key={node.employeeId}
-              node={node}
-              level={0}
-              ROYAL_BLUE={ROYAL_BLUE}
-              BORDER={BORDER}
-              MUTED={MUTED}
-            />
-          ))}
-        </div>
-      )}
+      <div style={cardStyle}>
+        {filteredOrganizationChart.length ===
+        0 ? (
+          <div
+            style={{
+              color: MUTED,
+              fontWeight: 700,
+              textAlign: "center",
+              padding: "30px",
+            }}
+          >
+            No organization-chart employees
+            match the selected filters.
+          </div>
+        ) : (
+          <div
+            style={{
+              display: "grid",
+              gap: "10px",
+            }}
+          >
+            {filteredOrganizationChart.map(
+              (node) => (
+                <OrgChartNode
+                  key={node.employeeId}
+                  node={node}
+                  level={0}
+                  ROYAL_BLUE={
+                    ROYAL_BLUE
+                  }
+                  BORDER={BORDER}
+                  MUTED={MUTED}
+                  photoBusyEmployeeId={
+                    orgPhotoBusyEmployeeId
+                  }
+                  onPhotoSelected={
+                    uploadOrganizationPhoto
+                  }
+                  onRemovePhoto={
+                    removeOrganizationPhoto
+                  }
+                />
+              )
+            )}
+          </div>
+        )}
+      </div>
     </div>
-  </div>
-)}
+  )}
 
             {activeTab === "employeeForm" &&
         showEmployeeFormTab && (
