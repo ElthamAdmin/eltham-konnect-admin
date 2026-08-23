@@ -21,6 +21,27 @@ const [handoverCashCount, setHandoverCashCount] = useState("");
 const [actionReason, setActionReason] = useState("");
 const [actionAmount, setActionAmount] = useState("");
 const [accounts, setAccounts] = useState([]);
+const [
+  discountAmount,
+  setDiscountAmount,
+] = useState("");
+
+const [
+  discountReason,
+  setDiscountReason,
+] = useState("");
+
+const [
+  posBusy,
+  setPosBusy,
+] = useState(false);
+
+const [
+  isMobile,
+  setIsMobile,
+] = useState(
+  () => window.innerWidth <= 900
+);
 
   const money = (value) => `JMD ${Number(value || 0).toLocaleString()}`;
 
@@ -90,6 +111,25 @@ const [accounts, setAccounts] = useState([]);
     loadTransactions();
     loadAccounts();
   }, []);
+
+  useEffect(() => {
+  const updateLayout = () => {
+    setIsMobile(
+      window.innerWidth <= 900
+    );
+  };
+
+  window.addEventListener(
+    "resize",
+    updateLayout
+  );
+
+  return () =>
+    window.removeEventListener(
+      "resize",
+      updateLayout
+    );
+}, []);
 
   const openDrawer = async () => {
     try {
@@ -195,6 +235,110 @@ const logPOSAction = async (actionType) => {
   }
 };
 
+const applyDiscount = async () => {
+  if (!loadedInvoice) {
+    alert(
+      "Load an invoice before applying a discount."
+    );
+    return;
+  }
+
+  if (
+    loadedInvoice.status ===
+      "Paid" ||
+    loadedInvoice.status ===
+      "Partially Paid"
+  ) {
+    alert(
+      "Discounts must be applied before payment starts."
+    );
+    return;
+  }
+
+  const numericDiscount =
+    Number(discountAmount || 0);
+
+  if (numericDiscount <= 0) {
+    alert(
+      "Enter a discount amount greater than zero."
+    );
+    return;
+  }
+
+  if (
+    !String(
+      discountReason || ""
+    ).trim()
+  ) {
+    alert(
+      "Enter the reason for the discount."
+    );
+    return;
+  }
+
+  try {
+    setPosBusy(true);
+
+    const response =
+      await api.post(
+        "/api/pos/discount",
+        {
+          invoiceType,
+
+          invoiceNumber:
+            loadedInvoice.invoiceNumber,
+
+          discountAmount:
+            numericDiscount,
+
+          reason:
+            discountReason.trim(),
+        }
+      );
+
+    setLoadedInvoice(
+      response.data.data.invoice
+    );
+
+    setDiscountAmount("");
+    setDiscountReason("");
+
+    alert(
+      response.data.message ||
+        "Discount applied successfully."
+    );
+  } catch (error) {
+    alert(
+      error?.response?.data
+        ?.message ||
+        "The discount could not be applied."
+    );
+  } finally {
+    setPosBusy(false);
+  }
+};
+
+const handleQuickAction = (
+  action
+) => {
+  if (action === "DISCOUNT") {
+    document
+      .getElementById(
+        "pos-discount-panel"
+      )
+      ?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+
+    return;
+  }
+
+  alert(
+    `${action} is unavailable for posted invoices. Use the controlled manager action where applicable.`
+  );
+};
+
 const printReceipt = () => {
   if (!loadedInvoice) {
     alert("Load an invoice first.");
@@ -258,19 +402,32 @@ const printReceipt = () => {
       ? loadedInvoice?.items || []
       : loadedInvoice?.packages || [];
 
-  return (
-  <div
-    style={{
-      background: "#eef1f5",
-      minHeight: "100vh",
-      padding: "20px",
-    }}
-  >
-    <h1
+    return (
+    <div
       style={{
-        fontSize: "42px",
+        background: "#eef1f5",
+        minHeight: "100vh",
+        padding:
+          isMobile
+            ? "10px"
+            : "20px",
+        boxSizing: "border-box",
+        overflowX: "hidden",
+      }}
+    >
+        <h1
+      style={{
+        fontSize:
+          isMobile
+            ? "28px"
+            : "42px",
+        lineHeight: 1.15,
         fontWeight: "bold",
-        marginBottom: "20px",
+        marginTop: 0,
+        marginBottom:
+          isMobile
+            ? "14px"
+            : "20px",
         color: "#0f172a",
       }}
     >
@@ -280,7 +437,8 @@ const printReceipt = () => {
     <div
       style={{
         display: "grid",
-        gridTemplateColumns: "2fr 1fr",
+        gridTemplateColumns:
+  isMobile ? "1fr" : "2fr 1fr",
         gap: "20px",
       }}
     >
@@ -299,7 +457,10 @@ const printReceipt = () => {
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "1fr 150px 140px",
+              gridTemplateColumns:
+  isMobile
+    ? "1fr"
+    : "1fr 150px 140px",
               gap: "12px",
             }}
           >
@@ -353,88 +514,124 @@ const printReceipt = () => {
           </div>
         </div>
 
-        {/* INVOICE ITEMS */}
+                {/* INVOICE ITEMS */}
         <div
           style={{
             background: "white",
             borderRadius: "12px",
             overflow: "hidden",
-            boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+            boxShadow:
+              "0 2px 8px rgba(0,0,0,0.08)",
           }}
         >
-          <table
-            border="1"
-            cellPadding="14"
-            style={{
-              width: "100%",
-              borderCollapse: "collapse",
-              fontSize: "17px",
-            }}
-          >
-            <thead
-              style={{
-                background: "#f8fafc",
-              }}
-            >
-              <tr>
-                <th>#</th>
-                <th>Item Info</th>
-                <th>Qty</th>
-                <th>Price</th>
-                <th>Total</th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {invoiceItems.map((item, index) => (
-                <tr key={index}>
-                  <td>{index + 1}</td>
-
-                  <td>
-                    {invoiceType === "Marketplace"
-                      ? item.title
-                      : item.trackingNumber}
-                  </td>
-
-                  <td>
-                    {invoiceType === "Marketplace"
-                      ? item.quantity
-                      : 1}
-                  </td>
-
-                  <td>
-                    {money(
-                      invoiceType === "Marketplace"
-                        ? item.sellingPrice
-                        : item.rate
-                    )}
-                  </td>
-
-                  <td>
-                    {money(
-                      invoiceType === "Marketplace"
-                        ? item.lineTotal
-                        : item.rate
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-
           <div
             style={{
-              height: "300px",
-              background: "white",
+              width: "100%",
+              overflowX: "auto",
+              WebkitOverflowScrolling:
+                "touch",
             }}
-          />
+          >
+            <table
+              border="1"
+              cellPadding="14"
+              style={{
+                width: "100%",
+                minWidth: "620px",
+                borderCollapse:
+                  "collapse",
+                fontSize:
+                  isMobile
+                    ? "14px"
+                    : "17px",
+              }}
+            >
+              <thead
+                style={{
+                  background: "#f8fafc",
+                }}
+              >
+                <tr>
+                  <th>#</th>
+                  <th>Item Info</th>
+                  <th>Qty</th>
+                  <th>Price</th>
+                  <th>Total</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                {invoiceItems.length ===
+                0 ? (
+                  <tr>
+                    <td
+                      colSpan="5"
+                      style={{
+                        padding: "28px",
+                        textAlign: "center",
+                        color: "#64748b",
+                      }}
+                    >
+                      Load an invoice to
+                      view its items.
+                    </td>
+                  </tr>
+                ) : (
+                  invoiceItems.map(
+                    (item, index) => (
+                      <tr key={index}>
+                        <td>
+                          {index + 1}
+                        </td>
+
+                        <td>
+                          {invoiceType ===
+                          "Marketplace"
+                            ? item.title
+                            : item.trackingNumber}
+                        </td>
+
+                        <td>
+                          {invoiceType ===
+                          "Marketplace"
+                            ? item.quantity
+                            : 1}
+                        </td>
+
+                        <td>
+                          {money(
+                            invoiceType ===
+                              "Marketplace"
+                              ? item.sellingPrice
+                              : item.rate
+                          )}
+                        </td>
+
+                        <td>
+                          {money(
+                            invoiceType ===
+                              "Marketplace"
+                              ? item.lineTotal
+                              : item.rate
+                          )}
+                        </td>
+                      </tr>
+                    )
+                  )
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
 
         {/* BOTTOM BUTTONS */}
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "repeat(6, 1fr)",
+            gridTemplateColumns:
+  isMobile
+    ? "repeat(2, 1fr)"
+    : "repeat(6, 1fr)",
             gap: "12px",
             marginTop: "18px",
           }}
@@ -447,10 +644,15 @@ const printReceipt = () => {
             "QTY CHANGE",
             "PRICE CHANGE",
           ].map((btn) => (
-            <button
+                        <button
+              type="button"
               key={btn}
+              onClick={() =>
+                handleQuickAction(btn)
+              }
               style={{
-                height: "95px",
+                height:
+  isMobile ? "58px" : "80px",
                 borderRadius: "10px",
                 border: "none",
                 background:
@@ -464,81 +666,278 @@ const printReceipt = () => {
             </button>
           ))}
         </div>
+        <div
+  id="pos-discount-panel"
+  style={{
+    ...cardStyle,
+    marginTop: "18px",
+    marginBottom: 0,
+  }}
+>
+  <h2
+    style={{
+      color: "#0B3D91",
+      marginTop: 0,
+    }}
+  >
+    Apply Customer Discount
+  </h2>
+
+  <div
+    style={{
+      color: "#64748b",
+      marginBottom: "12px",
+    }}
+  >
+    Discounts require the
+    POS Discount permission and
+    must be applied before payment.
+  </div>
+
+  <div
+    style={{
+      display: "grid",
+      gridTemplateColumns:
+        isMobile
+          ? "1fr"
+          : "minmax(160px, 0.6fr) 1fr",
+      gap: "10px",
+    }}
+  >
+    <input
+      type="number"
+      min="0"
+      step="0.01"
+      value={discountAmount}
+      onChange={(event) =>
+        setDiscountAmount(
+          event.target.value
+        )
+      }
+      placeholder="Discount amount"
+      disabled={
+        !loadedInvoice ||
+        posBusy
+      }
+      style={{
+        ...inputStyle,
+        minWidth: 0,
+        width: "100%",
+        boxSizing: "border-box",
+      }}
+    />
+
+    <input
+      type="text"
+      value={discountReason}
+      onChange={(event) =>
+        setDiscountReason(
+          event.target.value
+        )
+      }
+      placeholder="Reason for discount"
+      disabled={
+        !loadedInvoice ||
+        posBusy
+      }
+      style={{
+        ...inputStyle,
+        minWidth: 0,
+        width: "100%",
+        boxSizing: "border-box",
+      }}
+    />
+  </div>
+
+  <button
+    type="button"
+    onClick={applyDiscount}
+    disabled={
+      !loadedInvoice ||
+      posBusy
+    }
+    style={{
+      ...buttonStyle,
+      width: isMobile
+        ? "100%"
+        : "auto",
+      marginTop: "12px",
+      opacity:
+        !loadedInvoice ||
+        posBusy
+          ? 0.6
+          : 1,
+    }}
+  >
+    {posBusy
+      ? "Applying..."
+      : "Apply Discount"}
+  </button>
+</div>
       </div>
 
       {/* RIGHT SIDE */}
       <div>
-        {/* TOTALS */}
+                {/* TOTALS */}
         <div
           style={{
-            background: "black",
+            background: "#020617",
             color: "#39ff14",
             borderRadius: "12px",
-            padding: "20px",
+            padding:
+              isMobile
+                ? "14px"
+                : "20px",
             marginBottom: "16px",
           }}
         >
           <div
             style={{
-              fontSize: "28px",
-              marginBottom: "12px",
+              fontSize:
+                isMobile
+                  ? "18px"
+                  : "24px",
+              marginBottom: "10px",
             }}
           >
-            Sub Total: {money(loadedInvoice?.subtotal || 0)}
+            Sub Total:{" "}
+            {money(
+              loadedInvoice?.subtotal ||
+                0
+            )}
           </div>
-
-          <div
-  style={{
-    fontSize: "28px",
-    marginBottom: "12px",
-  }}
->
-  Tax: {money(loadedInvoice?.gct || 0)}
-</div>
-
-{Number(loadedInvoice?.pointsRedeemed || 0) > 0 && (
-  <div
-    style={{
-      fontSize: "28px",
-      marginBottom: "12px",
-      color: "#facc15",
-    }}
-  >
-    EK Points Redeemed:
-    -{money(loadedInvoice?.pointsRedeemed || 0)}
-  </div>
-)}
 
           <div
             style={{
-              fontSize: "54px",
-              fontWeight: "bold",
+              fontSize:
+                isMobile
+                  ? "18px"
+                  : "24px",
+              marginBottom: "10px",
             }}
           >
-            Amount Due: {money(loadedInvoice?.finalTotal || 0)}
+            Tax:{" "}
+            {money(
+              loadedInvoice?.gct || 0
+            )}
+          </div>
+
+          {Number(
+            loadedInvoice
+              ?.pointsRedeemed || 0
+          ) > 0 && (
+            <div
+              style={{
+                fontSize:
+                  isMobile
+                    ? "18px"
+                    : "22px",
+                marginBottom: "10px",
+                color: "#facc15",
+              }}
+            >
+              EK Points Redeemed: -
+              {money(
+                loadedInvoice
+                  .pointsRedeemed
+              )}
+            </div>
+          )}
+
+          {Number(
+            loadedInvoice
+              ?.posDiscountAmount ||
+              0
+          ) > 0 && (
+            <div
+              style={{
+                fontSize:
+                  isMobile
+                    ? "18px"
+                    : "22px",
+                marginBottom: "10px",
+                color: "#facc15",
+              }}
+            >
+              POS Discount: -
+              {money(
+                loadedInvoice
+                  .posDiscountAmount
+              )}
+            </div>
+          )}
+
+          <div
+            style={{
+              borderTop:
+                "1px solid #334155",
+              paddingTop: "12px",
+              fontSize:
+                isMobile
+                  ? "30px"
+                  : "46px",
+              lineHeight: 1.15,
+              fontWeight: "bold",
+              overflowWrap: "anywhere",
+            }}
+          >
+            Amount Due:{" "}
+            {money(
+              loadedInvoice
+                ?.balanceDue ??
+                loadedInvoice
+                  ?.finalTotal ??
+                0
+            )}
           </div>
         </div>
 
-        {/* PAY BUTTON */}
+                {/* PAY BUTTON */}
         <button
+          type="button"
           onClick={cashOutInvoice}
-          disabled={!loadedInvoice || loadedInvoice.status === "Paid"}
+          disabled={
+            posBusy ||
+            !loadedInvoice ||
+            loadedInvoice.status ===
+              "Paid"
+          }
           style={{
             width: "100%",
-            height: "110px",
+            minHeight:
+              isMobile
+                ? "72px"
+                : "96px",
             background:
-              loadedInvoice?.status === "Paid"
+              !loadedInvoice ||
+              loadedInvoice.status ===
+                "Paid"
                 ? "#9ca3af"
                 : "linear-gradient(to right, #bbf7d0, #22c55e)",
+            color: "#052e16",
             border: "none",
             borderRadius: "12px",
-            fontSize: "48px",
+            fontSize:
+              isMobile
+                ? "30px"
+                : "42px",
             fontWeight: "bold",
-            cursor: "pointer",
+            cursor:
+              !loadedInvoice ||
+              loadedInvoice.status ===
+                "Paid"
+                ? "not-allowed"
+                : "pointer",
+            opacity:
+              posBusy ? 0.65 : 1,
             marginBottom: "18px",
+            touchAction: "manipulation",
           }}
         >
-          PAY
+          {loadedInvoice?.status ===
+          "Paid"
+            ? "PAID"
+            : "PAY"}
         </button>
 
 {/* AMOUNT TENDERED / NUMBER PAD */}
@@ -694,7 +1093,8 @@ const printReceipt = () => {
               key={method}
               onClick={() => setPaymentMethod(method)}
               style={{
-                height: "95px",
+                height:
+  isMobile ? "58px" : "80px",
                 border: "none",
                 borderRadius: "10px",
                 background:
@@ -834,7 +1234,26 @@ const printReceipt = () => {
       Override
     </button>
 
-    <button onClick={() => logPOSAction("Discount Authorization")} style={buttonStyle}>
+        <button
+      type="button"
+      onClick={() =>
+        handleQuickAction(
+          "DISCOUNT"
+        )
+      }
+      disabled={!loadedInvoice}
+      style={{
+        ...buttonStyle,
+        opacity:
+          loadedInvoice
+            ? 1
+            : 0.6,
+        cursor:
+          loadedInvoice
+            ? "pointer"
+            : "not-allowed",
+      }}
+    >
       Discount
     </button>
 
@@ -895,9 +1314,13 @@ const printReceipt = () => {
         {money(drawer.expectedCash)}
       </p>
 
-      <div
+            <div
         style={{
           display: "flex",
+          flexDirection:
+            isMobile
+              ? "column"
+              : "row",
           gap: "10px",
           marginTop: "12px",
         }}
