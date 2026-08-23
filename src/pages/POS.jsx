@@ -45,28 +45,41 @@ const [
 
   const money = (value) => `JMD ${Number(value || 0).toLocaleString()}`;
 
-  const cardStyle = {
+    const cardStyle = {
+    width: "100%",
+    minWidth: 0,
+    maxWidth: "100%",
     backgroundColor: "white",
-    padding: "20px",
+    padding: isMobile
+      ? "16px"
+      : "20px",
     borderRadius: "10px",
     border: "1px solid #e5e7eb",
     marginBottom: "20px",
+    boxSizing: "border-box",
+    overflow: "hidden",
   };
 
   const buttonStyle = {
+    maxWidth: "100%",
     backgroundColor: "#0B3D91",
     color: "white",
     border: "none",
     padding: "10px 16px",
     borderRadius: "6px",
     cursor: "pointer",
+    boxSizing: "border-box",
+    touchAction: "manipulation",
   };
 
   const inputStyle = {
+    width: "100%",
+    minWidth: 0,
+    maxWidth: "100%",
     padding: "10px",
-    minWidth: "240px",
     borderRadius: "6px",
     border: "1px solid #cbd5e1",
+    boxSizing: "border-box",
   };
 
   const loadDrawer = async () => {
@@ -348,6 +361,39 @@ const printReceipt = () => {
   window.print();
 };
 
+const getInvoiceBalance = (
+  invoice = loadedInvoice
+) => {
+  if (!invoice) {
+    return 0;
+  }
+
+  if (
+    invoice.status === "Paid" ||
+    invoice.status === "Cancelled" ||
+    invoice.status === "Written Off"
+  ) {
+    return 0;
+  }
+
+  const storedBalance = Number(
+    invoice.balanceDue || 0
+  );
+
+  if (storedBalance > 0) {
+    return storedBalance;
+  }
+
+  return Math.max(
+    Number(invoice.finalTotal || 0) -
+      Number(invoice.amountPaid || 0),
+    0
+  );
+};
+
+const currentInvoiceBalance =
+  getInvoiceBalance();
+
   const cashOutInvoice = async () => {
     try {
       if (!drawer) {
@@ -374,7 +420,13 @@ const printReceipt = () => {
         invoiceType,
         invoiceNumber: loadedInvoice.invoiceNumber,
         paymentMethod,
-        amountTendered: Number(amountTendered || loadedInvoice.finalTotal || 0),
+                amountTendered: Number(
+          amountTendered ||
+            getInvoiceBalance(
+              loadedInvoice
+            ) ||
+            0
+        ),
         paidIntoAccountName,
         paidIntoAccountNumber,
         notes,
@@ -404,13 +456,15 @@ const printReceipt = () => {
 
     return (
     <div
-      style={{
+            style={{
+        width: "100%",
+        minWidth: 0,
+        maxWidth: "100%",
         background: "#eef1f5",
         minHeight: "100vh",
-        padding:
-          isMobile
-            ? "10px"
-            : "20px",
+        padding: isMobile
+          ? "10px 10px 130px"
+          : "20px",
         boxSizing: "border-box",
         overflowX: "hidden",
       }}
@@ -434,24 +488,45 @@ const printReceipt = () => {
       POS - Cash Register
     </h1>
 
-    <div
+        <div
       style={{
+        width: "100%",
+        minWidth: 0,
+        maxWidth: "100%",
         display: "grid",
         gridTemplateColumns:
-  isMobile ? "1fr" : "2fr 1fr",
-        gap: "20px",
+          isMobile
+            ? "minmax(0, 1fr)"
+            : "minmax(0, 2fr) minmax(0, 1fr)",
+        gap: isMobile
+          ? "16px"
+          : "20px",
+        boxSizing: "border-box",
       }}
     >
-      {/* LEFT SIDE */}
-      <div>
+            {/* LEFT SIDE */}
+      <div
+        style={{
+          minWidth: 0,
+          maxWidth: "100%",
+        }}
+      >
         {/* SEARCH BAR */}
         <div
-          style={{
+                    style={{
+            width: "100%",
+            minWidth: 0,
+            maxWidth: "100%",
             background: "white",
-            padding: "18px",
+            padding: isMobile
+              ? "16px"
+              : "18px",
             borderRadius: "12px",
             marginBottom: "18px",
-            boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+            boxShadow:
+              "0 2px 8px rgba(0,0,0,0.08)",
+            boxSizing: "border-box",
+            overflow: "hidden",
           }}
         >
           <div
@@ -464,42 +539,68 @@ const printReceipt = () => {
               gap: "12px",
             }}
           >
-            <input
+                        <input
               type="text"
               placeholder="Scan Barcode / Enter Invoice Number"
               value={invoiceNumber}
-              onChange={(e) => setInvoiceNumber(e.target.value)}
-              onKeyDown={(e) => {
-  if (e.key === "Enter") {
-    findInvoice();
-  }
-}}
+              onChange={(event) =>
+                setInvoiceNumber(
+                  event.target.value
+                )
+              }
+              onKeyDown={(event) => {
+                if (
+                  event.key === "Enter"
+                ) {
+                  findInvoice();
+                }
+              }}
               style={{
+                width: "100%",
+                minWidth: 0,
+                maxWidth: "100%",
                 padding: "16px",
-                fontSize: "18px",
+                fontSize: isMobile
+                  ? "16px"
+                  : "18px",
                 borderRadius: "10px",
-                border: "2px solid #cbd5e1",
+                border:
+                  "2px solid #cbd5e1",
+                boxSizing:
+                  "border-box",
               }}
             />
 
-            <input
+                       <input
               type="number"
               value="1"
               readOnly
               style={{
+                width: "100%",
+                minWidth: 0,
+                maxWidth: "100%",
                 padding: "16px",
                 fontSize: "18px",
                 borderRadius: "10px",
-                border: "2px solid #cbd5e1",
+                border:
+                  "2px solid #cbd5e1",
                 textAlign: "center",
                 background: "#fff7ed",
                 fontWeight: "bold",
+                boxSizing:
+                  "border-box",
               }}
             />
 
-            <button
+                        <button
+              type="button"
               onClick={findInvoice}
               style={{
+                width: "100%",
+                minWidth: 0,
+                maxWidth: "100%",
+                minHeight: "54px",
+                padding: "12px 16px",
                 background: "#0B3D91",
                 color: "white",
                 border: "none",
@@ -507,6 +608,10 @@ const printReceipt = () => {
                 fontSize: "18px",
                 fontWeight: "bold",
                 cursor: "pointer",
+                boxSizing:
+                  "border-box",
+                touchAction:
+                  "manipulation",
               }}
             >
               FIND
@@ -624,16 +729,20 @@ const printReceipt = () => {
           </div>
         </div>
 
-        {/* BOTTOM BUTTONS */}
+                {/* BOTTOM BUTTONS */}
         <div
           style={{
+            width: "100%",
+            minWidth: 0,
+            maxWidth: "100%",
             display: "grid",
             gridTemplateColumns:
-  isMobile
-    ? "repeat(2, 1fr)"
-    : "repeat(6, 1fr)",
+              isMobile
+                ? "repeat(2, minmax(0, 1fr))"
+                : "repeat(6, minmax(0, 1fr))",
             gap: "12px",
             marginTop: "18px",
+            boxSizing: "border-box",
           }}
         >
           {[
@@ -643,26 +752,41 @@ const printReceipt = () => {
             "+",
             "QTY CHANGE",
             "PRICE CHANGE",
-          ].map((btn) => (
-                        <button
+          ].map((buttonLabel) => (
+            <button
               type="button"
-              key={btn}
+              key={buttonLabel}
               onClick={() =>
-                handleQuickAction(btn)
+                handleQuickAction(
+                  buttonLabel
+                )
               }
               style={{
-                height:
-  isMobile ? "58px" : "80px",
+                width: "100%",
+                minWidth: 0,
+                maxWidth: "100%",
+                minHeight: isMobile
+                  ? "58px"
+                  : "80px",
+                padding: "8px",
                 borderRadius: "10px",
                 border: "none",
                 background:
                   "linear-gradient(to bottom, #f8fafc, #bfdbfe)",
                 fontWeight: "bold",
-                fontSize: "18px",
+                fontSize: isMobile
+                  ? "15px"
+                  : "18px",
                 cursor: "pointer",
+                boxSizing:
+                  "border-box",
+                overflowWrap:
+                  "anywhere",
+                touchAction:
+                  "manipulation",
               }}
             >
-              {btn}
+              {buttonLabel}
             </button>
           ))}
         </div>
@@ -776,8 +900,13 @@ const printReceipt = () => {
 </div>
       </div>
 
-      {/* RIGHT SIDE */}
-      <div>
+            {/* RIGHT SIDE */}
+      <div
+        style={{
+          minWidth: 0,
+          maxWidth: "100%",
+        }}
+      >
                 {/* TOTALS */}
         <div
           style={{
@@ -882,12 +1011,8 @@ const printReceipt = () => {
             }}
           >
             Amount Due:{" "}
-            {money(
-              loadedInvoice
-                ?.balanceDue ??
-                loadedInvoice
-                  ?.finalTotal ??
-                0
+                        {money(
+              currentInvoiceBalance
             )}
           </div>
         </div>
@@ -940,170 +1065,346 @@ const printReceipt = () => {
             : "PAY"}
         </button>
 
-{/* AMOUNT TENDERED / NUMBER PAD */}
-<div
-  style={{
-    background: "white",
-    padding: "14px",
-    borderRadius: "12px",
-    marginBottom: "16px",
-    boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-  }}
->
-  <label style={{ display: "block", fontWeight: "bold", marginBottom: "8px" }}>
-    Amount Tendered
-  </label>
-
-  <input
-    type="number"
-    value={amountTendered}
-    onChange={(e) => setAmountTendered(e.target.value)}
-    disabled={!loadedInvoice || loadedInvoice.status === "Paid"}
-    placeholder="Enter amount received"
-    style={{
-      width: "100%",
-      padding: "14px",
-      borderRadius: "10px",
-      border: "1px solid #cbd5e1",
-      fontSize: "22px",
-      fontWeight: "bold",
-      marginBottom: "10px",
-    }}
-  />
-
-  <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "8px" }}>
-    {["1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "00", "Clear"].map((key) => (
-      <button
-        key={key}
-        onClick={() => {
-          if (key === "Clear") {
-            setAmountTendered("");
-          } else {
-            setAmountTendered((prev) => `${prev || ""}${key}`);
-          }
-        }}
-        disabled={!loadedInvoice || loadedInvoice.status === "Paid"}
-        style={{
-          padding: "18px",
-          borderRadius: "10px",
-          border: "none",
-          background: "#dbeafe",
-          fontSize: "22px",
-          fontWeight: "bold",
-          cursor: "pointer",
-        }}
-      >
-        {key}
-      </button>
-    ))}
-  </div>
-
-  {loadedInvoice && (
-    <div style={{ marginTop: "12px", fontWeight: "bold" }}>
-      <div>Invoice Balance: {money(loadedInvoice.balanceDue || loadedInvoice.finalTotal)}</div>
-      <div>Tendered: {money(amountTendered)}</div>
-      <div style={{ color: "#15803d" }}>
-        Change:{" "}
-        {money(
-          Math.max(
-            Number(amountTendered || 0) -
-              Number(loadedInvoice.balanceDue || loadedInvoice.finalTotal || 0),
-            0
-          )
-        )}
-      </div>
-    </div>
-  )}
-</div>
-
-        {/* RECEIVE PAYMENT ACCOUNT */}
-<div
-  style={{
-    background: "white",
-    padding: "14px",
-    borderRadius: "12px",
-    marginBottom: "16px",
-    boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-  }}
->
-  <label
-    style={{
-      display: "block",
-      fontWeight: "bold",
-      marginBottom: "8px",
-      color: "#0f172a",
-    }}
-  >
-    Receive Payment Into Account
-  </label>
-
-  <select
-    value={paidIntoAccountNumber}
-    onChange={(e) => {
-      const selected = accounts.find(
-        (account) => account.accountNumber === e.target.value
-      );
-
-      setPaidIntoAccountNumber(selected?.accountNumber || "");
-      setPaidIntoAccountName(selected?.accountName || "");
-    }}
-    disabled={!loadedInvoice || loadedInvoice.status === "Paid"}
-    style={{
-      width: "100%",
-      padding: "12px",
-      borderRadius: "10px",
-      border: "1px solid #cbd5e1",
-      fontWeight: "bold",
-      backgroundColor: "white",
-    }}
-  >
-    <option value="">Select Receiving Account</option>
-    {accounts
-      .filter((account) => account.status === "Active")
-      .map((account) => (
-        <option key={account._id} value={account.accountNumber}>
-          {account.accountName} - {account.accountType} ({account.accountNumber})
-        </option>
-      ))}
-  </select>
-
-  {paidIntoAccountName && (
-    <div
-      style={{
-        marginTop: "8px",
-        color: "#15803d",
-        fontWeight: "bold",
-      }}
-    >
-      Selected: {paidIntoAccountName}
-    </div>
-  )}
-</div>
-
-        {/* PAYMENT BUTTONS */}
+        {/* AMOUNT TENDERED / NUMBER PAD */}
         <div
           style={{
-            display: "grid",
-            gridTemplateColumns: "1fr 1fr",
-            gap: "12px",
+            width: "100%",
+            minWidth: 0,
+            maxWidth: "100%",
+            background: "white",
+            padding: "14px",
+            borderRadius: "12px",
+            marginBottom: "16px",
+            boxShadow:
+              "0 2px 8px rgba(0,0,0,0.08)",
+            boxSizing: "border-box",
+            overflow: "hidden",
           }}
         >
-          {["Cash", "Card", "Bank Transfer", "Other"].map((method) => (
-            <button
-              key={method}
-              onClick={() => setPaymentMethod(method)}
+          <label
+            style={{
+              display: "block",
+              fontWeight: "bold",
+              marginBottom: "8px",
+            }}
+          >
+            Amount Tendered
+          </label>
+
+          <input
+            type="number"
+            value={amountTendered}
+            onChange={(event) =>
+              setAmountTendered(
+                event.target.value
+              )
+            }
+            disabled={
+              !loadedInvoice ||
+              loadedInvoice.status ===
+                "Paid"
+            }
+            placeholder="Enter amount received"
+            style={{
+              width: "100%",
+              minWidth: 0,
+              maxWidth: "100%",
+              padding: "14px",
+              borderRadius: "10px",
+              border:
+                "1px solid #cbd5e1",
+              fontSize: isMobile
+                ? "18px"
+                : "22px",
+              fontWeight: "bold",
+              marginBottom: "10px",
+              boxSizing:
+                "border-box",
+            }}
+          />
+
+          <div
+            style={{
+              width: "100%",
+              minWidth: 0,
+              display: "grid",
+              gridTemplateColumns:
+                "repeat(3, minmax(0, 1fr))",
+              gap: "8px",
+            }}
+          >
+            {[
+              "1",
+              "2",
+              "3",
+              "4",
+              "5",
+              "6",
+              "7",
+              "8",
+              "9",
+              "0",
+              "00",
+              "Clear",
+            ].map((key) => (
+              <button
+                type="button"
+                key={key}
+                onClick={() => {
+                  if (
+                    key === "Clear"
+                  ) {
+                    setAmountTendered(
+                      ""
+                    );
+                  } else {
+                    setAmountTendered(
+                      (previous) =>
+                        `${previous || ""}${key}`
+                    );
+                  }
+                }}
+                disabled={
+                  !loadedInvoice ||
+                  loadedInvoice.status ===
+                    "Paid"
+                }
+                style={{
+                  width: "100%",
+                  minWidth: 0,
+                  minHeight: isMobile
+                    ? "58px"
+                    : "64px",
+                  padding: isMobile
+                    ? "12px 4px"
+                    : "18px",
+                  borderRadius: "10px",
+                  border: "none",
+                  background: "#dbeafe",
+                  fontSize: isMobile
+                    ? "18px"
+                    : "22px",
+                  fontWeight: "bold",
+                  cursor: "pointer",
+                  boxSizing:
+                    "border-box",
+                  touchAction:
+                    "manipulation",
+                }}
+              >
+                {key}
+              </button>
+            ))}
+          </div>
+
+          {loadedInvoice && (
+            <div
               style={{
-                height:
-  isMobile ? "58px" : "80px",
+                marginTop: "12px",
+                fontWeight: "bold",
+                overflowWrap:
+                  "anywhere",
+              }}
+            >
+              <div>
+                Invoice Balance:{" "}
+                {money(
+                  currentInvoiceBalance
+                )}
+              </div>
+
+              <div>
+                Tendered:{" "}
+                {money(
+                  amountTendered
+                )}
+              </div>
+
+              <div
+                style={{
+                  color: "#15803d",
+                }}
+              >
+                Change:{" "}
+                {money(
+                  Math.max(
+                    Number(
+                      amountTendered ||
+                        0
+                    ) -
+                      currentInvoiceBalance,
+                    0
+                  )
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
+                {/* RECEIVE PAYMENT ACCOUNT */}
+        <div
+          style={{
+            width: "100%",
+            minWidth: 0,
+            maxWidth: "100%",
+            background: "white",
+            padding: "14px",
+            borderRadius: "12px",
+            marginBottom: "16px",
+            boxShadow:
+              "0 2px 8px rgba(0,0,0,0.08)",
+            boxSizing: "border-box",
+            overflow: "hidden",
+          }}
+        >
+          <label
+            style={{
+              display: "block",
+              fontWeight: "bold",
+              marginBottom: "8px",
+              color: "#0f172a",
+            }}
+          >
+            Receive Payment Into Account
+          </label>
+
+          <select
+            value={
+              paidIntoAccountNumber
+            }
+            onChange={(event) => {
+              const selectedAccount =
+                accounts.find(
+                  (account) =>
+                    account.accountNumber ===
+                    event.target.value
+                );
+
+              setPaidIntoAccountNumber(
+                selectedAccount
+                  ?.accountNumber || ""
+              );
+
+              setPaidIntoAccountName(
+                selectedAccount
+                  ?.accountName || ""
+              );
+            }}
+            disabled={
+              !loadedInvoice ||
+              loadedInvoice.status ===
+                "Paid"
+            }
+            style={{
+              width: "100%",
+              minWidth: 0,
+              maxWidth: "100%",
+              padding: "12px",
+              borderRadius: "10px",
+              border:
+                "1px solid #cbd5e1",
+              fontWeight: "bold",
+              backgroundColor:
+                "white",
+              boxSizing:
+                "border-box",
+            }}
+          >
+            <option value="">
+              Select Receiving Account
+            </option>
+
+            {accounts
+              .filter(
+                (account) =>
+                  account.status ===
+                  "Active"
+              )
+              .map((account) => (
+                <option
+                  key={account._id}
+                  value={
+                    account.accountNumber
+                  }
+                >
+                  {account.accountName} -{" "}
+                  {account.accountType} (
+                  {account.accountNumber})
+                </option>
+              ))}
+          </select>
+
+          {paidIntoAccountName && (
+            <div
+              style={{
+                marginTop: "8px",
+                color: "#15803d",
+                fontWeight: "bold",
+                overflowWrap:
+                  "anywhere",
+                wordBreak:
+                  "break-word",
+              }}
+            >
+              Selected:{" "}
+              {paidIntoAccountName}
+            </div>
+          )}
+        </div>
+
+                {/* PAYMENT BUTTONS */}
+        <div
+          style={{
+            width: "100%",
+            minWidth: 0,
+            maxWidth: "100%",
+            display: "grid",
+            gridTemplateColumns:
+              "repeat(2, minmax(0, 1fr))",
+            gap: "12px",
+            boxSizing: "border-box",
+          }}
+        >
+          {[
+            "Cash",
+            "Card",
+            "Bank Transfer",
+            "Other",
+          ].map((method) => (
+            <button
+              type="button"
+              key={method}
+              onClick={() =>
+                setPaymentMethod(
+                  method
+                )
+              }
+              style={{
+                width: "100%",
+                minWidth: 0,
+                maxWidth: "100%",
+                minHeight: isMobile
+                  ? "58px"
+                  : "80px",
+                padding: "8px",
                 border: "none",
                 borderRadius: "10px",
                 background:
-                  paymentMethod === method
+                  paymentMethod ===
+                  method
                     ? "#22c55e"
                     : "linear-gradient(to bottom, #dcfce7, #86efac)",
                 fontWeight: "bold",
-                fontSize: "22px",
+                fontSize: isMobile
+                  ? "17px"
+                  : "22px",
                 cursor: "pointer",
+                boxSizing:
+                  "border-box",
+                overflowWrap:
+                  "anywhere",
+                touchAction:
+                  "manipulation",
               }}
             >
               {method}
@@ -1186,20 +1487,34 @@ const printReceipt = () => {
 
   <h3>Shift Handover</h3>
 
-  <input
+    <input
     type="text"
     placeholder="Next Cashier Name"
     value={handoverToCashier}
-    onChange={(e) => setHandoverToCashier(e.target.value)}
-    style={{ ...inputStyle, width: "100%", marginBottom: "8px" }}
+    onChange={(event) =>
+      setHandoverToCashier(
+        event.target.value
+      )
+    }
+    style={{
+      ...inputStyle,
+      marginBottom: "8px",
+    }}
   />
 
-  <input
+    <input
     type="number"
     placeholder="Counted Cash"
     value={handoverCashCount}
-    onChange={(e) => setHandoverCashCount(e.target.value)}
-    style={{ ...inputStyle, width: "100%", marginBottom: "8px" }}
+    onChange={(event) =>
+      setHandoverCashCount(
+        event.target.value
+      )
+    }
+    style={{
+      ...inputStyle,
+      marginBottom: "8px",
+    }}
   />
 
   <button
@@ -1213,20 +1528,34 @@ const printReceipt = () => {
 
   <h3>Manager Actions</h3>
 
-  <input
+    <input
     type="text"
     placeholder="Reason"
     value={actionReason}
-    onChange={(e) => setActionReason(e.target.value)}
-    style={{ ...inputStyle, width: "100%", marginBottom: "8px" }}
+    onChange={(event) =>
+      setActionReason(
+        event.target.value
+      )
+    }
+    style={{
+      ...inputStyle,
+      marginBottom: "8px",
+    }}
   />
 
-  <input
+    <input
     type="number"
     placeholder="Amount"
     value={actionAmount}
-    onChange={(e) => setActionAmount(e.target.value)}
-    style={{ ...inputStyle, width: "100%", marginBottom: "8px" }}
+    onChange={(event) =>
+      setActionAmount(
+        event.target.value
+      )
+    }
+    style={{
+      ...inputStyle,
+      marginBottom: "8px",
+    }}
   />
 
   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
