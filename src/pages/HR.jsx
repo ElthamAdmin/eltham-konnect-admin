@@ -1878,16 +1878,12 @@ const uploadOrganizationPhoto =
         file
       );
 
-      const response =
+            const response =
         await api.post(
-          `/api/hr/${employee.employeeId}/profile-photo`,
-          formData,
-          {
-            headers: {
-              "Content-Type":
-                "multipart/form-data",
-            },
-          }
+          `/api/hr/${encodeURIComponent(
+            employee.employeeId
+          )}/profile-photo`,
+          formData
         );
 
       alert(
