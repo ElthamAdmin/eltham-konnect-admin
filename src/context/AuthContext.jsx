@@ -5,21 +5,116 @@ const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(() => {
-    const stored = localStorage.getItem("ek_user");
-    return stored ? JSON.parse(stored) : null;
-  });
+  try {
+    const stored =
+      localStorage.getItem(
+        "ek_user"
+      );
+
+    return stored
+      ? JSON.parse(stored)
+      : null;
+  } catch (error) {
+    console.error(
+      "Stored staff session could not be read:",
+      error
+    );
+
+    localStorage.removeItem(
+      "ek_user"
+    );
+
+    localStorage.removeItem(
+      "ek_token"
+    );
+
+    return null;
+  }
+});
 
   const [token, setToken] = useState(() => localStorage.getItem("ek_token") || "");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // If token exists but user missing, force logout (safety)
-    if (token && !user) {
-      localStorage.removeItem("ek_token");
-      setToken("");
-    }
-    setLoading(false);
-  }, []);
+  let active = true;
+
+  const initializeAuthentication =
+    async () => {
+      if (!token || !user) {
+        localStorage.removeItem(
+          "ek_token"
+        );
+
+        localStorage.removeItem(
+          "ek_user"
+        );
+
+        if (active) {
+          setToken("");
+          setUser(null);
+          setLoading(false);
+        }
+
+        return;
+      }
+
+      try {
+        /*
+         * Validate the stored token against the live
+         * SystemUser record before rendering protected
+         * administration pages.
+         */
+        const response =
+          await api.get(
+            "/api/auth/me/attendance-today"
+          );
+
+        const validatedUser =
+          response.data?.data?.user;
+
+        if (
+          active &&
+          validatedUser
+        ) {
+          localStorage.setItem(
+            "ek_user",
+            JSON.stringify(
+              validatedUser
+            )
+          );
+
+          setUser(
+            validatedUser
+          );
+        }
+      } catch (error) {
+        /*
+         * The API interceptor handles 401 cleanup and
+         * redirection. Other temporary backend errors
+         * must not corrupt the stored session.
+         */
+        if (
+          error?.response?.status !==
+          401
+        ) {
+          console.error(
+            "Staff session validation failed:",
+            error
+          );
+        }
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
+      }
+    };
+
+  initializeAuthentication();
+
+  return () => {
+    active = false;
+  };
+}, []);
 
   const login = async (email, password) => {
     const res = await api.post("/api/auth/login", { email, password });

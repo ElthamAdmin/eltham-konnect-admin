@@ -14,18 +14,34 @@ api.interceptors.request.use((config) => {
 
 api.interceptors.response.use(
   (response) => response,
+
   (error) => {
-    const status = error?.response?.status;
-    const message = error?.response?.data?.message || "";
+    const status =
+      error?.response?.status;
 
-    const isExpiredToken =
-      status === 401 &&
-      String(message).toLowerCase().includes("expired");
+    /*
+     * Every 401 means the stored staff session can
+     * no longer be trusted. This includes expired
+     * tokens, revoked security versions, inactive
+     * users, deleted users and malformed tokens.
+     */
+    if (status === 401) {
+      localStorage.removeItem(
+        "ek_token"
+      );
 
-    if (isExpiredToken) {
-      localStorage.removeItem("ek_token");
-      localStorage.removeItem("ek_user");
-      window.location.href = "/login";
+      localStorage.removeItem(
+        "ek_user"
+      );
+
+      if (
+        window.location.pathname !==
+        "/login"
+      ) {
+        window.location.replace(
+          "/login"
+        );
+      }
     }
 
     return Promise.reject(error);
