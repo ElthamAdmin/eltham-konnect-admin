@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import api from "../api";
+import PortalBannerManager from "../components/PortalBannerManager";
 
 function Communication() {
   const [logs, setLogs] = useState([]);
@@ -356,6 +357,8 @@ function Communication() {
           <div style={{ color: "#334155", fontWeight: "bold" }}>Failed</div>
         </div>
       </div>
+
+      <PortalBannerManager />
 
       <div style={{ ...cardStyle, marginBottom: "20px" }}>
         <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>New Communication</h2>
