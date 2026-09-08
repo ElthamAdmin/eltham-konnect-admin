@@ -239,7 +239,12 @@ function AttendancePeriodsPanel({
       entry.dayStatus !== "No Record" &&
       (entry.exceptionNotes || ["Absent", "Incomplete"].includes(entry.dayStatus))
   );
-  const maySubmit = selectedPeriod?.status === "Draft" && todayYmd() > selectedPeriod.periodEnd;
+    const maySubmit =
+    ["Draft", "Reopened"].includes(
+      selectedPeriod?.status
+    ) &&
+    todayYmd() >
+      selectedPeriod.periodEnd;
 
   return (
     <div style={{ display: "grid", gap: "16px" }}>
@@ -356,13 +361,40 @@ function AttendancePeriodsPanel({
                   : "Workflow actions"}
               </strong>
               <div style={buttonRow}>
-                {!selfService &&
-selectedPeriod.status === "Draft" ? (
-                  <button type="button" onClick={refreshDraft} disabled={actionLoading} style={secondaryButton}>Refresh Draft</button>
+                                {!selfService &&
+                [
+                  "Draft",
+                  "Reopened",
+                ].includes(
+                  selectedPeriod.status
+                ) ? (
+                  <button
+                    type="button"
+                    onClick={refreshDraft}
+                    disabled={actionLoading}
+                    style={secondaryButton}
+                  >
+                    Refresh Attendance
+                  </button>
                 ) : null}
-                {!selfService &&
-                selectedPeriod.status === "Draft" ? (
-                  <button type="button" onClick={submitPeriod} disabled={actionLoading || !maySubmit} style={actionButton(!maySubmit)}>
+                                {!selfService &&
+                [
+                  "Draft",
+                  "Reopened",
+                ].includes(
+                  selectedPeriod.status
+                ) ? (
+                  <button
+                    type="button"
+                    onClick={submitPeriod}
+                    disabled={
+                      actionLoading ||
+                      !maySubmit
+                    }
+                    style={actionButton(
+                      !maySubmit
+                    )}
+                  >
                     Submit for Review
                   </button>
                 ) : null}
@@ -389,10 +421,21 @@ selectedPeriod.status === "Draft" ? (
                   </button>
                 ) : null}
               </div>
-              {!selfService &&
-              selectedPeriod.status === "Draft" && !maySubmit ? (
+                            {!selfService &&
+              [
+                "Draft",
+                "Reopened",
+              ].includes(
+                selectedPeriod.status
+              ) &&
+              !maySubmit ? (
                 <div style={warningBox}>
-                  This period remains open through {selectedPeriod.periodEnd}. Submission is correctly blocked until the period has ended.
+                  This period remains open
+                  through{" "}
+                  {selectedPeriod.periodEnd}.
+                  Submission is correctly
+                  blocked until the period
+                  has ended.
                 </div>
               ) : null}
             </div>
