@@ -924,6 +924,125 @@ const exportPayrollRegisterCsv = () => {
     }
   };
 
+    const approveHistoricalPayrollRecord = async (
+    item
+  ) => {
+    const scheduledPaymentDate =
+      formatDate(item.payDate);
+
+    const actualPaymentDate =
+      window.prompt(
+        "Enter the date this payroll was actually paid (YYYY-MM-DD):",
+        scheduledPaymentDate
+      );
+
+    if (actualPaymentDate === null) {
+      return;
+    }
+
+    if (
+      !/^\d{4}-\d{2}-\d{2}$/.test(
+        actualPaymentDate.trim()
+      )
+    ) {
+      alert(
+        "Enter the actual payment date in YYYY-MM-DD format."
+      );
+      return;
+    }
+
+    const reason = window.prompt(
+      "Explain why this already-paid payroll is being recorded historically:",
+      `August payroll was paid outside EKOS and could not be recorded at the time because the payroll workflow was blocked.`
+    );
+
+    if (reason === null) {
+      return;
+    }
+
+    if (reason.trim().length < 20) {
+      alert(
+        "Enter a historical payroll reason of at least 20 characters."
+      );
+      return;
+    }
+
+    const shortfall = formatCurrency(
+      item.minimumWageAssessment
+        ?.shortfall || 0
+    );
+
+    const confirmed = window.confirm(
+      `APPROVE HISTORICAL PAYROLL?\n\n` +
+        `Payroll: ${item.payrollNumber}\n` +
+        `Employee: ${item.employeeName}\n` +
+        `Actual payment date: ${actualPaymentDate.trim()}\n` +
+        `Net pay: ${formatCurrency(item.netPay)}\n` +
+        `Unresolved minimum-wage shortfall: ${shortfall}\n\n` +
+        `This records an administrator acknowledgement only. ` +
+        `It does not declare the payroll compliant and does not ` +
+        `withdraw or post money yet.\n\n` +
+        `Click OK only if this payroll was already paid outside EKOS.`
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      setActionPayrollNumber(
+        item.payrollNumber
+      );
+      setError("");
+
+      const res = await api.post(
+        `/api/payroll/${encodeURIComponent(
+          item.payrollNumber
+        )}/approve`,
+        {
+          approvalNotes:
+            `Historical payroll recorded after payment. ${reason.trim()}`,
+
+          historicalPayment: {
+            isHistorical: true,
+
+            actualPaymentDate:
+              actualPaymentDate.trim(),
+
+            reason:
+              reason.trim(),
+
+            unresolvedComplianceAcknowledged:
+              true,
+          },
+        }
+      );
+
+      alert(
+        res.data?.message ||
+          "Historical payroll approved."
+      );
+
+      await refreshPayrollRecords();
+    } catch (actionError) {
+      console.error(
+        "Could not approve historical Payroll:",
+        actionError
+      );
+
+      const message =
+        actionError?.response?.data
+          ?.message ||
+        "Could not approve historical Payroll.";
+
+      setError(message);
+      alert(message);
+    } finally {
+      setActionPayrollNumber("");
+    }
+  };
+
+
   const payPayrollRecord = async (item) => {
     const confirmed = window.confirm(
       `PAY AND POST ${item.payrollNumber}?\n\n` +
@@ -2356,8 +2475,11 @@ const exportPayrollRegisterCsv = () => {
       fontSize: "12px",
       fontWeight: 700,
     }}
-  >
-    Shortfall{" "}
+    >
+    {item.historicalPayment
+      ?.isHistorical
+      ? "Historical—unresolved shortfall "
+      : "Shortfall "}
     {formatCurrency(
       item.minimumWageAssessment
         ?.shortfall
@@ -2388,25 +2510,62 @@ const exportPayrollRegisterCsv = () => {
                           {item.statutoryRuleCode &&
                             item.status === "Pending" &&
                             canApprovePayroll && (
-                              <>
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    approvePayrollRecord(item)
-                                  }
-                                  disabled={
-                                    actionPayrollNumber ===
+                                                            <>
+                                {item
+                                  .minimumWageAssessment
+                                  ?.compliant !==
+                                false ? (
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      approvePayrollRecord(
+                                        item
+                                      )
+                                    }
+                                    disabled={
+                                      actionPayrollNumber ===
+                                      item.payrollNumber
+                                    }
+                                    style={actionButtonStyle(
+                                      "#0B3D91"
+                                    )}
+                                  >
+                                    {actionPayrollNumber ===
                                     item.payrollNumber
-                                  }
-                                  style={actionButtonStyle(
-                                    "#0B3D91"
-                                  )}
-                                >
-                                  {actionPayrollNumber ===
-                                  item.payrollNumber
-                                    ? "Approving…"
-                                    : "Approve"}
-                                </button>
+                                      ? "Approving…"
+                                      : "Approve"}
+                                  </button>
+                                ) : String(
+                                    user?.role || ""
+                                  )
+                                    .trim()
+                                    .toLowerCase() ===
+                                    "admin" &&
+                                  formatDate(
+                                    item.payDate
+                                  ) <
+                                    getJamaicaToday() ? (
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      approveHistoricalPayrollRecord(
+                                        item
+                                      )
+                                    }
+                                    disabled={
+                                      actionPayrollNumber ===
+                                      item.payrollNumber
+                                    }
+                                    style={actionButtonStyle(
+                                      "#b45309"
+                                    )}
+                                  >
+                                    {actionPayrollNumber ===
+                                    item.payrollNumber
+                                      ? "Recording…"
+                                      : "Approve Historical Record"}
+                                  </button>
+                                ) : null}
 
                                 <button
                                   type="button"
