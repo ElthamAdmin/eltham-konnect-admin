@@ -8,39 +8,50 @@ const api = axios.create({
 
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem("ek_token");
-  if (token) config.headers.Authorization = `Bearer ${token}`;
+
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+
   return config;
 });
+
+const authenticationFailureCodes = new Set([
+  "INVALID_TOKEN",
+  "TOKEN_EXPIRED",
+  "SESSION_INACTIVE",
+  "SESSION_REVOKED",
+]);
 
 api.interceptors.response.use(
   (response) => response,
 
   (error) => {
-    const status =
-      error?.response?.status;
+    const status = error?.response?.status;
+    const code = error?.response?.data?.code;
+    const storedToken = localStorage.getItem("ek_token");
 
     /*
-     * Every 401 means the stored staff session can
-     * no longer be trusted. This includes expired
-     * tokens, revoked security versions, inactive
-     * users, deleted users and malformed tokens.
+     * End the staff session only when authentication
+     * itself has failed.
+     *
+     * An unrelated module may use HTTP 401 for one of
+     * its own errors. Such a response must not erase a
+     * valid EKOS staff session.
      */
-    if (status === 401) {
-      localStorage.removeItem(
-        "ek_token"
+    const shouldEndSession =
+      status === 401 &&
+      (
+        !storedToken ||
+        authenticationFailureCodes.has(code)
       );
 
-      localStorage.removeItem(
-        "ek_user"
-      );
+    if (shouldEndSession) {
+      localStorage.removeItem("ek_token");
+      localStorage.removeItem("ek_user");
 
-      if (
-        window.location.pathname !==
-        "/login"
-      ) {
-        window.location.replace(
-          "/login"
-        );
+      if (window.location.pathname !== "/login") {
+        window.location.replace("/login");
       }
     }
 
