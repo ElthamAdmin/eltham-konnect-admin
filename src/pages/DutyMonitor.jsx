@@ -83,15 +83,34 @@ export default function DutyMonitor() {
     return a?.sessionStatus || u?.dutyStatus || "Off Duty";
   };
 
+  const isActiveDutyStatus = (status) => {
+  const normalizedStatus = String(status || "")
+    .trim()
+    .toLowerCase();
+
+  return [
+    "on duty",
+    "at lunch",
+    "clocked in",
+    "lunch out",
+  ].includes(normalizedStatus);
+};
+
   const badge = (status) => {
-    const color =
-      status === "On Duty"
-        ? "#16a34a"
-        : status === "At Lunch"
-        ? "#f59e0b"
-        : status === "Completed"
-        ? "#475569"
-        : "#dc2626";
+  const normalizedStatus = String(status || "")
+    .trim()
+    .toLowerCase();
+
+  const color =
+    normalizedStatus === "on duty" ||
+    normalizedStatus === "clocked in"
+      ? "#16a34a"
+      : normalizedStatus === "at lunch" ||
+        normalizedStatus === "lunch out"
+      ? "#f59e0b"
+      : normalizedStatus === "completed"
+      ? "#475569"
+      : "#dc2626";
 
     return (
       <span
@@ -277,10 +296,9 @@ export default function DutyMonitor() {
                   const a = attendanceMap[u.userId];
                   const s = getLiveStatus(u);
                   const canForce =
-                    s === "On Duty" ||
-                    s === "At Lunch" ||
-                    u.dutyStatus === "On Duty" ||
-                    u.dutyStatus === "At Lunch";
+  isActiveDutyStatus(s) ||
+  isActiveDutyStatus(a?.sessionStatus) ||
+  isActiveDutyStatus(u?.dutyStatus);
 
                   return (
                     <tr key={u._id}>
