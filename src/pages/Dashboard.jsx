@@ -76,7 +76,20 @@ function Dashboard() {
 
 const getDateOnly = (value) => {
   if (!value) return "";
-  const parsed = new Date(value);
+
+  const normalizedValue = String(value).trim();
+
+  /*
+   * Preserve date-only database values exactly.
+   * Converting YYYY-MM-DD into a JavaScript Date
+   * treats it as UTC midnight and shifts it to the
+   * previous day in Jamaica.
+   */
+  if (/^\d{4}-\d{2}-\d{2}$/.test(normalizedValue)) {
+    return normalizedValue;
+  }
+
+  const parsed = new Date(normalizedValue);
 
   if (!Number.isNaN(parsed.getTime())) {
     return parsed.toLocaleDateString("en-CA", {
@@ -84,7 +97,7 @@ const getDateOnly = (value) => {
     });
   }
 
-  return String(value).slice(0, 10);
+  return normalizedValue.slice(0, 10);
 };
 
 const isPaidInvoice = (invoice) =>
