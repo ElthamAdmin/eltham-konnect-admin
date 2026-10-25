@@ -16,6 +16,370 @@ import HRPayrollComplianceReportingPanel from "../components/HRPayrollCompliance
 import HRConsolidatedReportingDashboard from "../components/HRConsolidatedReportingDashboard";
 import HRReportingControlsPanel from "../components/HRReportingControlsPanel";
 
+const OrgChartNode = ({
+  node,
+  level,
+  ROYAL_BLUE,
+  BORDER,
+  MUTED,
+  photoBusyEmployeeId,
+  onPhotoSelected,
+  onRemovePhoto,
+}) => {
+  const initials = String(
+    node.fullName || "Employee"
+  )
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((name) => name[0])
+    .join("")
+    .toUpperCase();
+
+  const hasChildren =
+    Array.isArray(node.children) &&
+    node.children.length > 0;
+
+  const photoBusy =
+    photoBusyEmployeeId ===
+    node.employeeId;
+
+  return (
+    <div
+      style={{
+        position: "relative",
+        paddingLeft:
+          level === 0
+            ? 0
+            : "30px",
+      }}
+    >
+      {level > 0 && (
+        <>
+          <div
+            style={{
+              position: "absolute",
+              left: "10px",
+              top: "-12px",
+              bottom: "50%",
+              width: "2px",
+              background: BORDER,
+            }}
+          />
+
+          <div
+            style={{
+              position: "absolute",
+              left: "10px",
+              top: "50%",
+              width: "20px",
+              height: "2px",
+              background: BORDER,
+            }}
+          />
+        </>
+      )}
+
+      <div
+        style={{
+          position: "relative",
+          display: "grid",
+          gridTemplateColumns:
+            "72px minmax(0, 1fr)",
+          gap: "14px",
+          padding: "16px",
+          marginBottom: "14px",
+          border:
+            node.isDepartmentHead
+              ? `2px solid ${ROYAL_BLUE}`
+              : `1px solid ${BORDER}`,
+          borderRadius: "16px",
+          background:
+            level === 0
+              ? "linear-gradient(135deg, #eef4ff 0%, #ffffff 100%)"
+              : "#ffffff",
+          boxShadow:
+            "0 8px 24px rgba(15, 23, 42, 0.07)",
+        }}
+      >
+        <div>
+          <div
+            style={{
+              width: "68px",
+              height: "68px",
+              borderRadius: "50%",
+              overflow: "hidden",
+              display: "grid",
+              placeItems: "center",
+              background:
+                "linear-gradient(135deg, #0B3D91, #2563eb)",
+              color: "#ffffff",
+              fontSize: "20px",
+              fontWeight: 800,
+              border: "3px solid #ffffff",
+              boxShadow:
+                "0 4px 12px rgba(11, 61, 145, 0.24)",
+            }}
+          >
+            {node.profilePhoto?.url ? (
+              <img
+                src={
+                  node.profilePhoto.url
+                }
+                alt={`${node.fullName} profile`}
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  objectFit: "cover",
+                }}
+              />
+            ) : (
+              initials
+            )}
+          </div>
+        </div>
+
+        <div
+          style={{
+            minWidth: 0,
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              justifyContent:
+                "space-between",
+              gap: "10px",
+            }}
+          >
+            <div>
+              <div
+                style={{
+                  color: ROYAL_BLUE,
+                  fontSize: "17px",
+                  fontWeight: 800,
+                }}
+              >
+                {node.fullName}
+              </div>
+
+              <div
+                style={{
+                  color: "#0f172a",
+                  marginTop: "3px",
+                  fontWeight: 700,
+                }}
+              >
+                {node.jobTitle || "-"}
+              </div>
+            </div>
+
+            <span
+              style={{
+                alignSelf: "flex-start",
+                borderRadius: "999px",
+                padding: "5px 10px",
+                background:
+                  node.employmentStatus ===
+                  "Active"
+                    ? "#dcfce7"
+                    : "#f1f5f9",
+                color:
+                  node.employmentStatus ===
+                  "Active"
+                    ? "#166534"
+                    : "#475569",
+                fontSize: "12px",
+                fontWeight: 800,
+              }}
+            >
+              {node.employmentStatus ||
+                "Unknown"}
+            </span>
+          </div>
+
+          <div
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              gap: "6px",
+              marginTop: "10px",
+            }}
+          >
+            {[
+              node.employeeId,
+              `Level ${node.jobLevel || 1}`,
+              node.department || "No department",
+              node.branch || "No branch",
+            ].map((value) => (
+              <span
+                key={value}
+                style={{
+                  padding: "4px 8px",
+                  borderRadius: "999px",
+                  background: "#f1f5f9",
+                  color: MUTED,
+                  fontSize: "12px",
+                  fontWeight: 700,
+                }}
+              >
+                {value}
+              </span>
+            ))}
+          </div>
+
+          {node.reportsToName && (
+            <div
+              style={{
+                color: MUTED,
+                fontSize: "13px",
+                marginTop: "9px",
+              }}
+            >
+              Reports to:{" "}
+              <strong>
+                {node.reportsToName}
+              </strong>
+            </div>
+          )}
+
+          {node.isDepartmentHead && (
+            <div
+              style={{
+                color: "#7c3aed",
+                fontSize: "12px",
+                fontWeight: 800,
+                marginTop: "8px",
+              }}
+            >
+              Department Head
+            </div>
+          )}
+
+          <div
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              gap: "8px",
+              marginTop: "12px",
+            }}
+          >
+            <label
+              style={{
+                border: "none",
+                borderRadius: "8px",
+                padding: "8px 11px",
+                background: ROYAL_BLUE,
+                color: "#ffffff",
+                fontWeight: 700,
+                fontSize: "12px",
+                cursor:
+                  photoBusy
+                    ? "not-allowed"
+                    : "pointer",
+                opacity:
+                  photoBusy
+                    ? 0.65
+                    : 1,
+              }}
+            >
+              {photoBusy
+                ? "Processing..."
+                : node.profilePhoto?.url
+                  ? "Change Photo"
+                  : "Add Photo"}
+
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                disabled={photoBusy}
+                style={{
+                  display: "none",
+                }}
+                onChange={(event) => {
+                  const file =
+                    event.target
+                      .files?.[0];
+
+                  if (file) {
+                    onPhotoSelected(
+                      node,
+                      file
+                    );
+                  }
+
+                  event.target.value =
+                    "";
+                }}
+              />
+            </label>
+
+            {node.profilePhoto?.url && (
+              <button
+                type="button"
+                disabled={photoBusy}
+                onClick={() =>
+                  onRemovePhoto(node)
+                }
+                style={{
+                  border:
+                    "1px solid #fecaca",
+                  borderRadius: "8px",
+                  padding: "8px 11px",
+                  background: "#fff1f2",
+                  color: "#b91c1c",
+                  fontWeight: 700,
+                  fontSize: "12px",
+                  cursor:
+                    photoBusy
+                      ? "not-allowed"
+                      : "pointer",
+                }}
+              >
+                Remove Photo
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {hasChildren && (
+        <div
+          style={{
+            display: "grid",
+            gap: "2px",
+          }}
+        >
+          {node.children.map(
+            (child) => (
+              <OrgChartNode
+                key={child.employeeId}
+                node={child}
+                level={level + 1}
+                ROYAL_BLUE={
+                  ROYAL_BLUE
+                }
+                BORDER={BORDER}
+                MUTED={MUTED}
+                photoBusyEmployeeId={
+                  photoBusyEmployeeId
+                }
+                onPhotoSelected={
+                  onPhotoSelected
+                }
+                onRemovePhoto={
+                  onRemovePhoto
+                }
+              />
+            )
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
 function HR() {
   const { user } = useAuth();
 
@@ -1861,6 +2225,34 @@ const deleteEmployeeDocument = async (index) => {
   }
 };
 
+const refreshOrganizationChart = async () => {
+  try {
+    const response = await api.get(
+      "/api/hr/organization-chart"
+    );
+
+    if (!response.data?.success) {
+      throw new Error(
+        response.data?.message ||
+          "The organisation chart could not be refreshed."
+      );
+    }
+
+    setOrganizationChart(response.data.data || []);
+  } catch (error) {
+    console.error(
+      "Organisation chart refresh failed:",
+      error
+    );
+
+    alert(
+      error?.response?.data?.message ||
+        error.message ||
+        "The organisation chart could not be refreshed."
+    );
+  }
+};
+
 const uploadOrganizationPhoto =
   async (employee, file) => {
     if (!file) return;
@@ -1891,7 +2283,7 @@ const uploadOrganizationPhoto =
           "Employee photo uploaded successfully."
       );
 
-      await fetchHRData();
+            await refreshOrganizationChart();
     } catch (error) {
       console.error(
         "Employee photo upload failed:",
@@ -1934,7 +2326,7 @@ const removeOrganizationPhoto =
           "Employee photo removed successfully."
       );
 
-      await fetchHRData();
+            await refreshOrganizationChart();
     } catch (error) {
       console.error(
         "Employee photo removal failed:",
@@ -1952,370 +2344,6 @@ const removeOrganizationPhoto =
       );
     }
   };
-
-const OrgChartNode = ({
-  node,
-  level,
-  ROYAL_BLUE,
-  BORDER,
-  MUTED,
-  photoBusyEmployeeId,
-  onPhotoSelected,
-  onRemovePhoto,
-}) => {
-  const initials = String(
-    node.fullName || "Employee"
-  )
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((name) => name[0])
-    .join("")
-    .toUpperCase();
-
-  const hasChildren =
-    Array.isArray(node.children) &&
-    node.children.length > 0;
-
-  const photoBusy =
-    photoBusyEmployeeId ===
-    node.employeeId;
-
-  return (
-    <div
-      style={{
-        position: "relative",
-        paddingLeft:
-          level === 0
-            ? 0
-            : "30px",
-      }}
-    >
-      {level > 0 && (
-        <>
-          <div
-            style={{
-              position: "absolute",
-              left: "10px",
-              top: "-12px",
-              bottom: "50%",
-              width: "2px",
-              background: BORDER,
-            }}
-          />
-
-          <div
-            style={{
-              position: "absolute",
-              left: "10px",
-              top: "50%",
-              width: "20px",
-              height: "2px",
-              background: BORDER,
-            }}
-          />
-        </>
-      )}
-
-      <div
-        style={{
-          position: "relative",
-          display: "grid",
-          gridTemplateColumns:
-            "72px minmax(0, 1fr)",
-          gap: "14px",
-          padding: "16px",
-          marginBottom: "14px",
-          border:
-            node.isDepartmentHead
-              ? `2px solid ${ROYAL_BLUE}`
-              : `1px solid ${BORDER}`,
-          borderRadius: "16px",
-          background:
-            level === 0
-              ? "linear-gradient(135deg, #eef4ff 0%, #ffffff 100%)"
-              : "#ffffff",
-          boxShadow:
-            "0 8px 24px rgba(15, 23, 42, 0.07)",
-        }}
-      >
-        <div>
-          <div
-            style={{
-              width: "68px",
-              height: "68px",
-              borderRadius: "50%",
-              overflow: "hidden",
-              display: "grid",
-              placeItems: "center",
-              background:
-                "linear-gradient(135deg, #0B3D91, #2563eb)",
-              color: "#ffffff",
-              fontSize: "20px",
-              fontWeight: 800,
-              border: "3px solid #ffffff",
-              boxShadow:
-                "0 4px 12px rgba(11, 61, 145, 0.24)",
-            }}
-          >
-            {node.profilePhoto?.url ? (
-              <img
-                src={
-                  node.profilePhoto.url
-                }
-                alt={`${node.fullName} profile`}
-                style={{
-                  width: "100%",
-                  height: "100%",
-                  objectFit: "cover",
-                }}
-              />
-            ) : (
-              initials
-            )}
-          </div>
-        </div>
-
-        <div
-          style={{
-            minWidth: 0,
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              flexWrap: "wrap",
-              justifyContent:
-                "space-between",
-              gap: "10px",
-            }}
-          >
-            <div>
-              <div
-                style={{
-                  color: ROYAL_BLUE,
-                  fontSize: "17px",
-                  fontWeight: 800,
-                }}
-              >
-                {node.fullName}
-              </div>
-
-              <div
-                style={{
-                  color: "#0f172a",
-                  marginTop: "3px",
-                  fontWeight: 700,
-                }}
-              >
-                {node.jobTitle || "-"}
-              </div>
-            </div>
-
-            <span
-              style={{
-                alignSelf: "flex-start",
-                borderRadius: "999px",
-                padding: "5px 10px",
-                background:
-                  node.employmentStatus ===
-                  "Active"
-                    ? "#dcfce7"
-                    : "#f1f5f9",
-                color:
-                  node.employmentStatus ===
-                  "Active"
-                    ? "#166534"
-                    : "#475569",
-                fontSize: "12px",
-                fontWeight: 800,
-              }}
-            >
-              {node.employmentStatus ||
-                "Unknown"}
-            </span>
-          </div>
-
-          <div
-            style={{
-              display: "flex",
-              flexWrap: "wrap",
-              gap: "6px",
-              marginTop: "10px",
-            }}
-          >
-            {[
-              node.employeeId,
-              `Level ${node.jobLevel || 1}`,
-              node.department || "No department",
-              node.branch || "No branch",
-            ].map((value) => (
-              <span
-                key={value}
-                style={{
-                  padding: "4px 8px",
-                  borderRadius: "999px",
-                  background: "#f1f5f9",
-                  color: MUTED,
-                  fontSize: "12px",
-                  fontWeight: 700,
-                }}
-              >
-                {value}
-              </span>
-            ))}
-          </div>
-
-          {node.reportsToName && (
-            <div
-              style={{
-                color: MUTED,
-                fontSize: "13px",
-                marginTop: "9px",
-              }}
-            >
-              Reports to:{" "}
-              <strong>
-                {node.reportsToName}
-              </strong>
-            </div>
-          )}
-
-          {node.isDepartmentHead && (
-            <div
-              style={{
-                color: "#7c3aed",
-                fontSize: "12px",
-                fontWeight: 800,
-                marginTop: "8px",
-              }}
-            >
-              Department Head
-            </div>
-          )}
-
-          <div
-            style={{
-              display: "flex",
-              flexWrap: "wrap",
-              gap: "8px",
-              marginTop: "12px",
-            }}
-          >
-            <label
-              style={{
-                border: "none",
-                borderRadius: "8px",
-                padding: "8px 11px",
-                background: ROYAL_BLUE,
-                color: "#ffffff",
-                fontWeight: 700,
-                fontSize: "12px",
-                cursor:
-                  photoBusy
-                    ? "not-allowed"
-                    : "pointer",
-                opacity:
-                  photoBusy
-                    ? 0.65
-                    : 1,
-              }}
-            >
-              {photoBusy
-                ? "Processing..."
-                : node.profilePhoto?.url
-                  ? "Change Photo"
-                  : "Add Photo"}
-
-              <input
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                disabled={photoBusy}
-                style={{
-                  display: "none",
-                }}
-                onChange={(event) => {
-                  const file =
-                    event.target
-                      .files?.[0];
-
-                  if (file) {
-                    onPhotoSelected(
-                      node,
-                      file
-                    );
-                  }
-
-                  event.target.value =
-                    "";
-                }}
-              />
-            </label>
-
-            {node.profilePhoto?.url && (
-              <button
-                type="button"
-                disabled={photoBusy}
-                onClick={() =>
-                  onRemovePhoto(node)
-                }
-                style={{
-                  border:
-                    "1px solid #fecaca",
-                  borderRadius: "8px",
-                  padding: "8px 11px",
-                  background: "#fff1f2",
-                  color: "#b91c1c",
-                  fontWeight: 700,
-                  fontSize: "12px",
-                  cursor:
-                    photoBusy
-                      ? "not-allowed"
-                      : "pointer",
-                }}
-              >
-                Remove Photo
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {hasChildren && (
-        <div
-          style={{
-            display: "grid",
-            gap: "2px",
-          }}
-        >
-          {node.children.map(
-            (child) => (
-              <OrgChartNode
-                key={child.employeeId}
-                node={child}
-                level={level + 1}
-                ROYAL_BLUE={
-                  ROYAL_BLUE
-                }
-                BORDER={BORDER}
-                MUTED={MUTED}
-                photoBusyEmployeeId={
-                  photoBusyEmployeeId
-                }
-                onPhotoSelected={
-                  onPhotoSelected
-                }
-                onRemovePhoto={
-                  onRemovePhoto
-                }
-              />
-            )
-          )}
-        </div>
-      )}
-    </div>
-  );
-};
 
   const renderField = (label, value) => (
     <div>
@@ -2955,10 +2983,10 @@ const showProfileUpdatesTab =
             </div>
           </div>
 
-          <button
+                    <button
             type="button"
             style={primaryButton}
-            onClick={fetchHRData}
+            onClick={refreshOrganizationChart}
           >
             Refresh Chart
           </button>
