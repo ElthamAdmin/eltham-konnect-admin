@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import api from "../api";
+import CustomerPolicyManager from "../components/CustomerPolicyManager";
 
 function Settings() {
   const [settings, setSettings] = useState({
@@ -636,6 +637,8 @@ function Settings() {
           </select>
         </div>
       </div>
+
+            <CustomerPolicyManager />
 
       <div style={cardStyle}>
         <h2>Internal Company Documents</h2>
