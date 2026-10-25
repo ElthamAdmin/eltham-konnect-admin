@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import axios from "axios";
+import api from "../api";
 
 function Settings() {
   const [settings, setSettings] = useState({
@@ -42,22 +42,49 @@ function Settings() {
     status: "Active",
   });
   const [documentFile, setDocumentFile] = useState(null);
+    const [settingsLoaded, setSettingsLoaded] = useState(false);
+  const [busyAction, setBusyAction] = useState("");
+  const [openingDocument, setOpeningDocument] = useState("");
+
+  const getLogoUrl = (value = "") => {
+    const logoPath = String(value || "").trim();
+
+    if (!logoPath) return "";
+
+    if (/^https:\/\//i.test(logoPath)) return logoPath;
+
+    if (!logoPath.startsWith("/uploads/logos/")) return "";
+
+    const backendOrigin = new URL(
+      api.defaults.baseURL,
+      window.location.origin
+    ).origin;
+
+    return `${backendOrigin}${logoPath}`;
+  };
+
+    const showError = (error, fallback) => {
+    console.error(fallback, error);
+    alert(error?.response?.data?.message || fallback);
+  };
 
   const fetchSettings = async () => {
     try {
-      const res = await axios.get("https://eltham-konnect-backend-c2sf.onrender.com/api/settings");
+      const res = await api.get("/api/settings");
       setSettings(res.data.data);
+      setSettingsLoaded(true);
     } catch (error) {
-      console.error("Error loading settings:", error);
+      setSettingsLoaded(false);
+      showError(error, "Could not load settings.");
     }
   };
 
   const fetchDocuments = async () => {
     try {
-      const res = await axios.get("https://eltham-konnect-backend-c2sf.onrender.com/api/settings/documents");
+      const res = await api.get("/api/settings/documents");
       setDocuments(res.data.data || []);
     } catch (error) {
-      console.error("Error loading company documents:", error);
+      showError(error, "Could not load internal company documents.");
     }
   };
 
@@ -66,145 +93,219 @@ function Settings() {
     fetchDocuments();
   }, []);
 
-  const handleTopLevelChange = (e) => {
-    setSettings({
-      ...settings,
-      [e.target.name]: e.target.value,
-    });
+  const handleTopLevelChange = (event) => {
+    const { name, value } = event.target;
+
+    setSettings((current) => ({
+      ...current,
+      [name]: value,
+    }));
   };
 
   const handleNestedChange = (section, field, value) => {
-    setSettings({
-      ...settings,
+    setSettings((current) => ({
+      ...current,
       [section]: {
-        ...settings[section],
+        ...current[section],
         [field]: value,
       },
-    });
+    }));
   };
 
   const addBranch = () => {
-    if (!branchInput.trim()) return;
+    const branch = branchInput.trim();
+    if (!branch) return;
 
-    if (settings.branches.includes(branchInput.trim())) {
+    if ((settings.branches || []).includes(branch)) {
       alert("Branch already added.");
       return;
     }
 
-    setSettings({
-      ...settings,
-      branches: [...settings.branches, branchInput.trim()],
-    });
+    setSettings((current) => ({
+      ...current,
+      branches: [...(current.branches || []), branch],
+    }));
 
     setBranchInput("");
   };
 
   const removeBranch = (branchName) => {
-    setSettings({
-      ...settings,
-      branches: settings.branches.filter((branch) => branch !== branchName),
-    });
+    setSettings((current) => ({
+      ...current,
+      branches: (current.branches || []).filter(
+        (branch) => branch !== branchName
+      ),
+    }));
   };
 
   const saveSettings = async () => {
+    if (busyAction || !settingsLoaded) return;
+
+    setBusyAction("save");
+
     try {
-      const res = await axios.put("https://eltham-konnect-backend-c2sf.onrender.com/api/settings", settings);
-      alert(res.data.message);
+      const payload = {
+        companyName: settings.companyName,
+        companyEmail: settings.companyEmail,
+        companyPhone: settings.companyPhone,
+        companyAddress: settings.companyAddress,
+        defaultCurrency: settings.defaultCurrency,
+        branches: settings.branches,
+        rewards: settings.rewards,
+        invoice: settings.invoice,
+        communication: settings.communication,
+      };
+
+      const res = await api.put("/api/settings", payload);
+
       setSettings(res.data.data);
+      alert(res.data.message);
     } catch (error) {
-      console.error("Error saving settings:", error);
-      alert(error?.response?.data?.message || "Could not save settings.");
+      showError(error, "Could not save settings.");
+    } finally {
+      setBusyAction("");
     }
   };
 
-  const uploadPrimaryLogo = async () => {
+  const uploadLogo = async (kind) => {
+    if (busyAction || !settingsLoaded) return;
+
+    const file =
+      kind === "primary" ? primaryLogoFile : invoiceLogoFile;
+
+    if (!file) {
+      alert("Please choose a logo file.");
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      alert("Logos must be 5 MB or smaller.");
+      return;
+    }
+
+    setBusyAction(kind);
+
     try {
-      if (!primaryLogoFile) {
-        alert("Please choose a primary logo file.");
-        return;
+      const body = new FormData();
+      body.append("logo", file);
+
+      const route =
+        kind === "primary"
+          ? "/api/settings/upload-primary-logo"
+          : "/api/settings/upload-invoice-logo";
+
+      const res = await api.post(route, body);
+
+      /*
+       * Update branding only, preserving unsaved edits
+       * to company details and other settings.
+       */
+      setSettings((current) => ({
+        ...current,
+        branding: res.data.data.branding,
+      }));
+
+      if (kind === "primary") {
+        setPrimaryLogoFile(null);
+      } else {
+        setInvoiceLogoFile(null);
       }
 
-      const formData = new FormData();
-      formData.append("logo", primaryLogoFile);
-
-      const res = await axios.post(
-        "https://eltham-konnect-backend-c2sf.onrender.com/api/settings/upload-primary-logo",
-        formData,
-        {
-          headers: { "Content-Type": "multipart/form-data" },
-        }
-      );
-
       alert(res.data.message);
-      setPrimaryLogoFile(null);
-      fetchSettings();
     } catch (error) {
-      console.error("Error uploading primary logo:", error);
-      alert(error?.response?.data?.message || "Could not upload primary logo.");
+      showError(error, "Could not upload the logo.");
+    } finally {
+      setBusyAction("");
     }
   };
 
-  const uploadInvoiceLogo = async () => {
-    try {
-      if (!invoiceLogoFile) {
-        alert("Please choose an invoice logo file.");
-        return;
-      }
-
-      const formData = new FormData();
-      formData.append("logo", invoiceLogoFile);
-
-      const res = await axios.post(
-        "https://eltham-konnect-backend-c2sf.onrender.com/api/settings/upload-invoice-logo",
-        formData,
-        {
-          headers: { "Content-Type": "multipart/form-data" },
-        }
-      );
-
-      alert(res.data.message);
-      setInvoiceLogoFile(null);
-      fetchSettings();
-    } catch (error) {
-      console.error("Error uploading invoice logo:", error);
-      alert(error?.response?.data?.message || "Could not upload invoice logo.");
-    }
-  };
+  const uploadPrimaryLogo = () => uploadLogo("primary");
+  const uploadInvoiceLogo = () => uploadLogo("invoice");
 
   const uploadDocument = async () => {
+    if (busyAction || !settingsLoaded) return;
+
+    if (
+      !documentForm.title.trim() ||
+      !documentForm.category ||
+      !documentFile
+    ) {
+      alert("Enter a document title, select a category and choose a PDF.");
+      return;
+    }
+
+    if (documentFile.size > 10 * 1024 * 1024) {
+      alert("PDF documents must be 10 MB or smaller.");
+      return;
+    }
+
+    setBusyAction("document");
+
     try {
-      if (!documentForm.title || !documentForm.category || !documentFile) {
-        alert("Please complete document title, category, and choose a PDF file.");
-        return;
-      }
+      const body = new FormData();
 
-      const formData = new FormData();
-      formData.append("title", documentForm.title);
-      formData.append("category", documentForm.category);
-      formData.append("status", documentForm.status);
-      formData.append("document", documentFile);
+      body.append("title", documentForm.title.trim());
+      body.append("category", documentForm.category);
+      body.append("status", documentForm.status);
+      body.append("document", documentFile);
 
-      const res = await axios.post(
-        "https://eltham-konnect-backend-c2sf.onrender.com/api/settings/documents/upload",
-        formData,
-        {
-          headers: { "Content-Type": "multipart/form-data" },
-        }
+      const res = await api.post(
+        "/api/settings/documents/upload",
+        body
       );
-
-      alert(res.data.message);
 
       setDocumentForm({
         title: "",
         category: "Terms and Conditions",
         status: "Active",
       });
-      setDocumentFile(null);
 
-      fetchDocuments();
+      setDocumentFile(null);
+      await fetchDocuments();
+
+      alert(res.data.message);
     } catch (error) {
-      console.error("Error uploading company document:", error);
-      alert(error?.response?.data?.message || "Could not upload document.");
+      showError(error, "Could not upload the internal PDF.");
+    } finally {
+      setBusyAction("");
+    }
+  };
+
+  const openDocument = async (documentNumber) => {
+    if (openingDocument) return;
+
+    const documentWindow = window.open("about:blank", "_blank");
+
+    if (!documentWindow) {
+      alert("Please allow popups to open the PDF.");
+      return;
+    }
+
+    documentWindow.opener = null;
+    documentWindow.document.title = "Opening internal PDF";
+    documentWindow.document.body.textContent = "Opening PDF…";
+
+    setOpeningDocument(documentNumber);
+
+    try {
+      const res = await api.get(
+        `/api/settings/documents/${encodeURIComponent(documentNumber)}/access`
+      );
+
+      const url = res.data?.data?.url;
+
+      if (!url || !url.startsWith("https://")) {
+        throw new Error("The server did not return a valid document link.");
+      }
+
+      if (!documentWindow.closed) {
+        documentWindow.location.replace(url);
+      }
+    } catch (error) {
+      documentWindow.close();
+      showError(error, "Could not open the internal PDF.");
+    } finally {
+      setOpeningDocument("");
     }
   };
 
@@ -290,7 +391,7 @@ function Settings() {
             <h3>Primary Logo</h3>
             {settings.branding?.primaryLogoPath ? (
               <img
-                src={`https://eltham-konnect-backend-c2sf.onrender.com${settings.branding.primaryLogoPath}`}
+                src={getLogoUrl(settings.branding.primaryLogoPath)}
                 alt="Primary Logo"
                 style={{ maxWidth: "180px", maxHeight: "100px", display: "block", marginBottom: "10px" }}
               />
@@ -298,10 +399,11 @@ function Settings() {
               <p>No primary logo uploaded yet.</p>
             )}
 
-            <input type="file" accept="image/*" onChange={(e) => setPrimaryLogoFile(e.target.files[0])} />
+            <input type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => setPrimaryLogoFile(e.target.files[0])} />
             <br /><br />
             <button
               onClick={uploadPrimaryLogo}
+              disabled={!settingsLoaded || Boolean(busyAction)}
               style={{
                 backgroundColor: "#0B3D91",
                 color: "white",
@@ -319,7 +421,7 @@ function Settings() {
             <h3>Invoice Logo</h3>
             {settings.branding?.invoiceLogoPath ? (
               <img
-                src={`https://eltham-konnect-backend-c2sf.onrender.com${settings.branding.invoiceLogoPath}`}
+                src={getLogoUrl(settings.branding.invoiceLogoPath)}
                 alt="Invoice Logo"
                 style={{ maxWidth: "180px", maxHeight: "100px", display: "block", marginBottom: "10px" }}
               />
@@ -327,10 +429,11 @@ function Settings() {
               <p>No invoice logo uploaded yet.</p>
             )}
 
-            <input type="file" accept="image/*" onChange={(e) => setInvoiceLogoFile(e.target.files[0])} />
+            <input type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => setInvoiceLogoFile(e.target.files[0])} />
             <br /><br />
             <button
               onClick={uploadInvoiceLogo}
+              disabled={!settingsLoaded || Boolean(busyAction)}
               style={{
                 backgroundColor: "#0B3D91",
                 color: "white",
@@ -591,6 +694,7 @@ function Settings() {
 
         <button
           onClick={uploadDocument}
+          disabled={!settingsLoaded || Boolean(busyAction)}
           style={{
             backgroundColor: "#0B3D91",
             color: "white",
@@ -625,13 +729,23 @@ function Settings() {
                   <td>{doc.fileName}</td>
                   <td>{doc.status}</td>
                   <td>
-                    <a
-                      href={`https://eltham-konnect-backend-c2sf.onrender.com${doc.filePath}`}
-                      target="_blank"
-                      rel="noreferrer"
+                                        <button
+                      type="button"
+                      onClick={() => openDocument(doc.documentNumber)}
+                      disabled={Boolean(openingDocument)}
+                      style={{
+                        backgroundColor: "#0B3D91",
+                        color: "#ffffff",
+                        border: "none",
+                        padding: "9px 13px",
+                        borderRadius: "6px",
+                        cursor: openingDocument ? "wait" : "pointer",
+                      }}
                     >
-                      Open PDF
-                    </a>
+                      {openingDocument === doc.documentNumber
+                        ? "Opening…"
+                        : "Open PDF"}
+                    </button>
                   </td>
                 </tr>
               ))
@@ -646,6 +760,7 @@ function Settings() {
 
       <button
         onClick={saveSettings}
+        disabled={!settingsLoaded || Boolean(busyAction)}
         style={{
           backgroundColor: "#16a34a",
           color: "white",
