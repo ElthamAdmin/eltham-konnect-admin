@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import api from "../api";
 import InvoiceFileButton from "../components/InvoiceFileButton";
+import PackageEditForm from "../components/PackageEditForm";
 
 function Packages() {
   const [packages, setPackages] = useState([]);
   const [showForm, setShowForm] = useState(false);
+    const [editingPackage, setEditingPackage] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [rateMap, setRateMap] = useState({});
   const [selectedPackages, setSelectedPackages] = useState([]);
@@ -464,7 +466,10 @@ const clearWeightAnalysisFilter = async () => {
         </div>
 
         <button
-          onClick={() => setShowForm((prev) => !prev)}
+                    onClick={() => {
+            setEditingPackage(null);
+            setShowForm((prev) => !prev);
+          }}
           style={{
             backgroundColor: ROYAL_BLUE,
             color: WHITE,
@@ -711,6 +716,20 @@ const clearWeightAnalysisFilter = async () => {
     </table>
   </div>
 </div>
+
+      {editingPackage && (
+        <PackageEditForm
+          key={editingPackage._id}
+          pkg={editingPackage}
+          onCancel={() => setEditingPackage(null)}
+          onSaved={async () => {
+            setEditingPackage(null);
+            setSelectedPackages([]);
+            await fetchPackages();
+            await fetchWeightAnalysis();
+          }}
+        />
+      )}
 
       {showForm && (
         <div
@@ -1117,6 +1136,20 @@ const clearWeightAnalysisFilter = async () => {
   }}
 >
   <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+        <button
+      type="button"
+      onClick={() => {
+        setShowForm(false);
+        setEditingPackage(pkg);
+      }}
+      style={{
+        ...actionButtonStyle,
+        backgroundColor: "#0B3D91",
+        color: WHITE,
+      }}
+    >
+      Edit Package
+    </button>
                         {nextStatus ? (
                           <button
                             onClick={() => updateStatus(pkg.trackingNumber, nextStatus)}
