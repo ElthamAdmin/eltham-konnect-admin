@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import axios from "axios";
+import api from "../api";
 
 function WarehouseManagement() {
   const [packages, setPackages] = useState([]);
@@ -7,11 +7,9 @@ function WarehouseManagement() {
   const [pageSize, setPageSize] = useState(25);
   const [currentPage, setCurrentPage] = useState(1);
 
-  const API = "https://eltham-konnect-backend-c2sf.onrender.com";
-
   const fetchPackages = async () => {
     try {
-      const res = await axios.get(`${API}/api/packages`);
+      const res = await api.get(`/api/packages`);
       setPackages(res.data.data || []);
     } catch (error) {
       console.error("Error loading warehouse packages:", error);
@@ -28,8 +26,8 @@ function WarehouseManagement() {
 
   const updateStatus = async (trackingNumber, newStatus) => {
     try {
-      const res = await axios.put(
-        `${API}/api/packages/${trackingNumber}/status`,
+      const res = await api.put(
+        `/api/packages/${trackingNumber}/status`,
         { status: newStatus }
       );
 

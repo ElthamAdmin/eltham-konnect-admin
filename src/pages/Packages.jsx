@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import axios from "axios";
+import api from "../api";
 import InvoiceFileButton from "../components/InvoiceFileButton";
 
 function Packages() {
@@ -29,7 +29,6 @@ const [weightEndDate, setWeightEndDate] = useState("");
     dateReceived: "",
   });
 
-  const API = "https://eltham-konnect-backend-c2sf.onrender.com";
   const ROYAL_BLUE = "#0B3D91";
   const GOLD = "#D4AF37";
   const WHITE = "#FFFFFF";
@@ -39,7 +38,7 @@ const [weightEndDate, setWeightEndDate] = useState("");
 
   const fetchPackages = async () => {
     try {
-      const res = await axios.get(`${API}/api/packages`);
+      const res = await api.get(`/api/packages`);
       setPackages(res.data.data || []);
     } catch (error) {
       console.error("Error loading packages:", error);
@@ -61,7 +60,7 @@ const [weightEndDate, setWeightEndDate] = useState("");
     }
 
     const query = params.toString() ? `?${params.toString()}` : "";
-    const res = await axios.get(`${API}/api/packages/weight-analysis${query}`);
+    const res = await api.get(`/api/packages/weight-analysis${query}`);
     setWeightAnalysis(res.data.data || null);
   } catch (error) {
     console.error("Error loading package weight analysis:", error);
@@ -70,7 +69,7 @@ const [weightEndDate, setWeightEndDate] = useState("");
 
   const fetchRates = async () => {
     try {
-      const res = await axios.get(`${API}/api/shipping-rates`);
+      const res = await api.get(`/api/shipping-rates`);
       const mapped = {};
       (res.data.data || []).forEach((rate) => {
         mapped[Number(rate.weight)] = Number(rate.price);
@@ -143,7 +142,7 @@ const clearWeightAnalysisFilter = async () => {
   ...getLoggedInUserDetails(),
 };
 
-      const res = await axios.post(`${API}/api/packages`, payload);
+      const res = await api.post(`/api/packages`, payload);
 
       if (res.data.success) {
         alert("Package saved successfully");
@@ -171,7 +170,7 @@ const clearWeightAnalysisFilter = async () => {
 
   const updateStatus = async (trackingNumber, status) => {
     try {
-      await axios.put(`${API}/api/packages/${trackingNumber}/status`, { status });
+      await api.put(`/api/packages/${trackingNumber}/status`, { status });
       await fetchPackages();
       await fetchWeightAnalysis();
     } catch (err) {
@@ -188,7 +187,7 @@ const clearWeightAnalysisFilter = async () => {
   if (!confirmed) return;
 
   try {
-    await axios.delete(`${API}/api/packages/${trackingNumber}`);
+    await api.delete(`/api/packages/${trackingNumber}`);
     alert("Package deleted successfully.");
     await fetchPackages();
     await fetchWeightAnalysis();
@@ -211,7 +210,7 @@ const clearWeightAnalysisFilter = async () => {
       }
 
       for (const trackingNumber of selectedPackages) {
-        await axios.put(`${API}/api/packages/${trackingNumber}/status`, {
+        await api.put(`/api/packages/${trackingNumber}/status`, {
           status: bulkStatus,
         });
       }
@@ -283,7 +282,7 @@ const clearWeightAnalysisFilter = async () => {
 
       if (pointsInput === null) return;
 
-      const res = await axios.post(`${API}/api/invoices/generate-multiple`, {
+      const res = await api.post(`/api/invoices/generate-multiple`, {
         customerEkonId,
         packageIds: readyPackages.map((pkg) => pkg._id),
         pointsToRedeem: Number(pointsInput) || 0,
