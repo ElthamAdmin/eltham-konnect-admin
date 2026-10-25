@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import axios from "axios";
+import InvoiceFileButton from "../components/InvoiceFileButton";
 
 function Packages() {
   const [packages, setPackages] = useState([]);
@@ -1086,82 +1087,22 @@ const clearWeightAnalysisFilter = async () => {
                       )}
                     </td>
 
-                    <td>
+                    <td>{pkg.customerInvoiceNumber || "—"}</td>
+
+<td style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>
+  {pkg.customerInvoiceNotes || "—"}
+</td>
+
+<td>
+  {formatDateTime(pkg.customerInvoiceUploadedAt) || "—"}
+</td>
+
+<td>
   {pkg.customerInvoiceFilePath ? (
-    <div
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        gap: "8px",
-        alignItems: "flex-start",
-      }}
-    >
-      {/* IMAGE PREVIEW */}
-      {/\.(jpg|jpeg|png|webp)$/i.test(
-        pkg.customerInvoiceFilePath
-      ) ? (
-        <a
-          href={`${API}${pkg.customerInvoiceFilePath}`}
-          target="_blank"
-          rel="noreferrer"
-        >
-          <img
-            src={`${API}${pkg.customerInvoiceFilePath}`}
-            alt="Customer Invoice"
-            style={{
-              width: "90px",
-              height: "90px",
-              objectFit: "cover",
-              borderRadius: "10px",
-              border: "1px solid #dbe3ef",
-              cursor: "pointer",
-            }}
-          />
-        </a>
-      ) : null}
-
-      {/* PDF BUTTON */}
-      {pkg.customerInvoiceFilePath
-        ?.toLowerCase()
-        .includes(".pdf") ? (
-        <a
-          href={`${API}${pkg.customerInvoiceFilePath}`}
-          target="_blank"
-          rel="noreferrer"
-          style={{
-            backgroundColor: "#dc2626",
-            color: "white",
-            padding: "8px 12px",
-            borderRadius: "8px",
-            textDecoration: "none",
-            fontWeight: "bold",
-            fontSize: "13px",
-            textAlign: "center",
-          }}
-        >
-          View PDF
-        </a>
-      ) : null}
-
-      {/* OPEN BUTTON */}
-      <a
-        href={`${API}${pkg.customerInvoiceFilePath}`}
-        target="_blank"
-        rel="noreferrer"
-        style={{
-          backgroundColor: ROYAL_BLUE,
-          color: WHITE,
-          padding: "8px 12px",
-          borderRadius: "8px",
-          textDecoration: "none",
-          fontWeight: "bold",
-          fontSize: "13px",
-          textAlign: "center",
-        }}
-      >
-        Open File
-      </a>
-    </div>
+    <InvoiceFileButton
+      uploadNumber={pkg.customerInvoiceUploadNumber}
+      staff
+    />
   ) : (
     <span style={{ color: "#94a3b8" }}>No File</span>
   )}
@@ -1239,7 +1180,7 @@ const clearWeightAnalysisFilter = async () => {
               })
             ) : (
               <tr>
-                <td colSpan="15" style={{ textAlign: "center", padding: "20px", color: MUTED }}>
+                <td colSpan="16" style={{ textAlign: "center", padding: "20px", color: MUTED }}>
                   No packages found.
                 </td>
               </tr>
