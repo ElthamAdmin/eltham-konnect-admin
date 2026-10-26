@@ -170,7 +170,16 @@ const clearWeightAnalysisFilter = async () => {
     }
   };
 
-  const updateStatus = async (trackingNumber, status) => {
+    const updateStatus = async (trackingNumber, status) => {
+    if (
+      status === "Delivered" &&
+      !window.confirm(
+        `Confirm package ${trackingNumber} has actually been collected or delivered to the customer?`
+      )
+    ) {
+      return;
+    }
+
     try {
       await api.put(`/api/packages/${trackingNumber}/status`, { status });
       await fetchPackages();
@@ -208,6 +217,15 @@ const clearWeightAnalysisFilter = async () => {
 
       if (selectedPackages.length === 0) {
         alert("Please select at least one package.");
+        return;
+      }
+
+            if (
+        bulkStatus === "Delivered" &&
+        !window.confirm(
+          `Confirm all ${selectedPackages.length} selected package(s) have actually been collected or delivered to the customer?`
+        )
+      ) {
         return;
       }
 
