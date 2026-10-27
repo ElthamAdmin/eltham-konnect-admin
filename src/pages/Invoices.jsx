@@ -1352,6 +1352,7 @@ const generateSelectedInvoice = async () => {
                 <th>Delivery Fee</th>
                 <th>Delivery Type</th>
                 <th>Other Adjustment</th>
+                <th>Storage Fee</th>
                 <th>Points Redeemed</th>
                 <th>Final Total</th>
                 <th>Status</th>
@@ -1411,6 +1412,7 @@ const generateSelectedInvoice = async () => {
                     <td>{formatCurrency(inv.deliveryFee)}</td>
                     <td>{inv.deliveryType || "—"}</td>
                     <td>{formatCurrency(inv.otherAdjustment)}</td>
+                    <td>{formatCurrency(inv.storageFeeTotal)}</td>
                     <td>{formatCurrency(inv.pointsRedeemed)}</td>
                     <td style={{ fontWeight: "bold" }}>
                      {formatCurrency(inv.finalTotal)}
