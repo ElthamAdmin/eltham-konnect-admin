@@ -271,6 +271,51 @@ const clearWeightAnalysisFilter = async () => {
     }
   };
 
+    const viewStorageEstimate = async (pkg) => {
+    try {
+      const response = await api.get(
+        `/api/packages/${encodeURIComponent(pkg._id)}/storage-preview`
+      );
+
+      const preview = response.data?.data;
+
+      if (!preview?.available) {
+        alert(
+          preview?.reason ||
+            "A storage estimate is not available for this package."
+        );
+        return;
+      }
+
+      const amount = Number(preview.amount || 0).toLocaleString(
+        "en-JM",
+        {
+          style: "currency",
+          currency: "JMD",
+          minimumFractionDigits: 2,
+        }
+      );
+
+      alert(
+        `Storage estimate for ${preview.trackingNumber}\n\n` +
+          `Notice date: ${preview.noticeDate}\n` +
+          `Last free day: ${preview.lastFreeDate}\n` +
+          `First chargeable day: ${preview.firstChargeDate}\n` +
+          `Calculated through: ${preview.asOfDate}\n` +
+          `Chargeable days: ${preview.chargeableDays}\n` +
+          `Estimated storage: ${amount}\n\n` +
+          `This is an estimate; it is not a payment or invoice.`
+      );
+    } catch (error) {
+      console.error("Storage estimate error:", error);
+
+      alert(
+        error?.response?.data?.message ||
+          "Could not retrieve the storage estimate."
+      );
+    }
+  };
+
   const getNextStatus = (currentStatus) => {
     if (currentStatus === "At Warehouse") return "In Transit";
     if (currentStatus === "Manifest Assigned") return "In Transit";
@@ -1167,6 +1212,19 @@ const clearWeightAnalysisFilter = async () => {
       }}
     >
       Edit Package
+    </button>
+
+        <button
+      type="button"
+      onClick={() => viewStorageEstimate(pkg)}
+      style={{
+        ...actionButtonStyle,
+        backgroundColor: "#eef4ff",
+        color: "#0B3D91",
+        border: "1px solid #0B3D91",
+      }}
+    >
+      View Storage Estimate
     </button>
                         {nextStatus ? (
                           <button
