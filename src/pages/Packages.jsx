@@ -11,6 +11,7 @@ function Packages() {
   const [rateMap, setRateMap] = useState({});
   const [selectedPackages, setSelectedPackages] = useState([]);
 const [bulkStatus, setBulkStatus] = useState("");
+const [billingStorageId, setBillingStorageId] = useState("");
 const [pageSize, setPageSize] = useState(25);
 const [currentPage, setCurrentPage] = useState(1);
 const [weightAnalysis, setWeightAnalysis] = useState(null);
@@ -268,6 +269,46 @@ const clearWeightAnalysisFilter = async () => {
       setSelectedPackages((prev) => [
         ...new Set([...prev, ...currentPageTracking]),
       ]);
+    }
+  };
+
+    const generateStorageInvoice = async (pkg) => {
+    if (billingStorageId || !pkg?._id) return;
+
+    const confirmed = window.confirm(
+      `Generate an invoice for any unbilled storage days on package ${pkg.trackingNumber}?`
+    );
+
+    if (!confirmed) return;
+
+    setBillingStorageId(pkg._id);
+
+    try {
+      const response = await api.post(
+        `/api/invoices/storage/${encodeURIComponent(pkg._id)}`
+      );
+
+      const invoice = response.data?.data;
+
+      alert(
+        invoice?.invoiceNumber
+          ? `${response.data.message}\n\nInvoice: ${invoice.invoiceNumber}`
+          : response.data.message ||
+              "No new storage days to invoice."
+      );
+
+      if (invoice) {
+        await fetchPackages();
+      }
+    } catch (error) {
+      console.error("Storage billing error:", error);
+
+      alert(
+        error?.response?.data?.message ||
+          "The storage invoice could not be generated."
+      );
+    } finally {
+      setBillingStorageId("");
     }
   };
 
@@ -1225,6 +1266,24 @@ const clearWeightAnalysisFilter = async () => {
       }}
     >
       View Storage Estimate
+    </button>
+
+        <button
+      type="button"
+      onClick={() => generateStorageInvoice(pkg)}
+      disabled={Boolean(billingStorageId)}
+      style={{
+        ...actionButtonStyle,
+        backgroundColor: billingStorageId
+          ? "#94a3b8"
+          : "#F15A24",
+        color: WHITE,
+        cursor: billingStorageId ? "wait" : "pointer",
+      }}
+    >
+      {billingStorageId === pkg._id
+        ? "Checking Storage…"
+        : "Generate Storage Invoice"}
     </button>
                         {nextStatus ? (
                           <button
