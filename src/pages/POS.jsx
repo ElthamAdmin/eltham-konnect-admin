@@ -364,30 +364,28 @@ const printReceipt = () => {
 const getInvoiceBalance = (
   invoice = loadedInvoice
 ) => {
-  if (!invoice) {
-    return 0;
-  }
+  if (!invoice) return 0;
 
   if (
-    invoice.status === "Paid" ||
-    invoice.status === "Cancelled" ||
-    invoice.status === "Written Off"
+    [
+      "Paid",
+      "Cancelled",
+      "Written Off",
+      "Refunded",
+    ].includes(invoice.status)
   ) {
     return 0;
   }
 
-  const storedBalance = Number(
-    invoice.balanceDue || 0
-  );
-
-  if (storedBalance > 0) {
-    return storedBalance;
-  }
-
   return Math.max(
-    Number(invoice.finalTotal || 0) -
-      Number(invoice.amountPaid || 0),
-    0
+    0,
+    Math.round(
+      (
+        Number(invoice.finalTotal || 0) -
+        Number(invoice.amountPaid || 0) +
+        Number.EPSILON
+      ) * 100
+    ) / 100
   );
 };
 
@@ -415,6 +413,43 @@ const currentInvoiceBalance =
   alert("Please select the account that received this payment.");
   return;
 }
+
+      const latestResponse = await api.get(
+        `/api/pos/invoice/${encodeURIComponent(
+          loadedInvoice.invoiceNumber
+        )}`
+      );
+
+      const latestData = latestResponse.data.data;
+      const latestInvoice = latestData.invoice;
+
+      const paymentSnapshot = (invoice) =>
+        JSON.stringify([
+          invoice.invoiceNumber,
+          invoice.status,
+          Number(invoice.finalTotal || 0),
+          Number(invoice.amountPaid || 0),
+          Number(invoice.pointsRedeemed || 0),
+          Number(invoice.posDiscountAmount || 0),
+        ]);
+
+      if (
+        latestData.invoiceType !== invoiceType ||
+        paymentSnapshot(latestInvoice) !==
+          paymentSnapshot(loadedInvoice)
+      ) {
+        setInvoiceType(latestData.invoiceType);
+        setLoadedInvoice(latestInvoice);
+        setAmountTendered("");
+
+        alert(
+          "This invoice changed after it was loaded. " +
+          "POS has refreshed it. Review the updated " +
+          "amount due before pressing PAY again."
+        );
+
+        return;
+      }
 
       const res = await api.post("/api/pos/cashout", {
         invoiceType,
