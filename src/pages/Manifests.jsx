@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
-import axios from "axios";
+import api from "../api";
 
-const API_BASE = "https://eltham-konnect-backend-c2sf.onrender.com/api";
+const API_BASE = "/api";
 
 function Manifests() {
   const [manifests, setManifests] = useState([]);
@@ -22,17 +22,17 @@ function Manifests() {
   const MUTED = "#64748b";
 
   const fetchManifests = async () => {
-    const res = await axios.get(`${API_BASE}/manifests`);
+    const res = await api.get(`${API_BASE}/manifests`);
     setManifests(res.data.data || []);
   };
 
   const fetchPackages = async () => {
-    const res = await axios.get(`${API_BASE}/packages`);
+    const res = await api.get(`${API_BASE}/packages`);
     setPackages(res.data.data || []);
   };
 
   const fetchRates = async () => {
-    const res = await axios.get(`${API_BASE}/shipping-rates`);
+    const res = await api.get(`${API_BASE}/shipping-rates`);
     const mapped = {};
     (res.data.data || []).forEach((rate) => {
       mapped[Number(rate.weight)] = Number(rate.price);
@@ -97,7 +97,7 @@ function Manifests() {
 
   const createManifest = async () => {
     try {
-      const res = await axios.post(`${API_BASE}/manifests`, { origin });
+      const res = await api.post(`${API_BASE}/manifests`, { origin });
       alert(res.data.message || "Manifest created successfully.");
       setOrigin("Florida");
       await fetchManifests();
@@ -111,7 +111,7 @@ function Manifests() {
     if (!newOrigin) return;
 
     try {
-      const res = await axios.put(`${API_BASE}/manifests/${manifest.manifestNumber}`, {
+      const res = await api.put(`${API_BASE}/manifests/${manifest.manifestNumber}`, {
         origin: newOrigin,
       });
       alert(res.data.message || "Manifest updated.");
@@ -125,7 +125,7 @@ function Manifests() {
     if (!window.confirm("Delete this manifest? Packages will be returned to At Warehouse.")) return;
 
     try {
-      const res = await axios.delete(`${API_BASE}/manifests/${manifestNumber}`);
+      const res = await api.delete(`${API_BASE}/manifests/${manifestNumber}`);
       alert(res.data.message || "Manifest deleted.");
       await fetchManifests();
       await fetchPackages();
@@ -139,7 +139,7 @@ function Manifests() {
     if (!tracking) return;
 
     try {
-      const res = await axios.post(`${API_BASE}/manifests/${manifestNumber}/add-package`, {
+      const res = await api.post(`${API_BASE}/manifests/${manifestNumber}/add-package`, {
         trackingNumber: tracking.trim(),
       });
       alert(res.data.message || "Package added.");
@@ -155,7 +155,7 @@ function Manifests() {
     if (!tracking) return;
 
     try {
-      const res = await axios.post(`${API_BASE}/manifests/${manifestNumber}/remove-package`, {
+      const res = await api.post(`${API_BASE}/manifests/${manifestNumber}/remove-package`, {
         trackingNumber: tracking.trim(),
       });
       alert(res.data.message || "Package removed.");
@@ -168,7 +168,7 @@ function Manifests() {
 
   const departManifest = async (manifestNumber) => {
     try {
-      const res = await axios.put(`${API_BASE}/manifests/${manifestNumber}/depart`);
+      const res = await api.put(`${API_BASE}/manifests/${manifestNumber}/depart`);
       alert(res.data.message || "Manifest departed.");
       await fetchManifests();
     } catch (error) {
@@ -178,7 +178,7 @@ function Manifests() {
 
   const arriveManifest = async (manifestNumber) => {
     try {
-      const res = await axios.put(`${API_BASE}/manifests/${manifestNumber}/arrive`);
+      const res = await api.put(`${API_BASE}/manifests/${manifestNumber}/arrive`);
       alert(res.data.message || "Manifest arrived.");
       await fetchManifests();
       await fetchPackages();
