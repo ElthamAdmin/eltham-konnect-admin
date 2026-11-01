@@ -314,6 +314,76 @@ function Settings() {
     }
   };
 
+    const changeStorageCharging = async () => {
+    if (busyAction || !settingsLoaded) return;
+
+    const currentEnabled = settings.storageFees?.enabled;
+
+    if (typeof currentEnabled !== "boolean") {
+      alert("Reload Settings before changing storage charging.");
+      return;
+    }
+
+    const enabled = !currentEnabled;
+
+    if (
+      enabled &&
+      new Date() < new Date("2027-01-01T00:00:00-05:00")
+    ) {
+      alert(
+        "Storage charging cannot be enabled before January 1, 2027, Jamaica time."
+      );
+      return;
+    }
+
+    const confirmed = window.confirm(
+      enabled
+        ? "Enable storage charging for eligible packages? " +
+            "Confirm that reminder and billing verification is complete. " +
+            "Packages added before January 1, 2027 remain exempt."
+        : "Disable storage charging and scheduled storage notices/reminders? " +
+            "Existing invoices and notice dates will remain. " +
+            "This does not waive days during the disabled period."
+    );
+
+    if (!confirmed) return;
+
+    setBusyAction("storage-status");
+
+    try {
+      const res = await api.put("/api/settings/storage/status", {
+        enabled,
+      });
+
+      const savedEnabled = res.data?.data?.storageFees?.enabled;
+
+      if (!res.data?.success || typeof savedEnabled !== "boolean") {
+        throw new Error(
+          "Could not confirm the saved status. Reload Settings before retrying."
+        );
+      }
+
+      // Preserve unsaved edits elsewhere on this page.
+      setSettings((current) => ({
+        ...current,
+        storageFees: {
+          ...current.storageFees,
+          enabled: savedEnabled,
+        },
+      }));
+
+      alert(res.data.message);
+    } catch (error) {
+      alert(
+        error.response?.data?.message ||
+          error.message ||
+          "Could not confirm the change. Reload Settings to check the status."
+      );
+    } finally {
+      setBusyAction("");
+    }
+  };
+
     const updateStorageClosure = (index, field, value) => {
     setSettings((current) => ({
       ...current,
@@ -392,6 +462,62 @@ function Settings() {
                     : "Not configured"}
               </strong>
             </p>
+
+                        <div style={{ marginBottom: "18px" }}>
+              <button
+                type="button"
+                onClick={changeStorageCharging}
+                disabled={
+                  Boolean(busyAction) ||
+                  typeof settings.storageFees?.enabled !== "boolean" ||
+                  (
+                    !settings.storageFees.enabled &&
+                    new Date() < new Date("2027-01-01T00:00:00-05:00")
+                  )
+                }
+                style={{
+                  padding: "11px 16px",
+                  border: "none",
+                  borderRadius: "8px",
+                  backgroundColor: settings.storageFees?.enabled
+                    ? "#b91c1c"
+                    : "#15803d",
+                  color: "white",
+                  fontWeight: "bold",
+                  cursor:
+                    busyAction ||
+                    typeof settings.storageFees?.enabled !== "boolean" ||
+                    (
+                      !settings.storageFees.enabled &&
+                      new Date() < new Date("2027-01-01T00:00:00-05:00")
+                    )
+                      ? "not-allowed"
+                      : "pointer",
+                  opacity:
+                    busyAction ||
+                    typeof settings.storageFees?.enabled !== "boolean" ||
+                    (
+                      !settings.storageFees.enabled &&
+                      new Date() < new Date("2027-01-01T00:00:00-05:00")
+                    )
+                      ? 0.5
+                      : 1,
+                }}
+              >
+                {busyAction === "storage-status"
+                  ? "Saving status..."
+                  : settings.storageFees?.enabled
+                    ? "Disable Storage Charging"
+                    : "Enable Storage Charging"}
+              </button>
+
+              <p style={{ color: "#64748b", lineHeight: 1.5 }}>
+                Activation is available from January 1, 2027, Jamaica time.
+                This button saves the charging status separately from
+                Save Settings. Once enabled, it remains enabled across
+                calendar years until authorised staff disable it.
+              </p>
+            </div>
 
             <div style={{ overflowX: "auto" }}>
               <table
