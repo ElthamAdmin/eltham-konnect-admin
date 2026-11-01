@@ -18,6 +18,35 @@ const [weightAnalysis, setWeightAnalysis] = useState(null);
 const [weightFilter, setWeightFilter] = useState("today");
 const [weightStartDate, setWeightStartDate] = useState("");
 const [weightEndDate, setWeightEndDate] = useState("");
+const [storageLaunchPreview, setStorageLaunchPreview] = useState(null);
+const [storageLaunchBusy, setStorageLaunchBusy] = useState(false);
+const [storageLaunchError, setStorageLaunchError] = useState("");
+
+const loadStorageLaunchPreview = async () => {
+  if (storageLaunchBusy) return;
+
+  setStorageLaunchBusy(true);
+  setStorageLaunchError("");
+  setStorageLaunchPreview(null);
+
+  try {
+    const res = await api.get("/api/packages/storage/launch-preview");
+
+    if (!res.data?.success || !res.data?.data?.counts) {
+      throw new Error("The storage launch preview response is incomplete.");
+    }
+
+    setStorageLaunchPreview(res.data.data);
+  } catch (error) {
+    setStorageLaunchError(
+      error.response?.data?.message ||
+        error.message ||
+        "Could not load the storage launch preview."
+    );
+  } finally {
+    setStorageLaunchBusy(false);
+  }
+};
 
   const [formData, setFormData] = useState({
     trackingNumber: "",
@@ -588,6 +617,132 @@ const clearWeightAnalysisFilter = async () => {
           {showForm ? "Close Form" : "+ Add Package"}
         </button>
       </div>
+
+            <section
+        style={{
+          backgroundColor: WHITE,
+          border: `1px solid ${BORDER}`,
+          borderRadius: "12px",
+          padding: "16px",
+          marginBottom: "20px",
+        }}
+      >
+        <h2 style={{ margin: "0 0 8px", color: ROYAL_BLUE }}>
+          Storage Launch Preview
+        </h2>
+
+        <p style={{ color: MUTED, margin: "0 0 12px" }}>
+          Read-only check. No notices are sent, no notice dates are changed,
+          and no storage charges are created.
+        </p>
+
+        <button
+          type="button"
+          onClick={loadStorageLaunchPreview}
+          disabled={storageLaunchBusy}
+          style={{
+            backgroundColor: ROYAL_BLUE,
+            color: WHITE,
+            border: "none",
+            padding: "10px 16px",
+            borderRadius: "8px",
+            cursor: storageLaunchBusy ? "wait" : "pointer",
+            opacity: storageLaunchBusy ? 0.65 : 1,
+            fontWeight: "bold",
+          }}
+        >
+          {storageLaunchBusy ? "Loading preview..." : "Preview Storage Launch"}
+        </button>
+
+        {storageLaunchError && (
+          <p role="alert" style={{ color: "#b91c1c" }}>
+            {storageLaunchError}
+          </p>
+        )}
+
+        {storageLaunchPreview && (
+          <div aria-live="polite" style={{ marginTop: "16px" }}>
+            <p>
+              Jamaica date: <strong>{storageLaunchPreview.today}</strong>
+              {" · "}Effective date:{" "}
+              <strong>{storageLaunchPreview.effectiveFrom || "Not set"}</strong>
+              {" · "}Storage charging:{" "}
+              <strong>
+                {storageLaunchPreview.storageEnabled ? "Enabled" : "Disabled"}
+              </strong>
+            </p>
+
+            <div style={{ overflowX: "auto" }}>
+              <table
+                style={{
+                  width: "100%",
+                  borderCollapse: "collapse",
+                  textAlign: "left",
+                }}
+              >
+                <thead>
+                  <tr>
+                    <th style={{ padding: "8px" }}>Package check</th>
+                    <th style={{ padding: "8px" }}>Count</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[
+                    [
+                      "Uncollected packages ready for pickup",
+                      storageLaunchPreview.counts.uncollectedReadyPackages,
+                    ],
+                    [
+                      "Already have a notice reference",
+                      storageLaunchPreview.counts.alreadyHaveNoticeReference,
+                    ],
+                    [
+                      "Need a fresh notice",
+                      storageLaunchPreview.counts.needFreshNotice,
+                    ],
+                    [
+                      "Need notice-reference review",
+                      storageLaunchPreview.counts.needReview,
+                    ],
+                  ].map(([label, count]) => (
+                    <tr key={label}>
+                      <td
+                        style={{
+                          padding: "8px",
+                          borderTop: `1px solid ${BORDER}`,
+                        }}
+                      >
+                        {label}
+                      </td>
+                      <td
+                        style={{
+                          padding: "8px",
+                          borderTop: `1px solid ${BORDER}`,
+                          fontWeight: "bold",
+                        }}
+                      >
+                        {count}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {storageLaunchPreview.conditions?.length > 0 && (
+              <ul style={{ color: "#92400e", paddingLeft: "22px" }}>
+                {storageLaunchPreview.conditions.map((condition, index) => (
+                  <li key={`${index}-${condition}`}>{condition}</li>
+                ))}
+              </ul>
+            )}
+
+            <p style={{ color: MUTED }}>
+              {storageLaunchPreview.message}
+            </p>
+          </div>
+        )}
+      </section>
 
       <div
   style={{
