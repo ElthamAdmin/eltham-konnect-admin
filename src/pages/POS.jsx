@@ -1,7 +1,24 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import api from "../api";
+import {
+  readPendingPayment,
+  savePendingPayment,
+  clearPendingPayment,
+} from "../utils/pendingPayment";
 
 function POS() {
+    const paymentInFlight = useRef(false);
+
+  const [pendingPayment, setPendingPayment] =
+    useState(null);
+
+  useEffect(() => {
+    try {
+      setPendingPayment(readPendingPayment("POS"));
+    } catch (error) {
+      console.error(error.message);
+    }
+  }, []);
   const [invoiceNumber, setInvoiceNumber] = useState("");
   const [loadedInvoice, setLoadedInvoice] = useState(null);
   const [invoiceType, setInvoiceType] = useState("");
@@ -392,95 +409,246 @@ const getInvoiceBalance = (
 const currentInvoiceBalance =
   getInvoiceBalance();
 
-  const cashOutInvoice = async () => {
+    const cashOutInvoice = async (retrySaved = false) => {
+    if (paymentInFlight.current || posBusy) return;
+
+    paymentInFlight.current = true;
+    setPosBusy(true);
+
+    let request = null;
+    let paymentConfirmed = false;
+
     try {
-      if (!drawer) {
-        alert("Open a cash drawer before cashing out.");
-        return;
-      }
+      request = readPendingPayment("POS");
 
-      if (!loadedInvoice) {
-        alert("Load an invoice first.");
-        return;
-      }
+      if (request) {
+        setPendingPayment(request);
 
-      if (loadedInvoice.status === "Paid") {
-        alert("This invoice is already paid.");
-        return;
-      }
+        if (retrySaved !== true) {
+          alert(
+            "A POS payment is awaiting confirmation. " +
+            "Use Retry saved payment before starting another."
+          );
+          return;
+        }
 
-      if (!paidIntoAccountNumber) {
-  alert("Please select the account that received this payment.");
-  return;
-}
+        const saved = request.payload;
 
-      const latestResponse = await api.get(
-        `/api/pos/invoice/${encodeURIComponent(
-          loadedInvoice.invoiceNumber
-        )}`
-      );
+        if (
+          !window.confirm(
+            `Retry the saved payment for ${saved.invoiceNumber}?\n` +
+            `Amount tendered: ${money(saved.amountTendered)}\n` +
+            `Method: ${saved.paymentMethod}\n` +
+            `Account: ${saved.paidIntoAccountNumber}\n\n` +
+            "The original payment details will be reused."
+          )
+        ) {
+          return;
+        }
+      } else {
+        if (retrySaved === true) {
+          setPendingPayment(null);
+          alert("There is no saved POS payment to retry.");
+          return;
+        }
 
-      const latestData = latestResponse.data.data;
-      const latestInvoice = latestData.invoice;
+        if (!drawer) {
+          alert("Open a cash drawer before cashing out.");
+          return;
+        }
 
-      const paymentSnapshot = (invoice) =>
-        JSON.stringify([
-          invoice.invoiceNumber,
-          invoice.status,
-          Number(invoice.finalTotal || 0),
-          Number(invoice.amountPaid || 0),
-          Number(invoice.pointsRedeemed || 0),
-          Number(invoice.posDiscountAmount || 0),
-        ]);
+        if (!loadedInvoice) {
+          alert("Load an invoice first.");
+          return;
+        }
 
-      if (
-        latestData.invoiceType !== invoiceType ||
-        paymentSnapshot(latestInvoice) !==
-          paymentSnapshot(loadedInvoice)
-      ) {
-        setInvoiceType(latestData.invoiceType);
-        setLoadedInvoice(latestInvoice);
-        setAmountTendered("");
+        if (getInvoiceBalance(loadedInvoice) <= 0) {
+          alert("This invoice has no payable balance.");
+          return;
+        }
 
-        alert(
-          "This invoice changed after it was loaded. " +
-          "POS has refreshed it. Review the updated " +
-          "amount due before pressing PAY again."
+        if (!paidIntoAccountNumber) {
+          alert(
+            "Please select the account that received this payment."
+          );
+          return;
+        }
+
+        const latestResponse = await api.get(
+          `/api/pos/invoice/${encodeURIComponent(
+            loadedInvoice.invoiceNumber
+          )}`
         );
 
-        return;
+        const latestData = latestResponse.data.data;
+        const latestInvoice = latestData.invoice;
+
+        const paymentSnapshot = (invoice) =>
+          JSON.stringify([
+            invoice.invoiceNumber,
+            invoice.status,
+            Number(invoice.finalTotal || 0),
+            Number(invoice.amountPaid || 0),
+            Number(invoice.pointsRedeemed || 0),
+            Number(invoice.posDiscountAmount || 0),
+          ]);
+
+        if (
+          latestData.invoiceType !== invoiceType ||
+          paymentSnapshot(latestInvoice) !==
+            paymentSnapshot(loadedInvoice)
+        ) {
+          setInvoiceType(latestData.invoiceType);
+          setLoadedInvoice(latestInvoice);
+          setAmountTendered("");
+
+          alert(
+            "This invoice changed after it was loaded. " +
+            "POS has refreshed it. Review the updated " +
+            "amount due before pressing PAY again."
+          );
+
+          return;
+        }
+
+        const tendered =
+          amountTendered === ""
+            ? getInvoiceBalance(latestInvoice)
+            : Number(amountTendered);
+
+        if (
+          !Number.isFinite(tendered) ||
+          tendered <= 0
+        ) {
+          alert("Enter an amount greater than zero.");
+          return;
+        }
+
+        request = savePendingPayment("POS", {
+          invoiceType,
+          invoiceNumber: latestInvoice.invoiceNumber,
+          paymentMethod,
+          amountTendered: tendered,
+          paidIntoAccountName,
+          paidIntoAccountNumber,
+          notes,
+        });
+
+        setPendingPayment(request);
       }
 
-      const res = await api.post("/api/pos/cashout", {
-        invoiceType,
-        invoiceNumber: loadedInvoice.invoiceNumber,
-        paymentMethod,
-                amountTendered: Number(
-          amountTendered ||
-            getInvoiceBalance(
-              loadedInvoice
-            ) ||
-            0
-        ),
-        paidIntoAccountName,
-        paidIntoAccountNumber,
-        notes,
-      });
+      const response = await api.post(
+        "/api/pos/cashout",
+        request.payload
+      );
 
-      setLoadedInvoice(res.data.data.invoice);
-      setDrawer(res.data.data.drawer);
+      const data = response.data.data;
+
+      if (!response.data.success || !data?.invoice) {
+        throw new Error(
+          "The payment response could not be confirmed."
+        );
+      }
+
+      paymentConfirmed = true;
+
+      try {
+        clearPendingPayment(
+          "POS",
+          request.payload.paymentRequestId
+        );
+        setPendingPayment(null);
+      } catch (error) {
+        console.error(
+          "Could not clear saved payment confirmation:",
+          error
+        );
+        setPendingPayment(request);
+      }
+
+      setInvoiceNumber(request.payload.invoiceNumber);
+      setInvoiceType(request.payload.invoiceType);
+      setLoadedInvoice(data.invoice);
+      setDrawer(data.drawer);
+
       setPaymentMethod("Cash");
       setAmountTendered("");
       setPaidIntoAccountName("");
       setPaidIntoAccountNumber("");
       setNotes("");
 
-      await loadDrawerHistory();
-      await loadTransactions();
+      await Promise.all([
+        loadDrawer(),
+        loadDrawerHistory(),
+        loadTransactions(),
+      ]);
 
-      alert("Invoice cashed out successfully.");
+      // A replay contains the original response.
+      // Reload the invoice to show its current balance.
+      try {
+        const fresh = await api.get(
+          `/api/pos/invoice/${encodeURIComponent(
+            request.payload.invoiceNumber
+          )}`
+        );
+
+        setInvoiceType(fresh.data.data.invoiceType);
+        setLoadedInvoice(fresh.data.data.invoice);
+      } catch (error) {
+        console.error(
+          "Payment confirmed; invoice refresh failed:",
+          error
+        );
+      }
+
+      alert(
+        response.data.paymentRequestReplayed
+          ? "This payment was already recorded. No additional payment was created."
+          : response.data.message ||
+              "Invoice payment recorded successfully."
+      );
     } catch (error) {
-      alert(error?.response?.data?.message || "Could not cash out invoice.");
+      if (paymentConfirmed) {
+        alert(
+          "Payment was confirmed, but the display could not fully refresh. " +
+          "Reload POS before recording another payment."
+        );
+        return;
+      }
+
+      const status = error?.response?.status;
+      let retained = Boolean(request);
+
+      if (
+        request &&
+        [400, 404, 422].includes(status)
+      ) {
+        try {
+          clearPendingPayment(
+            "POS",
+            request.payload.paymentRequestId
+          );
+          setPendingPayment(null);
+          retained = false;
+        } catch {
+          setPendingPayment(request);
+        }
+      }
+
+      const message =
+        error?.response?.data?.message ||
+        error.message ||
+        "Could not confirm the POS payment.";
+
+      alert(
+        message +
+          (retained
+            ? "\nThe original request is saved. Use Retry saved payment; do not enter it as a new payment."
+            : "")
+      );
+    } finally {
+      paymentInFlight.current = false;
+      setPosBusy(false);
     }
   };
 
@@ -522,6 +690,38 @@ const currentInvoiceBalance =
     >
       POS - Cash Register
     </h1>
+
+          {pendingPayment && (
+        <div
+          role="status"
+          style={{
+            background: "#fff7ed",
+            border: "1px solid #f97316",
+            borderRadius: "10px",
+            padding: "14px",
+            marginBottom: "18px",
+          }}
+        >
+          <strong>Payment confirmation pending</strong>
+
+          <p>
+            Invoice {pendingPayment.payload.invoiceNumber}
+            {" — "}
+            {money(pendingPayment.payload.amountTendered)}
+            {" tendered. Resolve this saved request before "}
+            starting another POS payment.
+          </p>
+
+          <button
+            type="button"
+            disabled={posBusy}
+            onClick={() => cashOutInvoice(true)}
+            style={buttonStyle}
+          >
+            {posBusy ? "Checking…" : "Retry saved payment"}
+          </button>
+        </div>
+      )}
 
         <div
       style={{
@@ -1055,9 +1255,10 @@ const currentInvoiceBalance =
                 {/* PAY BUTTON */}
         <button
           type="button"
-          onClick={cashOutInvoice}
+          onClick={() => cashOutInvoice()}
           disabled={
             posBusy ||
+            Boolean(pendingPayment) ||
             !loadedInvoice ||
             loadedInvoice.status ===
               "Paid"
