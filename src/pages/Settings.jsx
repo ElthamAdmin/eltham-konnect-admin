@@ -321,6 +321,129 @@ function Settings() {
   return (
     <div>
       <h1>Settings</h1>
+            <section style={cardStyle}>
+        <h2 style={{ marginTop: 0 }}>Storage Fees</h2>
+
+        {!settingsLoaded ? (
+          <p>Storage settings are unavailable until settings load successfully.</p>
+        ) : (
+          <>
+            <p>
+              Charging status:{" "}
+              <strong
+                style={{
+                  color:
+                    settings.storageFees?.enabled === true
+                      ? "#15803d"
+                      : settings.storageFees?.enabled === false
+                        ? "#b45309"
+                        : "#b91c1c",
+                }}
+              >
+                {settings.storageFees?.enabled === true
+                  ? "Enabled"
+                  : settings.storageFees?.enabled === false
+                    ? "Disabled"
+                    : "Not configured"}
+              </strong>
+            </p>
+
+            <div style={{ overflowX: "auto" }}>
+              <table
+                style={{
+                  width: "100%",
+                  borderCollapse: "collapse",
+                  textAlign: "left",
+                }}
+              >
+                <tbody>
+                  {[
+                    [
+                      "Effective date",
+                      settings.storageFees?.effectiveFrom || "Not configured",
+                    ],
+                    [
+                      "Eligible packages",
+                      "Added to EKOS on or after January 1, 2027, Jamaica time",
+                    ],
+                    [
+                      "Older packages",
+                      "Exempt, including packages still uncollected in 2027",
+                    ],
+                    [
+                      "Free collection period",
+                      settings.storageFees?.freeBusinessDays != null
+                        ? `${settings.storageFees.freeBusinessDays} business days after the storage notice`
+                        : "Not configured",
+                    ],
+                    [
+                      "Business days",
+                      "Monday–Saturday, excluding Jamaican public holidays and approved collection closures",
+                    ],
+                    [
+                      "First chargeable day",
+                      settings.storageFees?.firstDayFee != null
+                        ? `JMD ${settings.storageFees.firstDayFee}`
+                        : "Not configured",
+                    ],
+                    [
+                      "Each additional calendar day",
+                      settings.storageFees?.additionalDailyFee != null
+                        ? `JMD ${settings.storageFees.additionalDailyFee}`
+                        : "Not configured",
+                    ],
+                    [
+                      "Customer reminder",
+                      "Portal notification three calendar days before the first charge date",
+                    ],
+                    [
+                      "Missed or late reminder",
+                      "Storage billing is blocked for review",
+                    ],
+                    [
+                      "Collection",
+                      "Charges stop on the recorded collection date; payment alone does not record collection",
+                    ],
+                    [
+                      "Time zone",
+                      settings.storageFees?.timeZone || "Not configured",
+                    ],
+                  ].map(([label, value]) => (
+                    <tr key={label}>
+                      <th
+                        scope="row"
+                        style={{
+                          padding: "10px",
+                          borderBottom: "1px solid #e5e7eb",
+                          verticalAlign: "top",
+                          width: "32%",
+                        }}
+                      >
+                        {label}
+                      </th>
+                      <td
+                        style={{
+                          padding: "10px",
+                          borderBottom: "1px solid #e5e7eb",
+                          lineHeight: 1.5,
+                        }}
+                      >
+                        {value}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <p style={{ color: "#64748b", lineHeight: 1.5 }}>
+              This section is read-only. Saving general settings does not
+              activate storage charging. Reminder delivery and billing
+              verification remain outstanding before activation.
+            </p>
+          </>
+        )}
+      </section>
 
       <div style={cardStyle}>
         <h2>Company Profile</h2>
