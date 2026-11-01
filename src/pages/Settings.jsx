@@ -155,6 +155,10 @@ function Settings() {
         rewards: settings.rewards,
         invoice: settings.invoice,
         communication: settings.communication,
+                storageFees: {
+          additionalClosures:
+            settings.storageFees?.additionalClosures ?? [],
+        },
       };
 
       const res = await api.put("/api/settings", payload);
@@ -310,6 +314,47 @@ function Settings() {
     }
   };
 
+    const updateStorageClosure = (index, field, value) => {
+    setSettings((current) => ({
+      ...current,
+      storageFees: {
+        ...current.storageFees,
+        additionalClosures: (
+          current.storageFees?.additionalClosures ?? []
+        ).map((closure, rowIndex) =>
+          rowIndex === index
+            ? { ...closure, [field]: value }
+            : closure
+        ),
+      },
+    }));
+  };
+
+  const addStorageClosure = () => {
+    setSettings((current) => ({
+      ...current,
+      storageFees: {
+        ...current.storageFees,
+        additionalClosures: [
+          ...(current.storageFees?.additionalClosures ?? []),
+          { date: "", name: "" },
+        ],
+      },
+    }));
+  };
+
+  const removeStorageClosure = (index) => {
+    setSettings((current) => ({
+      ...current,
+      storageFees: {
+        ...current.storageFees,
+        additionalClosures: (
+          current.storageFees?.additionalClosures ?? []
+        ).filter((_, rowIndex) => rowIndex !== index),
+      },
+    }));
+  };
+
   const cardStyle = {
     backgroundColor: "white",
     padding: "20px",
@@ -436,10 +481,163 @@ function Settings() {
               </table>
             </div>
 
+                        <div
+              style={{
+                marginTop: "24px",
+                paddingTop: "18px",
+                borderTop: "1px solid #e5e7eb",
+              }}
+            >
+              <h3 style={{ marginTop: 0 }}>
+                Additional Collection Closures
+              </h3>
+
+              <p style={{ color: "#64748b", lineHeight: 1.5 }}>
+                Regular Jamaican holidays are calculated automatically.
+                Add only extra public holidays or company collection
+                closures here. These dates do not count toward the seven
+                free business days.
+              </p>
+
+              <p style={{ color: "#334155", lineHeight: 1.5 }}>
+                <strong>Already included:</strong> December 27, 2027 —
+                Eltham Konnect collection closure.
+              </p>
+
+              <div style={{ display: "grid", gap: "12px" }}>
+                {(settings.storageFees?.additionalClosures ?? []).map(
+                  (closure, index) => (
+                    <div
+                      key={index}
+                      style={{
+                        display: "flex",
+                        gap: "10px",
+                        flexWrap: "wrap",
+                        alignItems: "center",
+                        padding: "12px",
+                        backgroundColor: "#f8fafc",
+                        border: "1px solid #e5e7eb",
+                        borderRadius: "8px",
+                      }}
+                    >
+                      <label
+                        style={{
+                          display: "grid",
+                          gap: "5px",
+                          flex: "1 1 170px",
+                        }}
+                      >
+                        <span>Closure date</span>
+                        <input
+                          type="date"
+                          min="2027-01-01"
+                          value={closure.date || ""}
+                          disabled={Boolean(busyAction)}
+                          onChange={(event) =>
+                            updateStorageClosure(
+                              index,
+                              "date",
+                              event.target.value
+                            )
+                          }
+                          style={{
+                            padding: "10px",
+                            border: "1px solid #cbd5e1",
+                            borderRadius: "6px",
+                            minWidth: 0,
+                          }}
+                        />
+                      </label>
+
+                      <label
+                        style={{
+                          display: "grid",
+                          gap: "5px",
+                          flex: "2 1 240px",
+                        }}
+                      >
+                        <span>Reason or holiday name</span>
+                        <input
+                          type="text"
+                          maxLength={200}
+                          value={closure.name || ""}
+                          placeholder="For example: Staff training closure"
+                          disabled={Boolean(busyAction)}
+                          onChange={(event) =>
+                            updateStorageClosure(
+                              index,
+                              "name",
+                              event.target.value
+                            )
+                          }
+                          style={{
+                            padding: "10px",
+                            border: "1px solid #cbd5e1",
+                            borderRadius: "6px",
+                            minWidth: 0,
+                          }}
+                        />
+                      </label>
+
+                      <button
+                        type="button"
+                        disabled={Boolean(busyAction)}
+                        onClick={() => removeStorageClosure(index)}
+                        style={{
+                          padding: "10px 12px",
+                          border: "1px solid #fecaca",
+                          borderRadius: "6px",
+                          backgroundColor: "#fff1f2",
+                          color: "#b91c1c",
+                          cursor: "pointer",
+                        }}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  )
+                )}
+              </div>
+
+              {(settings.storageFees?.additionalClosures ?? []).length === 0 && (
+                <p style={{ color: "#64748b" }}>
+                  No additional closures entered.
+                </p>
+              )}
+
+              <button
+                type="button"
+                disabled={
+                  Boolean(busyAction) ||
+                  (settings.storageFees?.additionalClosures ?? []).length >= 500
+                }
+                onClick={addStorageClosure}
+                style={{
+                  marginTop: "12px",
+                  padding: "10px 14px",
+                  backgroundColor: "#0B3D91",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "7px",
+                  cursor: "pointer",
+                  fontWeight: "bold",
+                }}
+              >
+                + Add Closure
+              </button>
+
+              <p style={{ color: "#64748b", lineHeight: 1.5 }}>
+                Use Save Settings below to save additions or removals.
+                Calendar changes can change calculated free periods and
+                reminder dates for existing eligible packages, so check
+                each date carefully.
+              </p>
+            </div>
+
             <p style={{ color: "#64748b", lineHeight: 1.5 }}>
-              This section is read-only. Saving general settings does not
-              activate storage charging. Reminder delivery and billing
-              verification remain outstanding before activation.
+              Saving these closures does not activate storage charging.
+              Reminder delivery and billing verification remain
+              outstanding before activation.
             </p>
           </>
         )}
