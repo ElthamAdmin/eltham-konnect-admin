@@ -1,8 +1,31 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { buildInvoicePdf } from "../utils/invoicePdf";
 import api from "../api";
 
+import {
+  readPendingPayment,
+  savePendingPayment,
+  clearPendingPayment,
+} from "../utils/pendingPayment";
+
 function Invoices() {
+    const invoicePaymentInFlight = useRef(false);
+
+  const [invoicePaymentBusy, setInvoicePaymentBusy] =
+    useState(false);
+
+  const [pendingInvoicePayment, setPendingInvoicePayment] =
+    useState(null);
+
+  useEffect(() => {
+    try {
+      setPendingInvoicePayment(
+        readPendingPayment("Invoices")
+      );
+    } catch (error) {
+      console.error(error.message);
+    }
+  }, []);
   const [invoices, setInvoices] = useState([]);
   const [accounts, setAccounts] = useState([]);
   const [selectedAccountByInvoice, setSelectedAccountByInvoice] = useState({});
@@ -201,29 +224,240 @@ const saveInvoiceCharges = async (invoiceNumber) => {
   }
 };
 
-  const markInvoicePaid = async (invoiceNumber) => {
-    try {
-      const receivingAccountNumber = selectedAccountByInvoice[invoiceNumber];
+    const markInvoicePaid = async (
+    invoiceNumber,
+    retrySaved = false
+  ) => {
+    if (
+      invoicePaymentInFlight.current ||
+      invoicePaymentBusy
+    ) {
+      return;
+    }
 
-      if (!receivingAccountNumber) {
-        alert("Please select the account that received this payment.");
-        return;
+    invoicePaymentInFlight.current = true;
+    setInvoicePaymentBusy(true);
+
+    let request = null;
+    let paymentConfirmed = false;
+
+    try {
+      request = readPendingPayment("Invoices");
+
+      if (request) {
+        setPendingInvoicePayment(request);
+
+        if (retrySaved !== true) {
+          alert(
+            "A payment is awaiting confirmation. " +
+            "Use Retry saved payment before starting " +
+            "another payment in Invoices."
+          );
+          return;
+        }
+
+        const saved = request.payload;
+
+        if (
+          !window.confirm(
+            `Retry the saved payment for ${saved.invoiceNumber}?\n` +
+            `Payment amount: JMD ${Number(
+              saved.paymentAmount
+            ).toLocaleString()}\n` +
+            `Receiving account: ${saved.receivingAccountNumber}\n\n` +
+            "The original payment details will be reused."
+          )
+        ) {
+          return;
+        }
+      } else {
+        if (retrySaved === true) {
+          setPendingInvoicePayment(null);
+          alert("There is no saved invoice payment to retry.");
+          return;
+        }
+
+        const receivingAccountNumber =
+          selectedAccountByInvoice[invoiceNumber];
+
+        if (!receivingAccountNumber) {
+          alert(
+            "Please select the account that received this payment."
+          );
+          return;
+        }
+
+        const displayed = invoices.find(
+          (invoice) =>
+            invoice.invoiceNumber === invoiceNumber
+        );
+
+        if (!displayed) {
+          alert(
+            "Refresh the invoices list before recording payment."
+          );
+          return;
+        }
+
+        const latestResponse = await api.get(
+          "/api/invoices"
+        );
+
+        const latest = (
+          latestResponse.data.data || []
+        ).find(
+          (invoice) =>
+            invoice.invoiceNumber === invoiceNumber
+        );
+
+        if (!latest) {
+          throw new Error(
+            "Invoice not found. Refresh the invoices list."
+          );
+        }
+
+        const snapshot = (invoice) =>
+          JSON.stringify([
+            invoice.status,
+            Number(invoice.finalTotal || 0),
+            Number(invoice.amountPaid || 0),
+            Number(invoice.pointsRedeemed || 0),
+            Number(invoice.posDiscountAmount || 0),
+          ]);
+
+        if (snapshot(displayed) !== snapshot(latest)) {
+          await fetchInvoices();
+
+          alert(
+            "This invoice changed. Review its refreshed " +
+            "total and balance before marking it paid."
+          );
+
+          return;
+        }
+
+        const amount =
+          Math.round(
+            (
+              Number(latest.finalTotal || 0) -
+              Number(latest.amountPaid || 0) +
+              Number.EPSILON
+            ) * 100
+          ) / 100;
+
+        if (
+          !["Unpaid", "Partially Paid"].includes(
+            latest.status
+          ) ||
+          !Number.isFinite(amount) ||
+          amount <= 0
+        ) {
+          alert("This invoice has no payable balance.");
+          return;
+        }
+
+        request = savePendingPayment("Invoices", {
+          invoiceNumber,
+          receivingAccountNumber,
+          paymentAmount: amount,
+        });
+
+        setPendingInvoicePayment(request);
       }
 
-      const res = await api.put(`/api/invoices/pay/${invoiceNumber}`, {
-        receivingAccountNumber,
-      });
+      const response = await api.put(
+        `/api/invoices/pay/${encodeURIComponent(
+          request.payload.invoiceNumber
+        )}`,
+        request.payload
+      );
 
-            alert(res.data.message);
+      if (
+        !response.data.success ||
+        !response.data.data
+      ) {
+        throw new Error(
+          "The invoice payment response could not be confirmed."
+        );
+      }
+
+      paymentConfirmed = true;
+
+      try {
+        clearPendingPayment(
+          "Invoices",
+          request.payload.paymentRequestId
+        );
+
+        setPendingInvoicePayment(null);
+      } catch (error) {
+        console.error(
+          "Could not clear saved payment confirmation:",
+          error
+        );
+
+        setPendingInvoicePayment(request);
+      }
 
       await Promise.all([
         fetchInvoices(),
         fetchPackages(),
         fetchCustomerPurchases(),
+        fetchAccounts(),
       ]);
+
+      alert(
+        response.data.paymentRequestReplayed
+          ? "This payment was already recorded. No additional payment was created."
+          : response.data.message ||
+              "Invoice payment recorded successfully."
+      );
     } catch (error) {
-      console.error("Error marking invoice paid:", error);
-      alert(error?.response?.data?.message || "Could not mark invoice as paid.");
+      if (paymentConfirmed) {
+        alert(
+          "Payment was confirmed, but the display could " +
+          "not fully refresh. Reload Invoices before " +
+          "recording another payment."
+        );
+        return;
+      }
+
+      let retained = Boolean(request);
+
+      if (
+        request &&
+        [400, 404, 422].includes(
+          error?.response?.status
+        )
+      ) {
+        try {
+          clearPendingPayment(
+            "Invoices",
+            request.payload.paymentRequestId
+          );
+
+          setPendingInvoicePayment(null);
+          retained = false;
+        } catch {
+          setPendingInvoicePayment(request);
+        }
+      }
+
+      alert(
+        (
+          error?.response?.data?.message ||
+          error.message ||
+          "Could not confirm invoice payment."
+        ) +
+          (
+            retained
+              ? "\nThe original request is saved. Use Retry saved payment; do not enter it as a new payment."
+              : ""
+          )
+      );
+    } finally {
+      invoicePaymentInFlight.current = false;
+      setInvoicePaymentBusy(false);
     }
   };
 
@@ -651,6 +885,57 @@ const generateSelectedInvoice = async () => {
     <div style={{ backgroundColor: LIGHT_BG, minHeight: "100vh" }}>
       <div style={{ marginBottom: "20px" }}>
         <h1 style={{ margin: 0, color: "#0f172a" }}>Invoices</h1>
+                {pendingInvoicePayment && (
+          <div
+            role="status"
+            style={{
+              background: "#fff7ed",
+              border: "1px solid #f97316",
+              borderRadius: "10px",
+              padding: "14px",
+              marginTop: "14px",
+              marginBottom: "14px",
+            }}
+          >
+            <strong>Payment confirmation pending</strong>
+
+            <p>
+              Invoice{" "}
+              {pendingInvoicePayment.payload.invoiceNumber}
+              {" — JMD "}
+              {Number(
+                pendingInvoicePayment.payload.paymentAmount
+              ).toLocaleString()}
+              {". Resolve this saved request before "}
+              recording another payment in Invoices.
+            </p>
+
+            <button
+              type="button"
+              disabled={invoicePaymentBusy}
+              onClick={() =>
+                markInvoicePaid(
+                  pendingInvoicePayment.payload.invoiceNumber,
+                  true
+                )
+              }
+              style={{
+                backgroundColor: ROYAL_BLUE,
+                color: WHITE,
+                border: "none",
+                borderRadius: "6px",
+                padding: "10px 14px",
+                cursor: invoicePaymentBusy
+                  ? "not-allowed"
+                  : "pointer",
+              }}
+            >
+              {invoicePaymentBusy
+                ? "Checking…"
+                : "Retry saved payment"}
+            </button>
+          </div>
+        )}
         <p style={{ margin: "6px 0 0 0", color: MUTED }}>
           Manage invoice balances, payment links, payment posting, and PDF downloads.
         </p>
@@ -1351,8 +1636,14 @@ const generateSelectedInvoice = async () => {
   Apply EK Points
 </button>
                         <button
-                          onClick={() => markInvoicePaid(inv.invoiceNumber)}
-                          disabled={inv.status === "Paid"}
+                                                    onClick={() =>
+                            markInvoicePaid(inv.invoiceNumber)
+                          }
+                          disabled={
+                            invoicePaymentBusy ||
+                            Boolean(pendingInvoicePayment) ||
+                            inv.status === "Paid"
+                          }
                           style={{
                             ...actionButtonStyle,
                             backgroundColor:
