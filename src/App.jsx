@@ -65,7 +65,7 @@ function AppShell() {
   const [attendance, setAttendance] = useState(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [desktopSidebarOpen, setDesktopSidebarOpen] = useState(true);
-  
+    const [headerSearch, setHeaderSearch] = useState("");
 
   const [isMobile, setIsMobile] = useState(() => window.innerWidth <= 900);
 
@@ -349,6 +349,30 @@ const navItems = [
       ))}
     </nav>
   );
+
+    const currentPageTitle =
+    navigationByPath.get(location.pathname)?.label ||
+    "Eltham Konnect";
+
+  const headerSearchResults = headerSearch.trim()
+    ? [...navigationByPath.values()]
+        .filter((item) =>
+          item.label.toLowerCase().includes(
+            headerSearch.trim().toLowerCase()
+          )
+        )
+        .slice(0, 8)
+    : [];
+
+  const headerButtonStyle = {
+    border: "1px solid #dce4f0",
+    background: "#f5f8ff",
+    color: "#1644a3",
+    borderRadius: "9px",
+    padding: "9px 12px",
+    cursor: "pointer",
+    fontWeight: "bold",
+  };
 
   const bottomItems = [
     { label: "Home", path: "/" },
@@ -731,101 +755,295 @@ const subNavItemStyle = (active) => ({
     flexDirection: "column",
   }}
 >
-        <div
+                <header
           style={{
             minHeight: "76px",
+            flexShrink: 0,
             backgroundColor: "white",
-            borderBottom: "1px solid #e5e7eb",
+            borderBottom: "1px solid #dfe6f0",
             display: "flex",
-            justifyContent: "space-between",
             alignItems: "center",
-            padding: "0 24px",
-            gap: "14px",
+            flexWrap: "wrap",
+            padding: "14px 24px",
+            gap: "16px",
+            position: "relative",
+            zIndex: 35,
           }}
         >
           <button
-  type="button"
-  aria-label={
-    desktopSidebarOpen ? "Hide sidebar" : "Show sidebar"
-  }
-  aria-expanded={desktopSidebarOpen}
-  onClick={() => setDesktopSidebarOpen((open) => !open)}
-  style={{
-    background: "#eef3ff",
-    border: "1px solid #d6dfed",
-    borderRadius: "9px",
-    color: "#1644a3",
-    fontSize: "22px",
-    padding: "6px 12px",
-    cursor: "pointer",
-  }}
->
-  ☰
-</button>
+            type="button"
+            aria-label={
+              desktopSidebarOpen ? "Hide sidebar" : "Show sidebar"
+            }
+            aria-expanded={desktopSidebarOpen}
+            onClick={() =>
+              setDesktopSidebarOpen((open) => !open)
+            }
+            style={headerButtonStyle}
+          >
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              aria-hidden="true"
+            >
+              <path d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          </button>
+
+          <strong
+            style={{
+              color: "#1644a3",
+              fontSize: "16px",
+            }}
+          >
+            {currentPageTitle}
+          </strong>
+
+          <div
+            style={{
+              flex: "1 1 220px",
+              maxWidth: "480px",
+              position: "relative",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "10px",
+                padding: "10px 12px",
+                border: "1px solid #dce4f0",
+                borderRadius: "10px",
+                backgroundColor: "#f7f9fd",
+                color: "#74839a",
+              }}
+            >
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                aria-hidden="true"
+                style={{ flexShrink: 0 }}
+              >
+                <circle cx="10.5" cy="10.5" r="6.5" />
+                <path d="m16 16 5 5" />
+              </svg>
+
+              <input
+                type="search"
+                aria-label="Find a module"
+                placeholder="Find a module…"
+                value={headerSearch}
+                onChange={(event) =>
+                  setHeaderSearch(event.target.value)
+                }
+                onKeyDown={(event) => {
+                  if (event.key === "Escape") {
+                    setHeaderSearch("");
+                  }
+                }}
+                style={{
+                  width: "100%",
+                  minWidth: 0,
+                  border: "none",
+                  background: "transparent",
+                  color: "#17345b",
+                  font: "inherit",
+                }}
+              />
+            </div>
+
+            {headerSearch.trim() && (
+              <div
+                aria-label="Matching modules"
+                style={{
+                  position: "absolute",
+                  top: "calc(100% + 8px)",
+                  left: 0,
+                  right: 0,
+                  backgroundColor: "white",
+                  border: "1px solid #dce4f0",
+                  borderRadius: "10px",
+                  padding: "6px",
+                  boxShadow: "0 10px 30px #17345b22",
+                  maxHeight: "340px",
+                  overflowY: "auto",
+                }}
+              >
+                {headerSearchResults.length ? (
+                  headerSearchResults.map((item) => (
+                    <Link
+                      key={item.path}
+                      to={item.path}
+                      onClick={() => setHeaderSearch("")}
+                      style={{
+                        display: "block",
+                        padding: "11px 12px",
+                        color: "#1644a3",
+                        textDecoration: "none",
+                        borderRadius: "7px",
+                      }}
+                    >
+                      {item.label}
+                    </Link>
+                  ))
+                ) : (
+                  <p
+                    style={{
+                      margin: "10px",
+                      color: "#64748b",
+                      fontSize: "13px",
+                    }}
+                  >
+                    No matching modules.
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
 
           <div
             style={{
               display: "flex",
               alignItems: "center",
-              gap: "10px",
-              flexWrap: "wrap",
-              justifyContent: "flex-end",
+              gap: "12px",
+              marginLeft: "auto",
             }}
           >
-            {dutyBadge(dutyStatus)}
+            <details style={{ position: "relative" }}>
+              <summary
+                style={{
+                  ...headerButtonStyle,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px",
+                  listStyle: "none",
+                }}
+              >
+                <NavigationIcon name="HR & Payroll" />
+                Attendance
+                <span aria-hidden="true">⌄</span>
+              </summary>
 
-            <button onClick={() => doAction("clock-in")} disabled={!canClockIn} style={desktopActionButton(canClockIn, "#16a34a")}>
-              Clock In
-            </button>
-            <button onClick={() => doAction("lunch-out")} disabled={!canLunchOut} style={desktopActionButton(canLunchOut, "#f59e0b")}>
-              Lunch Out
-            </button>
-            <button onClick={() => doAction("lunch-in")} disabled={!canLunchIn} style={desktopActionButton(canLunchIn, "#0ea5e9")}>
-              Lunch In
-            </button>
-            <button onClick={() => doAction("clock-out")} disabled={!canClockOut} style={desktopActionButton(canClockOut, "#475569")}>
-              Clock Out
-            </button>
+              <div
+                style={{
+                  position: "absolute",
+                  right: 0,
+                  top: "calc(100% + 10px)",
+                  width: "270px",
+                  padding: "16px",
+                  backgroundColor: "white",
+                  border: "1px solid #dce4f0",
+                  borderRadius: "12px",
+                  boxShadow: "0 10px 30px #17345b22",
+                }}
+              >
+                {dutyBadge(dutyStatus)}
+
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr 1fr",
+                    gap: "8px",
+                    marginTop: "14px",
+                  }}
+                >
+                  <button
+                    onClick={() => doAction("clock-in")}
+                    disabled={!canClockIn}
+                    style={desktopActionButton(
+                      canClockIn, "#245ce0"
+                    )}
+                  >
+                    Clock In
+                  </button>
+
+                  <button
+                    onClick={() => doAction("lunch-out")}
+                    disabled={!canLunchOut}
+                    style={desktopActionButton(
+                      canLunchOut, "#ed762d"
+                    )}
+                  >
+                    Lunch Out
+                  </button>
+
+                  <button
+                    onClick={() => doAction("lunch-in")}
+                    disabled={!canLunchIn}
+                    style={desktopActionButton(
+                      canLunchIn, "#245ce0"
+                    )}
+                  >
+                    Lunch In
+                  </button>
+
+                  <button
+                    onClick={() => doAction("clock-out")}
+                    disabled={!canClockOut}
+                    style={desktopActionButton(
+                      canClockOut, "#475569"
+                    )}
+                  >
+                    Clock Out
+                  </button>
+                </div>
+              </div>
+            </details>
 
             <div
               style={{
-                width: "42px",
-                height: "42px",
+                width: "38px",
+                height: "38px",
+                flexShrink: 0,
                 borderRadius: "50%",
-                backgroundColor: "#f1f5f9",
+                backgroundColor: "#edf3ff",
+                color: "#1644a3",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                color: "#475569",
                 fontWeight: "bold",
               }}
             >
               {initials}
             </div>
 
-            <div style={{ display: "flex", flexDirection: "column", lineHeight: 1.1 }}>
-              <span style={{ color: "#334155", fontWeight: "bold" }}>{user?.fullName}</span>
-              <span style={{ color: "#64748b", fontSize: "12px" }}>
-                {user?.role} • {user?.branch}
-              </span>
+            <div style={{ lineHeight: 1.4 }}>
+              <div
+                style={{
+                  color: "#17345b",
+                  fontSize: "13px",
+                  fontWeight: "bold",
+                }}
+              >
+                {user?.fullName}
+              </div>
+              <div
+                style={{
+                  color: "#64748b",
+                  fontSize: "11px",
+                }}
+              >
+                {user?.role} · {user?.branch}
+              </div>
             </div>
 
             <button
+              type="button"
               onClick={logout}
-              style={{
-                backgroundColor: "#dc2626",
-                color: "white",
-                border: "none",
-                padding: "8px 12px",
-                borderRadius: "6px",
-                cursor: "pointer",
-                fontWeight: "bold",
-              }}
+              style={headerButtonStyle}
             >
               Logout
             </button>
           </div>
-        </div>
+        </header>
 
         <div
   style={{
