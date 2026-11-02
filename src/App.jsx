@@ -64,7 +64,7 @@ function AppShell() {
   const location = useLocation();
   const [attendance, setAttendance] = useState(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [financeOpen, setFinanceOpen] = useState(true);
+  
 
   const [isMobile, setIsMobile] = useState(() => window.innerWidth <= 900);
 
@@ -162,6 +162,179 @@ const navItems = [
   { label: "Points", path: "/points-history", show: can("pointsHistory") },
   { label: "Referrals", path: "/referrals", show: can("customers") },
 ].filter((item) => item.show);
+
+  const navigationGroups = [
+    {
+      label: "Operations",
+      paths: ["/pos", "/packages", "/manifests", "/invoices", "/prealerts"],
+    },
+    {
+      label: "Financial",
+      paths: [
+        ...financeItems.map((item) => item.path),
+        "/business-analytics",
+        "/business-growth-center",
+      ],
+    },
+    {
+      label: "Customers",
+      paths: ["/customers", "/points-history", "/referrals"],
+    },
+    {
+      label: "Delivery",
+      paths: [
+        "/warehouse-management",
+        "/freight-partners",
+        "/unmatched-packages",
+      ],
+    },
+    {
+      label: "Communication",
+      paths: [
+        "/support-tickets",
+        "/communication",
+        "/team-hub",
+        "/notice-board",
+        "/marketing",
+        "/rewards-hub-admin",
+        "/rewards-hub-analytics",
+      ],
+    },
+    {
+      label: "Marketplace",
+      paths: [
+        "/amazon-associate",
+        "/marketplace-orders",
+        "/marketplace-invoices",
+        "/marketplace-products",
+      ],
+    },
+    {
+      label: "HR & Payroll",
+      paths: ["/hr", "/payroll", "/duty-monitor"],
+    },
+    {
+      label: "Administration",
+      paths: ["/users", "/audit-logs", "/integration-logs", "/settings"],
+    },
+  ];
+
+  const availableNavigation = [
+    ...navItems,
+    ...financeItems,
+    ...(can("communication")
+      ? [{ label: "Notice Board", path: "/notice-board" }]
+      : []),
+  ];
+
+  const navigationByPath = new Map(
+    availableNavigation.map((item) => [
+      item.path,
+      {
+        ...item,
+        label:
+          item.path === "/customer-purchases"
+            ? "Shopping Assistance"
+            : item.label,
+      },
+    ])
+  );
+
+  const groupedNavigation = navigationGroups
+    .map((group) => ({
+      ...group,
+      items: group.paths
+        .map((path) => navigationByPath.get(path))
+        .filter(Boolean),
+    }))
+    .filter((group) => group.items.length > 0);
+
+  // Keep any future permitted links visible even if they have
+  // not yet been assigned to a navigation group.
+  const groupedPaths = new Set(
+    navigationGroups.flatMap((group) => group.paths)
+  );
+
+  const remainingNavigation = [...navigationByPath.values()].filter(
+    (item) => item.path !== "/" && !groupedPaths.has(item.path)
+  );
+
+  const renderGroupedNavigation = () => (
+    <nav aria-label="Main navigation" style={{ padding: "12px 10px" }}>
+      <Link
+        to="/"
+        onClick={() => setMobileMenuOpen(false)}
+        style={{
+          ...groupLinkStyle(location.pathname === "/"),
+          marginBottom: "12px",
+          fontSize: "14px",
+          fontWeight: "bold",
+        }}
+      >
+        Dashboard
+      </Link>
+
+      {groupedNavigation.map((group) => {
+        const active = group.items.some(
+          (item) => location.pathname === item.path
+        );
+
+        return (
+          <details
+            key={`${group.label}-${location.pathname}`}
+            open={active || undefined}
+            style={{
+              marginBottom: "6px",
+              borderRadius: "10px",
+              background: active
+                ? "rgba(255,255,255,0.06)"
+                : "transparent",
+            }}
+          >
+            <summary
+              style={{
+                cursor: "pointer",
+                padding: "13px 12px",
+                color: active ? "white" : "#d8e5ff",
+                fontSize: "12px",
+                fontWeight: "bold",
+                letterSpacing: "0.7px",
+                textTransform: "uppercase",
+              }}
+            >
+              {group.label}
+            </summary>
+
+            <div style={{ padding: "0 0 8px 8px" }}>
+              {group.items.map((item) => (
+                <Link
+                  key={item.path}
+                  to={item.path}
+                  onClick={() => setMobileMenuOpen(false)}
+                  style={groupLinkStyle(
+                    location.pathname === item.path
+                  )}
+                >
+                  {item.label}
+                </Link>
+              ))}
+            </div>
+          </details>
+        );
+      })}
+
+      {remainingNavigation.map((item) => (
+        <Link
+          key={item.path}
+          to={item.path}
+          onClick={() => setMobileMenuOpen(false)}
+          style={groupLinkStyle(location.pathname === item.path)}
+        >
+          {item.label}
+        </Link>
+      ))}
+    </nav>
+  );
 
   const bottomItems = [
     { label: "Home", path: "/" },
@@ -418,7 +591,7 @@ const subNavItemStyle = (active) => ({
                 width: "82%",
                 maxWidth: "330px",
                 height: "100%",
-                backgroundColor: "#253a95",
+                backgroundColor: "#1644a3",
                 color: "white",
                 overflowY: "auto",
                 paddingBottom: "30px",
@@ -429,63 +602,7 @@ const subNavItemStyle = (active) => ({
                 Eltham Konnect
               </div>
 
-              {navItems.slice(0, 8).map((item) => (
-  <Link
-    key={item.path}
-    to={item.path}
-    onClick={() => setMobileMenuOpen(false)}
-    style={navItemStyle(location.pathname === item.path)}
-  >
-    {item.label}
-  </Link>
-))}
-
-{financeItems.length > 0 && (
-  <>
-    <button
-      onClick={() => setFinanceOpen((prev) => !prev)}
-      style={{
-        ...navItemStyle(location.pathname.startsWith("/finance")),
-        width: "100%",
-        border: "none",
-        cursor: "pointer",
-        textAlign: "left",
-        background:
-          location.pathname.startsWith("/finance")
-            ? "rgba(255,255,255,0.13)"
-            : "transparent",
-      }}
-    >
-      Finance
-      <span style={{ marginLeft: "auto", float: "right" }}>
-        {financeOpen ? "⌄" : "›"}
-      </span>
-    </button>
-
-    {financeOpen &&
-      financeItems.map((item) => (
-        <Link
-          key={item.path}
-          to={item.path}
-          onClick={() => setMobileMenuOpen(false)}
-          style={subNavItemStyle(location.pathname === item.path)}
-        >
-          {item.label}
-        </Link>
-      ))}
-  </>
-)}
-
-{navItems.slice(8).map((item) => (
-  <Link
-    key={item.path}
-    to={item.path}
-    onClick={() => setMobileMenuOpen(false)}
-    style={navItemStyle(location.pathname === item.path)}
-  >
-    {item.label}
-  </Link>
-))}
+              {renderGroupedNavigation()}
 
               <button
                 onClick={logout}
@@ -569,7 +686,7 @@ const subNavItemStyle = (active) => ({
     width: "250px",
     minWidth: "250px",
     height: "100vh",
-    backgroundColor: "#253a95",
+    backgroundColor: "#1644a3",
     color: "white",
     display: "flex",
     flexDirection: "column",
@@ -587,48 +704,7 @@ const subNavItemStyle = (active) => ({
           Eltham Konnect
         </div>
 
-        {navItems.slice(0, 8).map((item) => (
-  <Link key={item.path} to={item.path} style={navItemStyle(location.pathname === item.path)}>
-    <span>●</span>
-    {item.label}
-  </Link>
-))}
-
-{financeItems.length > 0 && (
-  <>
-    <button
-      onClick={() => setFinanceOpen((prev) => !prev)}
-      style={{
-        ...navItemStyle(location.pathname.startsWith("/finance")),
-        width: "100%",
-        background: location.pathname.startsWith("/finance")
-          ? "rgba(255,255,255,0.13)"
-          : "transparent",
-        border: "none",
-        cursor: "pointer",
-        textAlign: "left",
-      }}
-    >
-      <span>◈</span>
-      Finance
-      <span style={{ marginLeft: "auto" }}>{financeOpen ? "⌄" : "›"}</span>
-    </button>
-
-    {financeOpen &&
-      financeItems.map((item) => (
-        <Link key={item.path} to={item.path} style={subNavItemStyle(location.pathname === item.path)}>
-          {item.label}
-        </Link>
-      ))}
-  </>
-)}
-
-{navItems.slice(8).map((item) => (
-  <Link key={item.path} to={item.path} style={navItemStyle(location.pathname === item.path)}>
-    <span>●</span>
-    {item.label}
-  </Link>
-))}
+        {renderGroupedNavigation()}
       </div>
 
       <div
@@ -733,6 +809,26 @@ const subNavItemStyle = (active) => ({
       </div>
     </div>
   );
+}
+
+function groupLinkStyle(active) {
+  return {
+    display: "block",
+    padding: "10px 12px",
+    margin: "3px 0",
+    borderRadius: "7px",
+    borderLeft: active
+      ? "3px solid #ff802f"
+      : "3px solid transparent",
+    backgroundColor: active
+      ? "rgba(255,255,255,0.13)"
+      : "transparent",
+    color: active ? "#ffffff" : "#e0eaff",
+    textDecoration: "none",
+    fontSize: "13px",
+    fontWeight: active ? "bold" : "normal",
+    lineHeight: 1.4,
+  };
 }
 
 function mobileActionButton(enabled, color) {
