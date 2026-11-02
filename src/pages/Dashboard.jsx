@@ -564,6 +564,28 @@ function Dashboard() {
       ["Average collection days", data.current.averageDaysToCollect,
         data.previous.averageDaysToCollect],
       [],
+            ["Invoiced JMD", data.current.invoiced,
+        data.previous.invoiced],
+      ["Currently uncollected packages", data.uncollected?.count],
+      ["Currently uncollected weight lbs", data.uncollected?.weight],
+      [],
+      ["Uncollected waiting period", "Packages", "Weight lbs"],
+      ...(data.uncollected?.buckets || []).map((row) => [
+        row.label, row.count, row.weight,
+      ]),
+      [],
+      ["Top customer", "EKON ID", "Receipts JMD", "Packages received"],
+      ...(data.topCustomers?.rows || []).map((row) => [
+        row.customerName, row.customerEkonId,
+        row.amount, row.packagesReceived,
+      ]),
+      ["Receipts without customer ID",
+        data.topCustomers?.unidentifiedReceipts],
+      [],
+      ["Invoicing basis", data.invoicing?.basis],
+      ["Comparison scope",
+        "Invoicing excludes marketplace; collections include recorded invoice payments including marketplace. Not a reconciliation."],
+      [],
       ["Current balances", "JMD"],
       ["Invoice receivables", data.receivables?.outstanding],
       ["Vendor payables", data.payables?.outstanding],
@@ -814,6 +836,13 @@ function Dashboard() {
               format={(value) =>
                 value == null ? "Not available" : `${value} days`}
               note={`${current.collectionTimeSampleSize || 0} packages with usable dates`} />
+                          <OperationalMetric
+              title="Invoiced"
+              value={current.invoiced}
+              previous={previous.invoiced}
+              format={dashboardMoney}
+              note="By creation date · excludes marketplace"
+            />
             <OperationalMetric title="Accounts payable"
               value={data.payables?.outstanding}
               format={dashboardMoney} compare={false}
@@ -839,22 +868,54 @@ function Dashboard() {
               </div>
             </OperationalPanel>
 
-            <OperationalPanel title="Money collected"
-              note="Daily recorded receipts · refunds not deducted">
+                        <OperationalPanel
+              title="Invoiced vs collected"
+              note="Invoice face value versus gross receipts · marketplace excluded from invoiced"
+            >
               <div style={{ height: 280, width: "100%", minWidth: 0 }}>
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={data.daily}>
-                    <CartesianGrid vertical={false} stroke="#e9edf5" />
-                    <XAxis dataKey="date" tickFormatter={(date) => date.slice(5)}
-                      tick={{ fontSize: 10 }} minTickGap={24} />
-                    <YAxis tickFormatter={(value) =>
-                      `J$${Number(value).toLocaleString()}`}
-                      tick={{ fontSize: 10 }} width={75} />
-                    <Tooltip formatter={(value) => dashboardMoney(value)} />
-                    <Bar dataKey="moneyCollected" name="Receipts" fill="#f4772c" />
+                    <CartesianGrid
+                      vertical={false}
+                      stroke="#e9edf5"
+                    />
+                    <XAxis
+                      dataKey="date"
+                      tickFormatter={(date) => date.slice(5)}
+                      tick={{ fontSize: 10 }}
+                      minTickGap={24}
+                    />
+                    <YAxis
+                      tickFormatter={(value) =>
+                        `J$${Number(value).toLocaleString()}`
+                      }
+                      tick={{ fontSize: 10 }}
+                      width={75}
+                    />
+                    <Tooltip
+                      formatter={(value) => dashboardMoney(value)}
+                    />
+                    <Legend />
+                    <Bar
+                      dataKey="invoiced"
+                      name="Invoiced"
+                      fill="#2861dc"
+                    />
+                    <Bar
+                      dataKey="moneyCollected"
+                      name="Collected"
+                      fill="#f4772c"
+                    />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
+              <p className="ek9-note">
+                {data.invoicing?.basis}
+                {" "}Collections include recorded invoice payments
+                across channels, including marketplace payments;
+                refunds are not deducted. These series have different
+                scopes and are not a reconciliation.
+              </p>
             </OperationalPanel>
 
             <OperationalPanel title="Where this period’s packages are now"
@@ -868,6 +929,104 @@ function Dashboard() {
               note="Recorded payment branch · unknown branches remain unassigned">
               <OperationalBars rows={data.collections?.byBranch}
                 labelKey="branch" valueKey="amount" money />
+            </OperationalPanel>
+          </div>
+
+                    <div className="ek9-columns">
+            <OperationalPanel
+              title="Uncollected packages"
+              note="Ready for pickup right now · includes paid packages"
+            >
+              <div className="ek9-bar-label">
+                <strong>
+                  {dashboardNumber(data.uncollected?.count)} packages
+                </strong>
+                <span>
+                  {dashboardNumber(data.uncollected?.weight)} lbs
+                </span>
+              </div>
+
+              <OperationalBars
+                rows={data.uncollected?.buckets}
+                labelKey="label"
+                valueKey="count"
+              />
+
+              <div className="ek9-table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Waiting period</th>
+                      <th>Packages</th>
+                      <th>Weight</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(data.uncollected?.buckets || []).map((row) => (
+                      <tr key={row.label}>
+                        <td>{row.label}</td>
+                        <td>{dashboardNumber(row.count)}</td>
+                        <td>{dashboardNumber(row.weight)} lbs</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              <p className="ek9-note">
+                {data.uncollected?.note}
+              </p>
+            </OperationalPanel>
+
+            <OperationalPanel
+              title="Top customers"
+              note="By identified receipts, then packages received"
+            >
+              <div className="ek9-table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Customer</th>
+                      <th>Receipts</th>
+                      <th>Packages</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(data.topCustomers?.rows || []).map((row) => (
+                      <tr key={row.customerEkonId}>
+                        <td>
+                          <strong>{row.customerName}</strong>
+                          <br />
+                          {row.customerEkonId}
+                        </td>
+                        <td>{dashboardMoney(row.amount)}</td>
+                        <td>
+                          {dashboardNumber(row.packagesReceived)}
+                        </td>
+                      </tr>
+                    ))}
+
+                    {!data.topCustomers?.rows?.length && (
+                      <tr>
+                        <td colSpan={3}>
+                          No identified customer receipts in this period.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              <p className="ek9-note">
+                {data.topCustomers?.basis}
+              </p>
+              <p className="ek9-note">
+                Receipts without a customer ID:{" "}
+                {dashboardMoney(
+                  data.topCustomers?.unidentifiedReceipts
+                )}
+                . These remain included in total collections.
+              </p>
             </OperationalPanel>
           </div>
 
