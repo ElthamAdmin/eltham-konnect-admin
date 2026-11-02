@@ -1,6 +1,7 @@
 import { Routes, Route, Link, Navigate, useLocation } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
 import api from "./api";
+import "./adminTheme.css";
 import { useAuth } from "./context/AuthContext";
 import ProtectedApp from "./components/ProtectedApp";
 
@@ -66,6 +67,92 @@ function AppShell() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [desktopSidebarOpen, setDesktopSidebarOpen] = useState(true);
     const [headerSearch, setHeaderSearch] = useState("");
+      const themeStorageKey = `ek_admin_theme_${
+    user?.userId || user?._id || user?.email || "staff"
+  }`;
+
+  const [themePreference, setThemePreference] = useState(null);
+
+  let savedTheme = "light";
+
+  try {
+    savedTheme =
+      localStorage.getItem(themeStorageKey) === "dark"
+        ? "dark"
+        : "light";
+  } catch {
+    // Theme switching still works when browser storage is unavailable.
+  }
+
+  const theme =
+    themePreference?.key === themeStorageKey
+      ? themePreference.value
+      : savedTheme;
+
+  useEffect(() => {
+    document.documentElement.dataset.ekTheme = theme;
+
+    try {
+      localStorage.setItem(themeStorageKey, theme);
+    } catch {
+      // Keep the current session's selection.
+    }
+
+    return () => {
+      delete document.documentElement.dataset.ekTheme;
+    };
+  }, [theme, themeStorageKey]);
+
+  const renderThemeToggle = () => (
+    <button
+      type="button"
+      aria-label={
+        theme === "dark" ? "Switch to light theme" : "Switch to dark theme"
+      }
+      title={
+        theme === "dark" ? "Switch to light theme" : "Switch to dark theme"
+      }
+      onClick={() =>
+        setThemePreference({
+          key: themeStorageKey,
+          value: theme === "dark" ? "light" : "dark",
+        })
+      }
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        width: "40px",
+        height: "40px",
+        flexShrink: 0,
+        borderRadius: "9px",
+        border: "1px solid #a5b4cf",
+        background: theme === "dark" ? "#202c3e" : "#eef3ff",
+        color: theme === "dark" ? "#ffd294" : "#1644a3",
+        cursor: "pointer",
+      }}
+    >
+      <svg
+        width="21"
+        height="21"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        aria-hidden="true"
+      >
+        {theme === "dark" ? (
+          <>
+            <circle cx="12" cy="12" r="4" />
+            <path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5 19 19M5 19l1.5-1.5M17.5 6.5 19 5" />
+          </>
+        ) : (
+          <path d="M20.5 14A9 9 0 0 1 10 3.5 9 9 0 1 0 20.5 14Z" />
+        )}
+      </svg>
+    </button>
+  );
 
   const [isMobile, setIsMobile] = useState(() => window.innerWidth <= 900);
 
@@ -611,7 +698,18 @@ const subNavItemStyle = (active) => ({
             </button>
           </div>
 
-          <div style={{ marginTop: "10px" }}>{dutyBadge(dutyStatus)}</div>
+                    <div
+            style={{
+              marginTop: "10px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: "12px",
+            }}
+          >
+            {dutyBadge(dutyStatus)}
+            {renderThemeToggle()}
+          </div>
         </div>
 
         {mobileMenuOpen && (
@@ -755,7 +853,8 @@ const subNavItemStyle = (active) => ({
     flexDirection: "column",
   }}
 >
-                <header
+                        <header
+          className="ek-admin-header"
           style={{
             minHeight: "76px",
             flexShrink: 0,
@@ -917,6 +1016,7 @@ const subNavItemStyle = (active) => ({
               marginLeft: "auto",
             }}
           >
+            {renderThemeToggle()}
             <details style={{ position: "relative" }}>
               <summary
                 style={{

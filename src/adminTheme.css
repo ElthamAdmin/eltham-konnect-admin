@@ -1,0 +1,126 @@
+html[data-ek-theme="dark"] {
+  color-scheme: dark;
+}
+
+html[data-ek-theme="dark"] .ek-admin-header {
+  background: #202b3b !important;
+  border-color: #39465a !important;
+  color: #e8eef8;
+}
+
+html[data-ek-theme="dark"] .ek-admin-header strong,
+html[data-ek-theme="dark"] .ek-admin-header a {
+  color: #dce8ff !important;
+}
+
+html[data-ek-theme="dark"] .ek-admin-header input {
+  color: #edf3ff !important;
+  background: #172233 !important;
+}
+
+html[data-ek-theme="dark"] .ek-admin-header input::placeholder {
+  color: #a6b5cb;
+}
+
+/* Header search, profile and attendance surfaces. */
+html[data-ek-theme="dark"] .ek-admin-header div {
+  color: #bdcbe0 !important;
+}
+
+html[data-ek-theme="dark"] .ek-admin-header div[style*="background"] {
+  background-color: #202b3b !important;
+  border-color: #39465a !important;
+}
+
+html[data-ek-theme="dark"] .ek-admin-header > button,
+html[data-ek-theme="dark"] .ek-admin-header summary,
+html[data-ek-theme="dark"] .ek-admin-header button[type="button"] {
+  background: #29374b !important;
+  color: #e5edff !important;
+  border-color: #47566e !important;
+}
+
+/* Dashboard surfaces. Other module forms retain their own styles. */
+html[data-ek-theme="dark"] .ek9 {
+  background: #111a29;
+  color: #e4ebf7;
+  border-radius: 12px;
+  padding: 18px;
+}
+
+html[data-ek-theme="dark"] .ek9 .ek9-panel {
+  background: #202b3b;
+  border-color: #39465a;
+  box-shadow: none;
+}
+
+html[data-ek-theme="dark"] .ek9 h1,
+html[data-ek-theme="dark"] .ek9 h2,
+html[data-ek-theme="dark"] .ek9 .ek9-value,
+html[data-ek-theme="dark"] .ek9 summary,
+html[data-ek-theme="dark"] .ek9 a {
+  color: #d9e7ff;
+}
+
+html[data-ek-theme="dark"] .ek9 .ek9-label,
+html[data-ek-theme="dark"] .ek9 .ek9-note,
+html[data-ek-theme="dark"] .ek9 th {
+  color: #b5c4da;
+}
+
+html[data-ek-theme="dark"] .ek9 button,
+html[data-ek-theme="dark"] .ek9 input,
+html[data-ek-theme="dark"] .ek9 select {
+  background: #29374b;
+  border-color: #47566e;
+  color: #e3edff;
+}
+
+html[data-ek-theme="dark"] .ek9 button[aria-pressed="true"],
+html[data-ek-theme="dark"] .ek9 .ek9-primary {
+  background: #2861dc;
+  border-color: #2861dc;
+  color: white;
+}
+
+html[data-ek-theme="dark"] .ek9 .ek9-comparison {
+  background: #2c405e;
+  color: #d4e5ff;
+}
+
+html[data-ek-theme="dark"] .ek9 .ek9-notice {
+  background: #35291f;
+  color: #ffe0bf;
+}
+
+html[data-ek-theme="dark"] .ek9 .ek9-track {
+  background: #354256;
+}
+
+html[data-ek-theme="dark"] .ek9 th,
+html[data-ek-theme="dark"] .ek9 td {
+  border-color: #3b485c;
+  background: transparent;
+  color: #dce6f5;
+}
+
+html[data-ek-theme="dark"] .ek9 .recharts-cartesian-axis-tick text,
+html[data-ek-theme="dark"] .ek9 .recharts-legend-item-text {
+  fill: #bbc9dd;
+  color: #bbc9dd !important;
+}
+
+html[data-ek-theme="dark"] .ek9 .recharts-default-tooltip {
+  background: #202b3b !important;
+  border-color: #47566e !important;
+  color: #edf3ff;
+}
+
+/* Keep the retained older reports readable in their original theme. */
+html[data-ek-theme="dark"] .ek9 .ek9-legacy {
+  background: #f4f6fb;
+  color: #17345b;
+  padding: 16px;
+  border-radius: 10px;
+  color-scheme: light;
+}

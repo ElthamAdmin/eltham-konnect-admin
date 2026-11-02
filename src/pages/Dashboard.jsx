@@ -1158,7 +1158,9 @@ function Dashboard() {
         <summary>Previous dashboard reports</summary>
         {showLegacy && (
           <div style={{ marginTop: 20 }}>
-            <LegacyDashboard />
+                        <div className="ek9-legacy">
+              <LegacyDashboard />
+            </div>
           </div>
         )}
       </details>
