@@ -489,6 +489,11 @@ function Dashboard() {
   const [error, setError] = useState("");
   const [refresh, setRefresh] = useState(0);
   const [showLegacy, setShowLegacy] = useState(false);
+    const [branch, setBranch] = useState("");
+  const [branchOptions, setBranchOptions] = useState([
+    { value: "", label: "All stores" },
+    { value: "__unassigned__", label: "Unassigned" },
+  ]);
 
   useEffect(() => {
     let active = true;
@@ -501,14 +506,25 @@ function Dashboard() {
       try {
         const response = await api.get(
           "/api/finance/operational-dashboard",
-          { params: range }
+                    { params: { ...range, branch } }
         );
 
         if (!response.data.success || !response.data.data) {
           throw new Error("Dashboard response was unavailable.");
         }
 
-        if (active) setData(response.data.data);
+                if (active) {
+          const dashboard = response.data.data;
+
+          if (!Array.isArray(dashboard.filters?.branchOptions)) {
+            throw new Error(
+              "Store filtering is not available yet. Check that the latest backend deployment is live."
+            );
+          }
+
+          setData(dashboard);
+          setBranchOptions(dashboard.filters.branchOptions);
+        }
       } catch (failure) {
         if (active) {
           setError(
@@ -527,7 +543,7 @@ function Dashboard() {
     return () => {
       active = false;
     };
-  }, [range.from, range.to, refresh]);
+    }, [range.from, range.to, branch, refresh]);
 
   const choosePreset = (value) => {
     setPreset(value);
@@ -535,7 +551,13 @@ function Dashboard() {
   };
 
   const exportReport = () => {
-    if (!data) return;
+        if (
+      !data ||
+      loading ||
+      data.filters.branch !== branch ||
+      data.filters.from !== range.from ||
+      data.filters.to !== range.to
+    ) return;
 
     const escape = (value) => {
       let text = String(value ?? "");
@@ -549,7 +571,10 @@ function Dashboard() {
     const rows = [
       ["EKOS dashboard report"],
       ["Period", data.filters.from, data.filters.to],
-      ["Scope", "All stores"],
+            ["Selected store", data.filters.scope],
+      ["Scope explanation", data.filters.scopeNote],
+      ["Company-wide figures",
+        "Packages, customer signups, invoicing and AR/AP. Package counts beside top customers are company-wide."],
       ["Measure", "Selected period", "Previous period"],
       ["Packages received", data.current.packagesReceived,
         data.previous.packagesReceived],
@@ -589,6 +614,14 @@ function Dashboard() {
       ["Current balances", "JMD"],
       ["Invoice receivables", data.receivables?.outstanding],
       ["Vendor payables", data.payables?.outstanding],
+            ["Shopping assistance store",
+        data.shoppingAssistance?.scope],
+      ["Shopping purchases in selected period",
+        data.shoppingAssistance?.period?.purchaseCount],
+      ["Shopping goods cost JMD",
+        data.shoppingAssistance?.period?.goodsCost],
+      ["Recorded shopping assistance fees JMD",
+        data.shoppingAssistance?.period?.recordedAssistanceFees],
       ["Shopping customer charges — do not add to receivables",
         data.shoppingAssistance?.current?.outstandingCustomerCharges],
       [],
@@ -789,9 +822,38 @@ function Dashboard() {
         </div>
       )}
 
+            <div className="ek9-toolbar">
+        <label
+          htmlFor="dashboard-store"
+          style={{
+            display: "grid",
+            gap: "7px",
+            fontSize: "13px",
+            fontWeight: "bold",
+          }}
+        >
+          Store — collections & shopping assistance
+          <select
+            id="dashboard-store"
+            value={branch}
+            disabled={loading}
+            onChange={(event) => setBranch(event.target.value)}
+            style={{ minWidth: "220px", maxWidth: "100%" }}
+          >
+            {branchOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+
       <p className="ek9-note">
-        All stores · Balances and current package statuses are shown as
-        they stand now. Activity follows the selected period.
+        {data?.filters?.scopeNote ||
+          "Store selection applies to collections and shopping assistance. Packages, customer signups, invoicing and AR/AP remain company-wide."}
+        {" "}Balances and current package statuses are shown as they
+        stand now. Activity follows the selected period.
       </p>
 
       {error && <div className="ek9-notice" role="alert">{error}</div>}
@@ -816,7 +878,7 @@ function Dashboard() {
               value={current.moneyCollected}
               previous={previous.moneyCollected}
               format={dashboardMoney}
-              note="Gross receipts · excludes EK Points" />
+              note={`${data.filters.scope} · gross receipts · excludes EK Points`} />
             <OperationalMetric title="Invoice receivables"
               value={data.receivables?.outstanding}
               format={dashboardMoney} compare={false}
@@ -926,7 +988,7 @@ function Dashboard() {
             </OperationalPanel>
 
             <OperationalPanel title="Collections by store"
-              note="Recorded payment branch · unknown branches remain unassigned">
+                            note={`${data.filters.scope} · recorded payment branches`}>
               <OperationalBars rows={data.collections?.byBranch}
                 labelKey="branch" valueKey="amount" money />
             </OperationalPanel>
@@ -980,7 +1042,7 @@ function Dashboard() {
 
             <OperationalPanel
               title="Top customers"
-              note="By identified receipts, then packages received"
+                            note={`${data.filters.scope} receipts · package counts are company-wide`}
             >
               <div className="ek9-table-wrap">
                 <table>
@@ -1031,7 +1093,7 @@ function Dashboard() {
           </div>
 
           <OperationalPanel title="Shopping assistance"
-            note="Purchase costs and recorded assistance fees are separate measures">
+                        note={`${shopping?.scope || data.filters.scope} · purchase costs and recorded assistance fees are separate measures`}>
             <div className="ek9-cards">
               <OperationalMetric title="Purchases in this period"
                 value={shopping?.period?.purchaseCount}
@@ -1094,7 +1156,7 @@ function Dashboard() {
           </div>
 
           <OperationalPanel title="Collected by cashier"
-            note="Payment counts include separate instalments on the same invoice">
+                        note={`${data.filters.scope} · payment counts include separate instalments on the same invoice`}>
             <div className="ek9-table-wrap">
               <table>
                 <thead><tr>
