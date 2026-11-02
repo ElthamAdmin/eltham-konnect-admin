@@ -64,6 +64,7 @@ function AppShell() {
   const location = useLocation();
   const [attendance, setAttendance] = useState(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [desktopSidebarOpen, setDesktopSidebarOpen] = useState(true);
   
 
   const [isMobile, setIsMobile] = useState(() => window.innerWidth <= 900);
@@ -270,8 +271,11 @@ const navItems = [
           fontSize: "14px",
           fontWeight: "bold",
         }}
-      >
-        Dashboard
+            >
+        <span style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+          <NavigationIcon name="Dashboard" />
+          Dashboard
+        </span>
       </Link>
 
       {groupedNavigation.map((group) => {
@@ -302,7 +306,17 @@ const navItems = [
                 textTransform: "uppercase",
               }}
             >
-              {group.label}
+                            <span
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "10px",
+                  verticalAlign: "middle",
+                }}
+              >
+                <NavigationIcon name={group.label} />
+                {group.label}
+              </span>
             </summary>
 
             <div style={{ padding: "0 0 8px 8px" }}>
@@ -682,13 +696,13 @@ const subNavItemStyle = (active) => ({
   }}
 >
       <div
-  style={{
-    width: "250px",
-    minWidth: "250px",
+    style={{
+    width: desktopSidebarOpen ? "250px" : "0px",
+    minWidth: desktopSidebarOpen ? "250px" : "0px",
     height: "100vh",
     backgroundColor: "#1644a3",
     color: "white",
-    display: "flex",
+    display: desktopSidebarOpen ? "flex" : "none",
     flexDirection: "column",
     overflowY: "auto",
   }}
@@ -729,7 +743,25 @@ const subNavItemStyle = (active) => ({
             gap: "14px",
           }}
         >
-          <div style={{ fontSize: "22px", color: "#64748b" }}>☰</div>
+          <button
+  type="button"
+  aria-label={
+    desktopSidebarOpen ? "Hide sidebar" : "Show sidebar"
+  }
+  aria-expanded={desktopSidebarOpen}
+  onClick={() => setDesktopSidebarOpen((open) => !open)}
+  style={{
+    background: "#eef3ff",
+    border: "1px solid #d6dfed",
+    borderRadius: "9px",
+    color: "#1644a3",
+    fontSize: "22px",
+    padding: "6px 12px",
+    cursor: "pointer",
+  }}
+>
+  ☰
+</button>
 
           <div
             style={{
@@ -808,6 +840,86 @@ const subNavItemStyle = (active) => ({
 </div>
       </div>
     </div>
+  );
+}
+
+function NavigationIcon({ name, size = 17 }) {
+  const paths = {
+    Dashboard: (
+      <>
+        <rect x="3" y="3" width="7" height="7" rx="1" />
+        <rect x="14" y="3" width="7" height="7" rx="1" />
+        <rect x="3" y="14" width="7" height="7" rx="1" />
+        <rect x="14" y="14" width="7" height="7" rx="1" />
+      </>
+    ),
+    Operations: (
+      <>
+        <path d="M4 8h16l1 12H3L4 8Z" />
+        <path d="M8 8V6a4 4 0 0 1 8 0v2M8 12h8" />
+      </>
+    ),
+    Financial: (
+      <>
+        <circle cx="12" cy="12" r="9" />
+        <path d="M12 6v12M15 8h-4a2 2 0 0 0 0 4h2a2 2 0 0 1 0 4H9" />
+      </>
+    ),
+    Customers: (
+      <>
+        <circle cx="9" cy="8" r="3" />
+        <path d="M3 21v-3a6 6 0 0 1 12 0v3M17 5a3 3 0 0 1 0 6M18 15a5 5 0 0 1 3 5" />
+      </>
+    ),
+    Delivery: (
+      <>
+        <path d="M3 5h11v12H3ZM14 9h4l3 4v4h-7" />
+        <circle cx="7" cy="18" r="2" />
+        <circle cx="18" cy="18" r="2" />
+      </>
+    ),
+    Communication: (
+      <>
+        <path d="M21 11a8 8 0 0 1-8 8H7l-4 3v-7a8 8 0 1 1 18-4Z" />
+        <path d="M7 10h10M7 14h6" />
+      </>
+    ),
+    Marketplace: (
+      <>
+        <path d="M3 3h2l3 12h11l2-8H6" />
+        <circle cx="9" cy="20" r="1" />
+        <circle cx="18" cy="20" r="1" />
+      </>
+    ),
+    "HR & Payroll": (
+      <>
+        <circle cx="12" cy="12" r="9" />
+        <path d="M12 6v6l4 3" />
+      </>
+    ),
+    Administration: (
+      <>
+        <path d="m9 3-1 3-3 1 1 3-2 2 2 2-1 3 3 1 1 3h6l1-3 3-1-1-3 2-2-2-2 1-3-3-1-1-3Z" />
+        <circle cx="12" cy="12" r="3" />
+      </>
+    ),
+  };
+
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      style={{ flexShrink: 0, verticalAlign: "middle" }}
+    >
+      {paths[name] || paths.Operations}
+    </svg>
   );
 }
 
