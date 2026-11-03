@@ -428,13 +428,14 @@ const removeGame = async (id) => {
       <option>Scratch Card</option>
       <option>Sudoku</option>
       <option>Find-a-Word</option>
+      <option>Snake</option>
     </select>
 
     <input
       name="question"
       placeholder="Question / Clue"
             disabled={
-        ["Sudoku", "Find-a-Word"].includes(gameData.gameType)
+                ["Sudoku", "Find-a-Word", "Snake"].includes(gameData.gameType)
       }
       value={gameData.question}
       onChange={handleGameChange}
@@ -445,7 +446,7 @@ const removeGame = async (id) => {
       name="correctAnswer"
       placeholder="Correct Answer"
                   disabled={
-        ["Sudoku", "Find-a-Word"].includes(gameData.gameType)
+                ["Sudoku", "Find-a-Word", "Snake"].includes(gameData.gameType)
       }
       value={gameData.correctAnswer}
       onChange={handleGameChange}
@@ -459,8 +460,8 @@ const removeGame = async (id) => {
           ? "3–10 words separated by commas, or leave blank"
           : "Options separated by commas"
       }
-                  disabled={
-        ["Sudoku", "Find-a-Word"].includes(gameData.gameType)
+                        disabled={
+        ["Sudoku", "Snake"].includes(gameData.gameType)
       }
       value={gameData.options}
       onChange={handleGameChange}
