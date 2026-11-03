@@ -426,11 +426,13 @@ const removeGame = async (id) => {
       <option>Scavenger Hunt</option>
       <option>Match Image</option>
       <option>Scratch Card</option>
+      <option>Sudoku</option>
     </select>
 
     <input
       name="question"
       placeholder="Question / Clue"
+      disabled={gameData.gameType === "Sudoku"}
       value={gameData.question}
       onChange={handleGameChange}
       style={{ padding: "10px", borderRadius: "8px", border: `1px solid ${BORDER}` }}
@@ -439,6 +441,7 @@ const removeGame = async (id) => {
     <input
       name="correctAnswer"
       placeholder="Correct Answer"
+            disabled={gameData.gameType === "Sudoku"}
       value={gameData.correctAnswer}
       onChange={handleGameChange}
       style={{ padding: "10px", borderRadius: "8px", border: `1px solid ${BORDER}` }}
@@ -447,6 +450,7 @@ const removeGame = async (id) => {
     <input
       name="options"
       placeholder="Options separated by commas"
+            disabled={gameData.gameType === "Sudoku"}
       value={gameData.options}
       onChange={handleGameChange}
       style={{ padding: "10px", borderRadius: "8px", border: `1px solid ${BORDER}` }}
