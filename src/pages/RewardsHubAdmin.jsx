@@ -430,14 +430,15 @@ const removeGame = async (id) => {
       <option>Find-a-Word</option>
       <option>Snake</option>
       <option>Chess</option>
+      <option>Crossword</option>
     </select>
 
     <input
       name="question"
       placeholder="Question / Clue"
                   disabled={
-        ["Sudoku", "Find-a-Word", "Snake", "Chess"]
-          .includes(gameData.gameType)
+        ["Sudoku", "Find-a-Word", "Snake", "Chess", "Crossword"]
+  .includes(gameData.gameType)
       }
       value={gameData.question}
       onChange={handleGameChange}
@@ -448,8 +449,8 @@ const removeGame = async (id) => {
       name="correctAnswer"
       placeholder="Correct Answer"
                         disabled={
-        ["Sudoku", "Find-a-Word", "Snake", "Chess"]
-          .includes(gameData.gameType)
+        ["Sudoku", "Find-a-Word", "Snake", "Chess", "Crossword"]
+  .includes(gameData.gameType)
       }
       value={gameData.correctAnswer}
       onChange={handleGameChange}
@@ -464,7 +465,7 @@ const removeGame = async (id) => {
           : "Options separated by commas"
       }
                               disabled={
-        ["Sudoku", "Snake", "Chess"]
+        ["Sudoku", "Snake", "Chess", "Crossword"]
           .includes(gameData.gameType)
       }
       value={gameData.options}
