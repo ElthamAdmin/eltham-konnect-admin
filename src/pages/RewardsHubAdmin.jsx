@@ -6,6 +6,16 @@ function RewardsHubAdmin() {
   const [entriesByPost, setEntriesByPost] = useState({});
   const [games, setGames] = useState([]);
   const [playsByGame, setPlaysByGame] = useState({});
+    const [crosswordMode, setCrosswordMode] = useState("custom");
+
+  const [crosswordEntries, setCrosswordEntries] = useState([
+    { answer: "", clue: "" },
+    { answer: "", clue: "" },
+    { answer: "", clue: "" },
+  ]);
+
+  const [answerKeys, setAnswerKeys] = useState({});
+  const [answerKeyLoading, setAnswerKeyLoading] = useState(null);
   const [gameData, setGameData] = useState({
   title: "",
   instructions: "",
@@ -171,12 +181,91 @@ const handleGameChange = (e) => {
 
 const createGame = async () => {
   try {
-    if (!gameData.title || !gameData.instructions || !gameData.gameType) {
+    if (
+      !gameData.title.trim() ||
+      !gameData.instructions.trim() ||
+      !gameData.gameType
+    ) {
       alert("Title, instructions, and game type are required.");
       return;
     }
 
-    await api.post("/api/rewards-hub-games", gameData);
+    const payload = {
+      ...gameData,
+      title: gameData.title.trim(),
+      instructions: gameData.instructions.trim(),
+    };
+
+    if (gameData.gameType === "Crossword") {
+      payload.question = "";
+      payload.correctAnswer = "";
+      payload.options = "";
+
+      if (crosswordMode === "custom") {
+        const entries = crosswordEntries.map((entry) => ({
+          answer: entry.answer.trim().toUpperCase(),
+          clue: entry.clue.trim(),
+        }));
+
+        if (
+          entries.length < 3 ||
+          entries.length > 8 ||
+          entries.some(
+            (entry) =>
+              !/^[A-Z]{3,12}$/.test(entry.answer) ||
+              !entry.clue ||
+              entry.clue.length > 250
+          )
+        ) {
+          alert(
+            "Enter 3–8 answers with a clue for each. " +
+            "Answers must contain 3–12 letters without spaces. " +
+            "Clues must contain 1–250 characters."
+          );
+          return;
+        }
+
+        if (
+          new Set(entries.map((entry) => entry.answer)).size !==
+          entries.length
+        ) {
+          alert("Crossword answers must be distinct.");
+          return;
+        }
+
+        payload.crosswordEntries = entries;
+      }
+    }
+
+    if (gameData.gameType === "Find-a-Word") {
+      const words = gameData.options
+        .split(",")
+        .map((word) => word.trim().toUpperCase())
+        .filter(Boolean);
+
+      if (
+        words.length > 0 &&
+        (
+          words.length < 3 ||
+          words.length > 10 ||
+          words.some((word) => !/^[A-Z]{3,12}$/.test(word)) ||
+          new Set(words).size !== words.length
+        )
+      ) {
+        alert(
+          "Enter 3–10 distinct words, separated by commas. " +
+          "Each word must contain 3–12 letters without spaces. " +
+          "Leave the list blank to use the default words."
+        );
+        return;
+      }
+
+      payload.options = words.join(",");
+      payload.question = "";
+      payload.correctAnswer = "";
+    }
+
+    await api.post("/api/rewards-hub-games", payload);
 
     setGameData({
       title: "",
@@ -191,10 +280,69 @@ const createGame = async () => {
       endDate: "",
     });
 
+    setCrosswordMode("custom");
+    setCrosswordEntries([
+      { answer: "", clue: "" },
+      { answer: "", clue: "" },
+      { answer: "", clue: "" },
+    ]);
+
     await fetchGames();
     alert("Game created successfully.");
   } catch (error) {
-    alert(error?.response?.data?.message || "Game could not be created.");
+    alert(
+      error?.response?.data?.message ||
+      "Game could not be created."
+    );
+  }
+};
+
+const updateCrosswordEntry = (index, field, value) => {
+  setCrosswordEntries((previous) =>
+    previous.map((entry, entryIndex) =>
+      entryIndex === index
+        ? {
+            ...entry,
+            [field]:
+              field === "answer"
+                ? value.toUpperCase()
+                : value,
+          }
+        : entry
+    )
+  );
+};
+
+const toggleAnswerKey = async (gameId) => {
+  if (answerKeyLoading) return;
+
+  if (answerKeys[gameId]) {
+    setAnswerKeys((previous) => {
+      const next = { ...previous };
+      delete next[gameId];
+      return next;
+    });
+    return;
+  }
+
+  setAnswerKeyLoading(gameId);
+
+  try {
+    const response = await api.get(
+      `/api/rewards-hub-games/${gameId}/answer-key`
+    );
+
+    setAnswerKeys((previous) => ({
+      ...previous,
+      [gameId]: response.data.data,
+    }));
+  } catch (error) {
+    alert(
+      error?.response?.data?.message ||
+      "Could not load the answer key."
+    );
+  } finally {
+    setAnswerKeyLoading(null);
   }
 };
 
@@ -457,21 +605,49 @@ const removeGame = async (id) => {
       style={{ padding: "10px", borderRadius: "8px", border: `1px solid ${BORDER}` }}
     />
 
-    <input
-      name="options"
-            placeholder={
-        gameData.gameType === "Find-a-Word"
-          ? "3–10 words separated by commas, or leave blank"
-          : "Options separated by commas"
-      }
-                              disabled={
-        ["Sudoku", "Snake", "Chess", "Crossword"]
-          .includes(gameData.gameType)
-      }
-      value={gameData.options}
-      onChange={handleGameChange}
-      style={{ padding: "10px", borderRadius: "8px", border: `1px solid ${BORDER}` }}
-    />
+        <label
+      style={{
+        display: "grid",
+        gap: "6px",
+        color: ROYAL_BLUE,
+        fontSize: "13px",
+      }}
+    >
+      {gameData.gameType === "Find-a-Word"
+        ? "Find-a-Word — custom word list"
+        : "Answer options"}
+
+      <input
+        name="options"
+        placeholder={
+          gameData.gameType === "Find-a-Word"
+            ? "ELTHAM, KONNECT, PACKAGE"
+            : "Options separated by commas"
+        }
+        disabled={
+          ["Sudoku", "Snake", "Chess", "Crossword"]
+            .includes(gameData.gameType)
+        }
+        value={gameData.options}
+        onChange={handleGameChange}
+        style={{
+          width: "100%",
+          minWidth: 0,
+          boxSizing: "border-box",
+          padding: "10px",
+          borderRadius: "8px",
+          border: `1px solid ${BORDER}`,
+        }}
+      />
+
+      {gameData.gameType === "Find-a-Word" ? (
+        <span style={{ color: MUTED, lineHeight: 1.5 }}>
+          Enter 3–10 distinct words, separated by commas.
+          Each word needs 3–12 letters without spaces.
+          Leave blank to use the default words.
+        </span>
+      ) : null}
+    </label>
 
     <input
       name="rewardText"
@@ -506,6 +682,204 @@ const removeGame = async (id) => {
       style={{ padding: "10px", borderRadius: "8px", border: `1px solid ${BORDER}` }}
     />
   </div>
+
+    {gameData.gameType === "Crossword" ? (
+    <div
+      style={{
+        marginTop: "16px",
+        padding: "16px",
+        border: `1px solid ${BORDER}`,
+        borderRadius: "10px",
+        backgroundColor: "#f8fafc",
+      }}
+    >
+      <h3 style={{ marginTop: 0, color: ROYAL_BLUE }}>
+        Crossword content
+      </h3>
+
+      <label
+        style={{
+          display: "grid",
+          gap: "6px",
+          maxWidth: "360px",
+        }}
+      >
+        Puzzle content
+
+        <select
+          value={crosswordMode}
+          onChange={(event) =>
+            setCrosswordMode(event.target.value)
+          }
+          style={{
+            padding: "10px",
+            borderRadius: "8px",
+            border: `1px solid ${BORDER}`,
+          }}
+        >
+          <option value="custom">
+            Use my own answers and clues
+          </option>
+          <option value="preset">
+            Use a built-in shipping puzzle
+          </option>
+        </select>
+      </label>
+
+      {crosswordMode === "custom" ? (
+        <>
+          <p style={{ color: MUTED, lineHeight: 1.6 }}>
+            Enter 3–8 distinct answers and their clues.
+            Answers need 3–12 letters without spaces.
+            Use words with shared letters so they can cross.
+            Every answer must fit before the game can publish.
+          </p>
+
+          {crosswordEntries.map((entry, index) => (
+            <div
+              key={index}
+              style={{
+                padding: "12px",
+                marginBottom: "10px",
+                border: `1px solid ${BORDER}`,
+                borderRadius: "8px",
+                backgroundColor: WHITE,
+              }}
+            >
+              <strong style={{ color: ROYAL_BLUE }}>
+                Entry {index + 1}
+              </strong>
+
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns:
+                    "repeat(auto-fit, minmax(180px, 1fr))",
+                  gap: "10px",
+                  marginTop: "8px",
+                }}
+              >
+                <label style={{ display: "grid", gap: "5px" }}>
+                  Answer
+
+                  <input
+                    type="text"
+                    value={entry.answer}
+                    maxLength={12}
+                    autoComplete="off"
+                    spellCheck={false}
+                    placeholder="PACKAGE"
+                    onChange={(event) =>
+                      updateCrosswordEntry(
+                        index,
+                        "answer",
+                        event.target.value
+                      )
+                    }
+                    style={{
+                      width: "100%",
+                      minWidth: 0,
+                      boxSizing: "border-box",
+                      padding: "10px",
+                      borderRadius: "8px",
+                      border: `1px solid ${BORDER}`,
+                    }}
+                  />
+                </label>
+
+                <label style={{ display: "grid", gap: "5px" }}>
+                  Customer clue
+
+                  <input
+                    type="text"
+                    value={entry.clue}
+                    maxLength={250}
+                    placeholder="An item boxed for transport"
+                    onChange={(event) =>
+                      updateCrosswordEntry(
+                        index,
+                        "clue",
+                        event.target.value
+                      )
+                    }
+                    style={{
+                      width: "100%",
+                      minWidth: 0,
+                      boxSizing: "border-box",
+                      padding: "10px",
+                      borderRadius: "8px",
+                      border: `1px solid ${BORDER}`,
+                    }}
+                  />
+                </label>
+              </div>
+
+              <button
+                type="button"
+                disabled={crosswordEntries.length <= 3}
+                onClick={() =>
+                  setCrosswordEntries((previous) =>
+                    previous.filter(
+                      (_, entryIndex) => entryIndex !== index
+                    )
+                  )
+                }
+                style={{
+                  marginTop: "10px",
+                  padding: "8px 12px",
+                  border: `1px solid ${BORDER}`,
+                  borderRadius: "8px",
+                  backgroundColor: WHITE,
+                  color: "#b91c1c",
+                  cursor:
+                    crosswordEntries.length <= 3
+                      ? "default"
+                      : "pointer",
+                  opacity:
+                    crosswordEntries.length <= 3 ? 0.5 : 1,
+                }}
+              >
+                Remove entry
+              </button>
+            </div>
+          ))}
+
+          <button
+            type="button"
+            disabled={crosswordEntries.length >= 8}
+            onClick={() =>
+              setCrosswordEntries((previous) =>
+                previous.length >= 8
+                  ? previous
+                  : [...previous, { answer: "", clue: "" }]
+              )
+            }
+            style={{
+              padding: "10px 14px",
+              border: `1px solid ${ROYAL_BLUE}`,
+              borderRadius: "8px",
+              backgroundColor: WHITE,
+              color: ROYAL_BLUE,
+              fontWeight: "bold",
+              cursor:
+                crosswordEntries.length >= 8
+                  ? "default"
+                  : "pointer",
+              opacity:
+                crosswordEntries.length >= 8 ? 0.5 : 1,
+            }}
+          >
+            Add answer and clue
+          </button>
+        </>
+      ) : (
+        <p style={{ color: MUTED, lineHeight: 1.6 }}>
+          A built-in shipping puzzle will be selected.
+          You can view its answer key after publishing.
+        </p>
+      )}
+    </div>
+  ) : null}
 
   <textarea
     name="instructions"
@@ -564,6 +938,114 @@ const removeGame = async (id) => {
           <p style={{ color: ROYAL_BLUE, fontWeight: "bold" }}>
             EK Points: {Number(game.rewardPoints || 0).toLocaleString()}
           </p>
+        ) : null}
+
+                {game.gameType === "Find-a-Word" ? (
+          <div
+            style={{
+              padding: "12px",
+              marginTop: "12px",
+              border: `1px solid ${BORDER}`,
+              borderRadius: "8px",
+              backgroundColor: "#f8fafc",
+            }}
+          >
+            <strong>Published word list</strong>
+            <p style={{ marginBottom: 0 }}>
+              {(game.publicConfig?.words || []).join(", ") ||
+                "No word list available."}
+            </p>
+          </div>
+        ) : null}
+
+        {game.gameType === "Crossword" ? (
+          <div style={{ marginTop: "12px" }}>
+            <button
+              type="button"
+              disabled={Boolean(answerKeyLoading)}
+              onClick={() => toggleAnswerKey(game._id)}
+              style={{
+                padding: "9px 13px",
+                border: `1px solid ${ROYAL_BLUE}`,
+                borderRadius: "8px",
+                backgroundColor: WHITE,
+                color: ROYAL_BLUE,
+                fontWeight: "bold",
+                cursor: answerKeyLoading ? "default" : "pointer",
+              }}
+            >
+              {answerKeyLoading === game._id
+                ? "Loading answer key..."
+                : answerKeys[game._id]
+                  ? "Hide answer key"
+                  : "View answer key"}
+            </button>
+
+            {answerKeys[game._id] ? (
+              <div
+                style={{
+                  marginTop: "10px",
+                  padding: "12px",
+                  border: `1px solid ${BORDER}`,
+                  borderRadius: "8px",
+                  backgroundColor: "#f8fafc",
+                  overflowX: "auto",
+                }}
+              >
+                <strong>Staff answer key</strong>
+
+                <table
+                  style={{
+                    width: "100%",
+                    minWidth: "420px",
+                    marginTop: "10px",
+                    borderCollapse: "collapse",
+                  }}
+                >
+                  <thead>
+                    <tr>
+                      <th style={{ textAlign: "left", padding: "8px" }}>
+                        Clue
+                      </th>
+                      <th style={{ textAlign: "left", padding: "8px" }}>
+                        Question
+                      </th>
+                      <th style={{ textAlign: "left", padding: "8px" }}>
+                        Answer
+                      </th>
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    {answerKeys[game._id].entries.map((entry) => (
+                      <tr
+                        key={`${entry.direction}-${entry.number}`}
+                      >
+                        <td style={{ padding: "8px" }}>
+                          {entry.number}{" "}
+                          {entry.direction === "across"
+                            ? "Across"
+                            : "Down"}
+                        </td>
+                        <td style={{ padding: "8px" }}>
+                          {entry.clue}
+                        </td>
+                        <td
+                          style={{
+                            padding: "8px",
+                            fontWeight: "bold",
+                            color: ROYAL_BLUE,
+                          }}
+                        >
+                          {entry.answer}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : null}
+          </div>
         ) : null}
 
         {playsByGame[game._id] ? (
