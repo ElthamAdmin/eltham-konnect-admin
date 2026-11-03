@@ -15,6 +15,7 @@ const TYPES = [
 export default function RewardsWheelEditor({
   segments,
   onChange,
+  isScratch = false,
 }) {
   const update = (index, field, value) => {
     onChange(
@@ -45,10 +46,14 @@ export default function RewardsWheelEditor({
 
   return (
     <section className="ek-wheel-editor">
-      <h3>Wheel prizes</h3>
+            <h3>
+        {isScratch ? "Scratch Card prizes" : "Wheel prizes"}
+      </h3>
 
-      <p>
-        Add 4–12 segments. Each segment has an equal chance.
+            <p>
+        {isScratch
+          ? "Add 4–12 possible prizes. Each entry has an equal chance. "
+          : "Add 4–12 segments. Each segment has an equal chance. "}
         Enter the full prize description, including its value
         and currency where relevant.
       </p>
@@ -58,6 +63,7 @@ export default function RewardsWheelEditor({
           className="ek-wheel-editor-disc"
           style={{
             background: `conic-gradient(${gradient})`,
+                        display: isScratch ? "none" : "grid",
           }}
           aria-hidden="true"
         >
@@ -65,7 +71,10 @@ export default function RewardsWheelEditor({
         </div>
 
         <div>
-          <strong>{segments.length} equal-chance segments</strong>
+                    <strong>
+            {segments.length} equal-chance{" "}
+            {isScratch ? "prize entries" : "segments"}
+          </strong>
           <p>
             Gift cards, phone credit and other prizes are saved
             as pending fulfilment. Only EK Points prizes change
@@ -81,7 +90,9 @@ export default function RewardsWheelEditor({
           style={{ borderLeftColor: COLORS[index] }}
         >
           <div className="ek-wheel-editor-heading">
-            <strong>Segment {index + 1}</strong>
+                        <strong>
+              {isScratch ? "Prize" : "Segment"} {index + 1}
+            </strong>
 
             <button
               type="button"
@@ -184,7 +195,7 @@ export default function RewardsWheelEditor({
           ])
         }
       >
-        Add segment
+               {isScratch ? "Add possible prize" : "Add segment"}
       </button>
 
       <p className="ek-wheel-editor-note">

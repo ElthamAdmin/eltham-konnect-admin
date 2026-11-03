@@ -273,7 +273,9 @@ const createGame = async () => {
       payload.correctAnswer = "";
     }
 
-        if (gameData.gameType === "Spin Wheel") {
+            if (
+      ["Spin Wheel", "Scratch Card"].includes(gameData.gameType)
+    ) {
       const segments = wheelSegments.map((segment) => ({
         label: segment.label.trim(),
         prizeType: segment.prizeType,
@@ -326,7 +328,11 @@ const createGame = async () => {
         return;
       }
 
-      payload.wheelSegments = segments;
+            if (gameData.gameType === "Scratch Card") {
+        payload.scratchPrizes = segments;
+      } else {
+        payload.wheelSegments = segments;
+      }
       payload.question = "";
       payload.correctAnswer = "";
       payload.options = "";
@@ -661,7 +667,7 @@ const removeGame = async (id) => {
       name="question"
       placeholder="Question / Clue"
                   disabled={
-        ["Sudoku", "Find-a-Word", "Snake", "Chess", "Crossword", "Spin Wheel"]
+        ["Sudoku", "Find-a-Word", "Snake", "Chess", "Crossword", "Spin Wheel", "Scratch Card"]
   .includes(gameData.gameType)
       }
       value={gameData.question}
@@ -673,7 +679,7 @@ const removeGame = async (id) => {
       name="correctAnswer"
       placeholder="Correct Answer"
                         disabled={
-        ["Sudoku", "Find-a-Word", "Snake", "Chess", "Crossword", "Spin Wheel"]
+        ["Sudoku", "Find-a-Word", "Snake", "Chess", "Crossword", "Spin Wheel", "Scratch Card"]
   .includes(gameData.gameType)
       }
       value={gameData.correctAnswer}
@@ -701,7 +707,7 @@ const removeGame = async (id) => {
             : "Options separated by commas"
         }
         disabled={
-          ["Sudoku", "Snake", "Chess", "Crossword", "Spin Wheel"]
+          ["Sudoku", "Snake", "Chess", "Crossword", "Spin Wheel", "Scratch Card"]
             .includes(gameData.gameType)
         }
         value={gameData.options}
@@ -736,13 +742,15 @@ const removeGame = async (id) => {
     <input
       type="number"
       name="rewardPoints"
-            placeholder={
-        gameData.gameType === "Spin Wheel"
-          ? "Set points in each wheel segment below"
+                  placeholder={
+        ["Spin Wheel", "Scratch Card"].includes(gameData.gameType)
+          ? "Set points in the prize editor below"
           : "EK Points Reward"
       }
       value={gameData.rewardPoints}
-            disabled={gameData.gameType === "Spin Wheel"}
+            disabled={
+  ["Spin Wheel", "Scratch Card"].includes(gameData.gameType)
+}
       onChange={handleGameChange}
       style={{ padding: "10px", borderRadius: "8px", border: `1px solid ${BORDER}` }}
     />
@@ -764,10 +772,11 @@ const removeGame = async (id) => {
     />
   </div>
 
-    {gameData.gameType === "Spin Wheel" ? (
+      {["Spin Wheel", "Scratch Card"].includes(gameData.gameType) ? (
     <RewardsWheelEditor
       segments={wheelSegments}
       onChange={setWheelSegments}
+      isScratch={gameData.gameType === "Scratch Card"}
     />
   ) : null}
 
