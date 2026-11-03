@@ -574,6 +574,7 @@ const removeGame = async (id) => {
                   <th>EKON ID</th>
                   <th>Answer</th>
                   <th>Correct</th>
+                  <th>Points Credited</th>
                   <th>Played At</th>
                 </tr>
               </thead>
@@ -584,6 +585,11 @@ const removeGame = async (id) => {
                     <td>{play.customerEkonId}</td>
                     <td>{play.submittedAnswer || "-"}</td>
                     <td>{play.isCorrect ? "YES" : "NO"}</td>
+                                        <td>
+                      {play.pointsAwarded == null
+                        ? "Not recorded"
+                        : play.pointsAwarded}
+                    </td>
                     <td>{play.createdAt ? new Date(play.createdAt).toLocaleString() : "-"}</td>
                   </tr>
                 ))}
