@@ -1,12 +1,20 @@
 import { useEffect, useState } from "react";
 import api from "../api";
 import RewardsWheelEditor from "../components/RewardsWheelEditor";
+import RewardsHuntEditor from "../components/RewardsHuntEditor";
 
 function RewardsHubAdmin() {
   const [posts, setPosts] = useState([]);
   const [entriesByPost, setEntriesByPost] = useState({});
   const [games, setGames] = useState([]);
   const [playsByGame, setPlaysByGame] = useState({});
+    const [huntClues, setHuntClues] = useState(
+    Array.from({ length: 3 }, () => ({
+      clue: "",
+      answer: "",
+      hint: "",
+    }))
+  );
     const [wheelSegments, setWheelSegments] = useState(
     Array.from({ length: 4 }, () => ({
       label: "",
@@ -339,6 +347,39 @@ const createGame = async () => {
       payload.rewardPoints = "0";
     }
 
+        if (gameData.gameType === "Scavenger Hunt") {
+      const clues = huntClues.map((entry) => ({
+        clue: entry.clue.trim(),
+        answer: entry.answer.trim(),
+        hint: entry.hint.trim(),
+      }));
+
+      if (
+        clues.length < 3 ||
+        clues.length > 8 ||
+        clues.some(
+          (entry) =>
+            !entry.clue ||
+            entry.clue.length > 300 ||
+            !entry.answer ||
+            entry.answer.length > 100 ||
+            entry.hint.length > 160
+        )
+      ) {
+        alert(
+          "Enter 3–8 clues with an answer for each. " +
+          "Clues can contain up to 300 characters, " +
+          "answers up to 100, and optional hints up to 160."
+        );
+        return;
+      }
+
+      payload.huntClues = clues;
+      payload.question = "";
+      payload.correctAnswer = "";
+      payload.options = "";
+    }
+
     await api.post("/api/rewards-hub-games", payload);
 
     setGameData({
@@ -359,6 +400,14 @@ const createGame = async () => {
         label: "",
         prizeType: "No Prize",
         points: "0",
+      }))
+    );
+
+        setHuntClues(
+      Array.from({ length: 3 }, () => ({
+        clue: "",
+        answer: "",
+        hint: "",
       }))
     );
 
@@ -667,7 +716,7 @@ const removeGame = async (id) => {
       name="question"
       placeholder="Question / Clue"
                   disabled={
-        ["Sudoku", "Find-a-Word", "Snake", "Chess", "Crossword", "Spin Wheel", "Scratch Card"]
+        ["Sudoku", "Find-a-Word", "Snake", "Chess", "Crossword", "Spin Wheel", "Scratch Card", "Scavenger Hunt",]
   .includes(gameData.gameType)
       }
       value={gameData.question}
@@ -679,7 +728,7 @@ const removeGame = async (id) => {
       name="correctAnswer"
       placeholder="Correct Answer"
                         disabled={
-        ["Sudoku", "Find-a-Word", "Snake", "Chess", "Crossword", "Spin Wheel", "Scratch Card"]
+        ["Sudoku", "Find-a-Word", "Snake", "Chess", "Crossword", "Spin Wheel", "Scratch Card", "Scavenger Hunt",]
   .includes(gameData.gameType)
       }
       value={gameData.correctAnswer}
@@ -707,7 +756,7 @@ const removeGame = async (id) => {
             : "Options separated by commas"
         }
         disabled={
-          ["Sudoku", "Snake", "Chess", "Crossword", "Spin Wheel", "Scratch Card"]
+          ["Sudoku", "Snake", "Chess", "Crossword", "Spin Wheel", "Scratch Card", "Scavenger Hunt"]
             .includes(gameData.gameType)
         }
         value={gameData.options}
@@ -777,6 +826,13 @@ const removeGame = async (id) => {
       segments={wheelSegments}
       onChange={setWheelSegments}
       isScratch={gameData.gameType === "Scratch Card"}
+    />
+  ) : null}
+
+    {gameData.gameType === "Scavenger Hunt" ? (
+    <RewardsHuntEditor
+      clues={huntClues}
+      onChange={setHuntClues}
     />
   ) : null}
 
