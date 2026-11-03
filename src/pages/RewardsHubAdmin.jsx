@@ -1,11 +1,19 @@
 import { useEffect, useState } from "react";
 import api from "../api";
+import RewardsWheelEditor from "../components/RewardsWheelEditor";
 
 function RewardsHubAdmin() {
   const [posts, setPosts] = useState([]);
   const [entriesByPost, setEntriesByPost] = useState({});
   const [games, setGames] = useState([]);
   const [playsByGame, setPlaysByGame] = useState({});
+    const [wheelSegments, setWheelSegments] = useState(
+    Array.from({ length: 4 }, () => ({
+      label: "",
+      prizeType: "No Prize",
+      points: "0",
+    }))
+  );
     const [crosswordMode, setCrosswordMode] = useState("custom");
 
   const [crosswordEntries, setCrosswordEntries] = useState([
@@ -265,6 +273,66 @@ const createGame = async () => {
       payload.correctAnswer = "";
     }
 
+        if (gameData.gameType === "Spin Wheel") {
+      const segments = wheelSegments.map((segment) => ({
+        label: segment.label.trim(),
+        prizeType: segment.prizeType,
+        points:
+          segment.prizeType === "Points"
+            ? segment.points
+            : "0",
+      }));
+
+      const validTypes = [
+        "Points",
+        "Gift Card",
+        "Phone Credit",
+        "Other",
+        "No Prize",
+      ];
+
+      const invalid = segments.some((segment) => {
+        if (
+          !segment.label ||
+          segment.label.length > 60 ||
+          !validTypes.includes(segment.prizeType)
+        ) {
+          return true;
+        }
+
+        if (segment.prizeType === "Points") {
+          const amount = Number(segment.points);
+
+          return (
+            !/^\d+$/.test(String(segment.points).trim()) ||
+            !Number.isSafeInteger(amount) ||
+            amount < 1 ||
+            amount > 1500
+          );
+        }
+
+        return false;
+      });
+
+      if (
+        segments.length < 4 ||
+        segments.length > 12 ||
+        invalid
+      ) {
+        alert(
+          "Enter 4–12 segments with a prize description and type. " +
+          "EK Points prizes must contain 1–1,500 whole points."
+        );
+        return;
+      }
+
+      payload.wheelSegments = segments;
+      payload.question = "";
+      payload.correctAnswer = "";
+      payload.options = "";
+      payload.rewardPoints = "0";
+    }
+
     await api.post("/api/rewards-hub-games", payload);
 
     setGameData({
@@ -279,6 +347,14 @@ const createGame = async () => {
       startDate: "",
       endDate: "",
     });
+
+        setWheelSegments(
+      Array.from({ length: 4 }, () => ({
+        label: "",
+        prizeType: "No Prize",
+        points: "0",
+      }))
+    );
 
     setCrosswordMode("custom");
     setCrosswordEntries([
@@ -585,7 +661,7 @@ const removeGame = async (id) => {
       name="question"
       placeholder="Question / Clue"
                   disabled={
-        ["Sudoku", "Find-a-Word", "Snake", "Chess", "Crossword"]
+        ["Sudoku", "Find-a-Word", "Snake", "Chess", "Crossword", "Spin Wheel"]
   .includes(gameData.gameType)
       }
       value={gameData.question}
@@ -597,7 +673,7 @@ const removeGame = async (id) => {
       name="correctAnswer"
       placeholder="Correct Answer"
                         disabled={
-        ["Sudoku", "Find-a-Word", "Snake", "Chess", "Crossword"]
+        ["Sudoku", "Find-a-Word", "Snake", "Chess", "Crossword", "Spin Wheel"]
   .includes(gameData.gameType)
       }
       value={gameData.correctAnswer}
@@ -625,7 +701,7 @@ const removeGame = async (id) => {
             : "Options separated by commas"
         }
         disabled={
-          ["Sudoku", "Snake", "Chess", "Crossword"]
+          ["Sudoku", "Snake", "Chess", "Crossword", "Spin Wheel"]
             .includes(gameData.gameType)
         }
         value={gameData.options}
@@ -660,8 +736,13 @@ const removeGame = async (id) => {
     <input
       type="number"
       name="rewardPoints"
-      placeholder="EK Points Reward"
+            placeholder={
+        gameData.gameType === "Spin Wheel"
+          ? "Set points in each wheel segment below"
+          : "EK Points Reward"
+      }
       value={gameData.rewardPoints}
+            disabled={gameData.gameType === "Spin Wheel"}
       onChange={handleGameChange}
       style={{ padding: "10px", borderRadius: "8px", border: `1px solid ${BORDER}` }}
     />
@@ -682,6 +763,13 @@ const removeGame = async (id) => {
       style={{ padding: "10px", borderRadius: "8px", border: `1px solid ${BORDER}` }}
     />
   </div>
+
+    {gameData.gameType === "Spin Wheel" ? (
+    <RewardsWheelEditor
+      segments={wheelSegments}
+      onChange={setWheelSegments}
+    />
+  ) : null}
 
     {gameData.gameType === "Crossword" ? (
     <div
@@ -1078,6 +1166,8 @@ const removeGame = async (id) => {
                   <th>Answer</th>
                   <th>Correct</th>
                   <th>Points Credited</th>
+                  <th>Prize</th>
+                  <th>Fulfilment</th>
                   <th>Played At</th>
                 </tr>
               </thead>
@@ -1092,6 +1182,31 @@ const removeGame = async (id) => {
                       {play.pointsAwarded == null
                         ? "Not recorded"
                         : play.pointsAwarded}
+                    </td>
+                                        <td>
+                      {play.outcome ? (
+                        <>
+                          <strong>{play.outcome.label}</strong>
+                          <div>
+                            {play.outcome.prizeType ||
+                              (play.outcome.points > 0
+                                ? "Points"
+                                : "No Prize")}
+                          </div>
+                        </>
+                      ) : (
+                        "-"
+                      )}
+                    </td>
+
+                    <td>
+                      {play.outcome?.fulfilmentStatus === "Pending" ? (
+                        <strong style={{ color: "#b45309" }}>
+                          Pending delivery
+                        </strong>
+                      ) : (
+                        play.outcome?.fulfilmentStatus || "-"
+                      )}
                     </td>
                     <td>{play.createdAt ? new Date(play.createdAt).toLocaleString() : "-"}</td>
                   </tr>
