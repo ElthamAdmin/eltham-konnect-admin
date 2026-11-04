@@ -8,6 +8,11 @@ function RewardsHubAdmin() {
   const [entriesByPost, setEntriesByPost] = useState({});
   const [games, setGames] = useState([]);
   const [playsByGame, setPlaysByGame] = useState({});
+    const [settingsGameId, setSettingsGameId] = useState(null);
+  const [settingsDraft, setSettingsDraft] = useState(null);
+  const [settingsSaving, setSettingsSaving] = useState(false);
+  const [settingsError, setSettingsError] = useState("");
+  const [settingsNotice, setSettingsNotice] = useState(null);
     const [huntClues, setHuntClues] = useState(
     Array.from({ length: 3 }, () => ({
       clue: "",
@@ -190,6 +195,116 @@ const fetchGames = async () => {
     console.error("Error loading Rewards Hub games:", error);
   }
 };
+
+const openGameSettings = (game) => {
+  if (settingsSaving) return;
+
+  setSettingsGameId(game._id);
+  setSettingsDraft({
+    rewardsEnabled: game.rewardsEnabled ?? true,
+    rewardFrequency: game.rewardFrequency || "Once Per Game",
+    scorePerSuccess: String(game.scorePerSuccess ?? 100),
+  });
+  setSettingsError("");
+  setSettingsNotice(null);
+};
+
+const closeGameSettings = () => {
+  if (settingsSaving) return;
+
+  setSettingsGameId(null);
+  setSettingsDraft(null);
+  setSettingsError("");
+};
+
+const changeGameSettings = (event) => {
+  const { name, type, checked, value } = event.target;
+
+  setSettingsDraft((previous) => ({
+    ...previous,
+    [name]: type === "checkbox" ? checked : value,
+  }));
+  setSettingsError("");
+};
+
+const saveGameSettings = async () => {
+  if (settingsSaving || !settingsGameId || !settingsDraft) return;
+
+  const rawScore = String(settingsDraft.scorePerSuccess).trim();
+  const score = Number(rawScore);
+
+  if (
+    !/^\d+$/.test(rawScore) ||
+    !Number.isSafeInteger(score) ||
+    score < 0 ||
+    score > 10000
+  ) {
+    setSettingsError(
+      "Game score must be a whole number from 0 to 10,000."
+    );
+    return;
+  }
+
+  if (
+    typeof settingsDraft.rewardsEnabled !== "boolean" ||
+    !["Once Per Game", "Daily"].includes(
+      settingsDraft.rewardFrequency
+    )
+  ) {
+    setSettingsError("Select valid reward settings.");
+    return;
+  }
+
+  const gameId = settingsGameId;
+
+  setSettingsSaving(true);
+  setSettingsError("");
+
+  try {
+    const response = await api.patch(
+      `/api/rewards-hub-games/${gameId}/settings`,
+      {
+        rewardsEnabled: settingsDraft.rewardsEnabled,
+        rewardFrequency: settingsDraft.rewardFrequency,
+        scorePerSuccess: score,
+      }
+    );
+
+    const updated = response.data?.data;
+
+    if (
+      !response.data?.success ||
+      String(updated?._id) !== String(gameId)
+    ) {
+      throw new Error("The settings update could not be confirmed.");
+    }
+
+    setGames((previous) =>
+      previous.map((game) =>
+        String(game._id) === String(gameId)
+          ? { ...game, ...updated }
+          : game
+      )
+    );
+
+    setSettingsGameId(null);
+    setSettingsDraft(null);
+    setSettingsNotice({
+      gameId,
+      message:
+        "Settings saved. Previous scores and rewards are unchanged.",
+    });
+  } catch (error) {
+    setSettingsError(
+      error.response?.data?.message ||
+        "Could not confirm the settings update. " +
+        "Retry Save settings, or refresh to check the saved values."
+    );
+  } finally {
+    setSettingsSaving(false);
+  }
+};
+
 
 const handleGameChange = (e) => {
   const { name, type, checked, value } = e.target;
@@ -1240,6 +1355,209 @@ const removeGame = async (id) => {
         <h3 style={{ marginTop: 0, color: ROYAL_BLUE }}>{game.title}</h3>
         <p style={{ color: MUTED }}>{game.gameType}</p>
         <p>{game.instructions}</p>
+                <div style={{ marginBottom: "14px" }}>
+          <button
+            type="button"
+            disabled={settingsSaving}
+            onClick={() =>
+              settingsGameId === game._id
+                ? closeGameSettings()
+                : openGameSettings(game)
+            }
+            style={{
+              minHeight: "44px",
+              padding: "10px 14px",
+              border: `1px solid ${ROYAL_BLUE}`,
+              borderRadius: "8px",
+              backgroundColor: WHITE,
+              color: ROYAL_BLUE,
+              fontWeight: "bold",
+              cursor: settingsSaving ? "default" : "pointer",
+            }}
+          >
+            {settingsGameId === game._id
+              ? "Close reward settings"
+              : "Edit reward settings"}
+          </button>
+
+          {settingsNotice?.gameId === game._id ? (
+            <p role="status" style={{ color: "#166534" }}>
+              {settingsNotice.message}
+            </p>
+          ) : null}
+
+          {settingsGameId === game._id && settingsDraft ? (
+            <section
+              aria-label={`Reward settings for ${game.title}`}
+              style={{
+                marginTop: "12px",
+                padding: "16px",
+                border: `1px solid ${BORDER}`,
+                borderRadius: "12px",
+                backgroundColor: "#f8fafc",
+              }}
+            >
+              <h4 style={{ marginTop: 0, color: ROYAL_BLUE }}>
+                Edit reward and score settings
+              </h4>
+
+              <fieldset
+                disabled={settingsSaving}
+                style={{
+                  margin: 0,
+                  padding: 0,
+                  border: 0,
+                  minWidth: 0,
+                }}
+              >
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns:
+                      "repeat(auto-fit, minmax(min(100%, 220px), 1fr))",
+                    gap: "16px",
+                  }}
+                >
+                  <label
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "10px",
+                      minHeight: "44px",
+                      fontWeight: "bold",
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      name="rewardsEnabled"
+                      checked={settingsDraft.rewardsEnabled}
+                      onChange={changeGameSettings}
+                      style={{ width: "20px", height: "20px" }}
+                    />
+                    Enable rewards
+                  </label>
+
+                  <label style={{ display: "grid", gap: "7px" }}>
+                    Reward allowance
+                    <select
+                      name="rewardFrequency"
+                      value={settingsDraft.rewardFrequency}
+                      onChange={changeGameSettings}
+                      disabled={!settingsDraft.rewardsEnabled}
+                      style={{
+                        minWidth: 0,
+                        width: "100%",
+                        minHeight: "44px",
+                        padding: "10px",
+                        border: `1px solid ${BORDER}`,
+                        borderRadius: "8px",
+                      }}
+                    >
+                      <option value="Once Per Game">
+                        Once per customer for this game
+                      </option>
+                      <option value="Daily">
+                        Once daily — Jamaica time
+                      </option>
+                    </select>
+                  </label>
+
+                  <label style={{ display: "grid", gap: "7px" }}>
+                    Game score per{" "}
+                    {["Spin Wheel", "Scratch Card"].includes(
+                      game.gameType
+                    )
+                      ? "completed play"
+                      : "successful play"}
+
+                    <input
+                      type="number"
+                      name="scorePerSuccess"
+                      min="0"
+                      max="10000"
+                      step="1"
+                      value={settingsDraft.scorePerSuccess}
+                      onChange={changeGameSettings}
+                      style={{
+                        minWidth: 0,
+                        width: "100%",
+                        minHeight: "44px",
+                        boxSizing: "border-box",
+                        padding: "10px",
+                        border: `1px solid ${BORDER}`,
+                        borderRadius: "8px",
+                      }}
+                    />
+                  </label>
+                </div>
+
+                <p style={{ lineHeight: 1.7 }}>
+                  {settingsDraft.rewardsEnabled
+                    ? settingsDraft.rewardFrequency === "Daily"
+                      ? "One reward opportunity per customer per Jamaica calendar day. Additional plays are practice."
+                      : "One reward opportunity per customer for this game. Additional plays are practice."
+                    : "All plays are practice. No new EK Points or prize deliveries are awarded."}
+                </p>
+
+                <p style={{ lineHeight: 1.7, color: MUTED }}>
+                  Changes apply to subsequent submissions.
+                  Turning rewards back on does not reset used
+                  allowances. Existing scores and awarded prizes
+                  remain saved. Set game score to 0 to stop new
+                  score earnings.
+                </p>
+
+                {settingsError ? (
+                  <p role="alert" style={{ color: "#b91c1c" }}>
+                    {settingsError}
+                  </p>
+                ) : null}
+
+                <div
+                  style={{
+                    display: "flex",
+                    gap: "10px",
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <button
+                    type="button"
+                    onClick={saveGameSettings}
+                    style={{
+                      minHeight: "44px",
+                      padding: "10px 14px",
+                      border: "none",
+                      borderRadius: "8px",
+                      backgroundColor: ROYAL_BLUE,
+                      color: WHITE,
+                      fontWeight: "bold",
+                      cursor: "pointer",
+                    }}
+                  >
+                    {settingsSaving ? "Saving…" : "Save settings"}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={closeGameSettings}
+                    style={{
+                      minHeight: "44px",
+                      padding: "10px 14px",
+                      border: `1px solid ${BORDER}`,
+                      borderRadius: "8px",
+                      backgroundColor: WHITE,
+                      color: ROYAL_BLUE,
+                      cursor: "pointer",
+                    }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </fieldset>
+            </section>
+          ) : null}
+        </div>
+
                 <div
           style={{
             padding: "12px",
