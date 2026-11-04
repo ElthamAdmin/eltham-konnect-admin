@@ -10,7 +10,6 @@ export const newImagePair = () => ({
   id: window.crypto.randomUUID(),
   imageUrl: "",
   publicId: "",
-  label: "",
 });
 
 export default function RewardsMatchImageEditor({
@@ -158,14 +157,19 @@ export default function RewardsMatchImageEditor({
       <h3 style={{ marginTop: 0 }}>Build your Match Image game</h3>
 
       <p style={{ lineHeight: 1.7 }}>
-        Add 3–8 different images. Upload each image and enter
-        its correct label. Customers will match the images
-        to shuffled label choices.
+                Upload 3–8 different images, once each. The game creates
+        two cards from every image. Customers reveal two cards
+        at a time and try to find all matching pairs.
       </p>
 
       <p style={{ lineHeight: 1.7 }}>
         JPG, PNG or WebP · Maximum 5 MB per image.
-        Images are stored in Cloudinary and are visible to customers.
+                Images are stored in Cloudinary. Cards start face down
+        in the customer game.
+      </p>
+
+            <p style={{ fontWeight: "bold" }}>
+        {pairs.length} image pairs · {pairs.length * 2} cards
       </p>
 
       <div style={{ display: "grid", gap: "14px" }}>
@@ -261,26 +265,6 @@ export default function RewardsMatchImageEditor({
                 }}
               />
             ) : null}
-
-            <label
-              style={{
-                display: "grid",
-                gap: "8px",
-                marginTop: "14px",
-              }}
-            >
-              Correct matching label
-              <input
-                value={pair.label}
-                maxLength={80}
-                disabled={Boolean(uploadingId)}
-                onChange={(event) =>
-                  update(pair.id, { label: event.target.value })
-                }
-                placeholder="For example: Delivery truck"
-                style={inputStyle}
-              />
-            </label>
           </div>
         ))}
       </div>
@@ -297,12 +281,14 @@ export default function RewardsMatchImageEditor({
         }
         style={{ ...buttonStyle, marginTop: "14px" }}
       >
-        Add image and label
+                Add image pair
       </button>
 
       <p style={{ marginBottom: 0, lineHeight: 1.7 }}>
-        Use distinct labels and images. Avoid images with the
-        answer printed on them. Uploading does not publish the game.
+                Upload each image once; its matching copy is created
+        automatically. Matching cards stay revealed and are
+        marked complete. Non-matching cards turn face down again.
+        No image labels are shown to customers.
       </p>
     </section>
   );

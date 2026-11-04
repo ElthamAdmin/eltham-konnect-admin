@@ -540,10 +540,9 @@ const createGame = async () => {
       payload.options = "";
     }
 
-        if (gameData.gameType === "Match Image") {
+            if (gameData.gameType === "Match Image") {
       const pairs = imagePairs.map((pair) => ({
         imageUrl: pair.imageUrl.trim(),
-        label: pair.label.trim(),
       }));
 
       if (
@@ -553,14 +552,12 @@ const createGame = async () => {
         pairs.some(
           (pair) =>
             !pair.imageUrl ||
-            pair.imageUrl.length > 1000 ||
-            !pair.label ||
-            pair.label.length > 80
+            pair.imageUrl.length > 1000
         )
       ) {
         alert(
-          "Upload 3–8 images and enter a label of " +
-          "1–80 characters for each."
+          "Upload 3–8 different images. " +
+          "Each image automatically creates a matching pair."
         );
         return;
       }
@@ -572,31 +569,30 @@ const createGame = async () => {
           if (
             url.protocol !== "https:" ||
             url.username ||
-            url.password
+            url.password ||
+            !url.hostname ||
+            url.href.length > 1000
           ) {
             throw new Error("Invalid image URL.");
           }
 
           pair.imageUrl = url.href;
         } catch {
-          alert("An image link is invalid. Upload that image again.");
+          alert(
+            "An image link is invalid. Upload that image again."
+          );
           return;
         }
       }
 
-      const labels = pairs.map((pair) =>
-        pair.label
-          .normalize("NFKC")
-          .trim()
-          .replace(/\s+/g, " ")
-          .toLowerCase()
-      );
-
       if (
-        new Set(labels).size !== pairs.length ||
-        new Set(pairs.map((pair) => pair.imageUrl)).size !== pairs.length
+        new Set(pairs.map((pair) => pair.imageUrl)).size !==
+        pairs.length
       ) {
-        alert("Use a distinct label and image for every pair.");
+        alert(
+          "Use a different image for each pair. " +
+          "The game creates the matching copies."
+        );
         return;
       }
 
@@ -605,6 +601,7 @@ const createGame = async () => {
       payload.correctAnswer = "";
       payload.options = "";
     }
+
 
 
     await api.post("/api/rewards-hub-games", payload);
