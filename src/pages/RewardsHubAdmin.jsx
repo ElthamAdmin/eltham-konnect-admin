@@ -2,12 +2,19 @@ import { useEffect, useState } from "react";
 import api from "../api";
 import RewardsWheelEditor from "../components/RewardsWheelEditor";
 import RewardsHuntEditor from "../components/RewardsHuntEditor";
+import RewardsMatchImageEditor, {
+  newImagePair,
+} from "../components/RewardsMatchImageEditor";
 
 function RewardsHubAdmin() {
   const [posts, setPosts] = useState([]);
   const [entriesByPost, setEntriesByPost] = useState({});
   const [games, setGames] = useState([]);
   const [playsByGame, setPlaysByGame] = useState({});
+    const [imagePairs, setImagePairs] = useState(() =>
+    Array.from({ length: 3 }, () => newImagePair())
+  );
+  const [imageUploadBusy, setImageUploadBusy] = useState(false);
     const [settingsGameId, setSettingsGameId] = useState(null);
   const [settingsDraft, setSettingsDraft] = useState(null);
   const [settingsSaving, setSettingsSaving] = useState(false);
@@ -316,6 +323,11 @@ const handleGameChange = (e) => {
 };
 
 const createGame = async () => {
+  if (imageUploadBusy) {
+    alert("Wait for the image upload to finish before publishing.");
+    return;
+  }
+
   try {
     if (
       !gameData.title.trim() ||
@@ -528,6 +540,73 @@ const createGame = async () => {
       payload.options = "";
     }
 
+        if (gameData.gameType === "Match Image") {
+      const pairs = imagePairs.map((pair) => ({
+        imageUrl: pair.imageUrl.trim(),
+        label: pair.label.trim(),
+      }));
+
+      if (
+        pairs.length < 3 ||
+        pairs.length > 8 ||
+        imagePairs.some((pair) => !pair.publicId) ||
+        pairs.some(
+          (pair) =>
+            !pair.imageUrl ||
+            pair.imageUrl.length > 1000 ||
+            !pair.label ||
+            pair.label.length > 80
+        )
+      ) {
+        alert(
+          "Upload 3–8 images and enter a label of " +
+          "1–80 characters for each."
+        );
+        return;
+      }
+
+      for (const pair of pairs) {
+        try {
+          const url = new URL(pair.imageUrl);
+
+          if (
+            url.protocol !== "https:" ||
+            url.username ||
+            url.password
+          ) {
+            throw new Error("Invalid image URL.");
+          }
+
+          pair.imageUrl = url.href;
+        } catch {
+          alert("An image link is invalid. Upload that image again.");
+          return;
+        }
+      }
+
+      const labels = pairs.map((pair) =>
+        pair.label
+          .normalize("NFKC")
+          .trim()
+          .replace(/\s+/g, " ")
+          .toLowerCase()
+      );
+
+      if (
+        new Set(labels).size !== pairs.length ||
+        new Set(pairs.map((pair) => pair.imageUrl)).size !== pairs.length
+      ) {
+        alert("Use a distinct label and image for every pair.");
+        return;
+      }
+
+      payload.imagePairs = pairs;
+      payload.question = "";
+      payload.correctAnswer = "";
+      payload.options = "";
+    }
+
+
     await api.post("/api/rewards-hub-games", payload);
 
     setGameData({
@@ -561,6 +640,11 @@ const createGame = async () => {
         hint: "",
       }))
     );
+
+        setImagePairs(
+      Array.from({ length: 3 }, () => newImagePair())
+    );
+
 
     setCrosswordMode("custom");
     setCrosswordEntries([
@@ -848,6 +932,7 @@ const removeGame = async (id) => {
     <select
       name="gameType"
       value={gameData.gameType}
+            disabled={imageUploadBusy}
       onChange={handleGameChange}
       style={{ padding: "10px", borderRadius: "8px", border: `1px solid ${BORDER}` }}
     >
@@ -867,7 +952,17 @@ const removeGame = async (id) => {
       name="question"
       placeholder="Question / Clue"
                   disabled={
-        ["Sudoku", "Find-a-Word", "Snake", "Chess", "Crossword", "Spin Wheel", "Scratch Card", "Scavenger Hunt",]
+        [
+  "Sudoku",
+  "Find-a-Word",
+  "Snake",
+  "Chess",
+  "Crossword",
+  "Spin Wheel",
+  "Scratch Card",
+  "Scavenger Hunt",
+  "Match Image",
+]
   .includes(gameData.gameType)
       }
       value={gameData.question}
@@ -879,7 +974,17 @@ const removeGame = async (id) => {
       name="correctAnswer"
       placeholder="Correct Answer"
                         disabled={
-        ["Sudoku", "Find-a-Word", "Snake", "Chess", "Crossword", "Spin Wheel", "Scratch Card", "Scavenger Hunt",]
+        [
+  "Sudoku",
+  "Find-a-Word",
+  "Snake",
+  "Chess",
+  "Crossword",
+  "Spin Wheel",
+  "Scratch Card",
+  "Scavenger Hunt",
+  "Match Image",
+]
   .includes(gameData.gameType)
       }
       value={gameData.correctAnswer}
@@ -907,7 +1012,16 @@ const removeGame = async (id) => {
             : "Options separated by commas"
         }
         disabled={
-          ["Sudoku", "Snake", "Chess", "Crossword", "Spin Wheel", "Scratch Card", "Scavenger Hunt"]
+          [
+  "Sudoku",
+  "Snake",
+  "Chess",
+  "Crossword",
+  "Spin Wheel",
+  "Scratch Card",
+  "Scavenger Hunt",
+  "Match Image",
+]
             .includes(gameData.gameType)
         }
         value={gameData.options}
@@ -984,6 +1098,14 @@ const removeGame = async (id) => {
     <RewardsHuntEditor
       clues={huntClues}
       onChange={setHuntClues}
+    />
+  ) : null}
+
+    {gameData.gameType === "Match Image" ? (
+    <RewardsMatchImageEditor
+      pairs={imagePairs}
+      onChange={setImagePairs}
+      onBusyChange={setImageUploadBusy}
     />
   ) : null}
 
@@ -1323,6 +1445,7 @@ const removeGame = async (id) => {
 
   <button
     onClick={createGame}
+        disabled={imageUploadBusy}
     style={{
       marginTop: "12px",
       backgroundColor: GOLD,
