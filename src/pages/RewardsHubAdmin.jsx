@@ -36,6 +36,9 @@ function RewardsHubAdmin() {
   title: "",
   instructions: "",
   gameType: "Trivia",
+    rewardsEnabled: true,
+  rewardFrequency: "Once Per Game",
+  scorePerSuccess: "100",
   question: "",
   correctAnswer: "",
   options: "",
@@ -189,9 +192,11 @@ const fetchGames = async () => {
 };
 
 const handleGameChange = (e) => {
+  const { name, type, checked, value } = e.target;
+
   setGameData((prev) => ({
     ...prev,
-    [e.target.name]: e.target.value,
+    [name]: type === "checkbox" ? checked : value,
   }));
 };
 
@@ -206,10 +211,38 @@ const createGame = async () => {
       return;
     }
 
+        const rawScore = String(gameData.scorePerSuccess).trim();
+    const scorePerSuccess = Number(rawScore);
+
+    if (
+      !/^\d+$/.test(rawScore) ||
+      !Number.isSafeInteger(scorePerSuccess) ||
+      scorePerSuccess < 0 ||
+      scorePerSuccess > 10000
+    ) {
+      alert(
+        "Game score must be a whole number from 0 to 10,000."
+      );
+      return;
+    }
+
+    if (
+      typeof gameData.rewardsEnabled !== "boolean" ||
+      !["Once Per Game", "Daily"].includes(
+        gameData.rewardFrequency
+      )
+    ) {
+      alert("Select valid reward settings.");
+      return;
+    }
+
     const payload = {
       ...gameData,
       title: gameData.title.trim(),
       instructions: gameData.instructions.trim(),
+      rewardsEnabled: gameData.rewardsEnabled,
+      rewardFrequency: gameData.rewardFrequency,
+      scorePerSuccess,
     };
 
     if (gameData.gameType === "Crossword") {
@@ -386,6 +419,9 @@ const createGame = async () => {
       title: "",
       instructions: "",
       gameType: "Trivia",
+        rewardsEnabled: true,
+  rewardFrequency: "Once Per Game",
+  scorePerSuccess: "100",
       question: "",
       correctAnswer: "",
       options: "",
@@ -1034,6 +1070,126 @@ const removeGame = async (id) => {
     </div>
   ) : null}
 
+    <section
+    style={{
+      marginTop: "18px",
+      padding: "18px",
+      border: `1px solid ${BORDER}`,
+      borderRadius: "12px",
+      backgroundColor: "#f5f3ff",
+      color: ROYAL_BLUE,
+    }}
+  >
+    <h3 style={{ marginTop: 0 }}>Game score and rewards</h3>
+
+    <p style={{ lineHeight: 1.7 }}>
+      Customers can play repeatedly. Game score is separate
+      from redeemable EK Points and prize rewards.
+    </p>
+
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns:
+          "repeat(auto-fit, minmax(min(100%, 220px), 1fr))",
+        gap: "16px",
+      }}
+    >
+      <label
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: "10px",
+          minHeight: "44px",
+          fontWeight: "bold",
+        }}
+      >
+        <input
+          type="checkbox"
+          name="rewardsEnabled"
+          checked={gameData.rewardsEnabled}
+          onChange={handleGameChange}
+          style={{
+            width: "20px",
+            height: "20px",
+            flexShrink: 0,
+          }}
+        />
+        Enable rewards
+      </label>
+
+      <label style={{ display: "grid", gap: "7px" }}>
+        Reward allowance
+        <select
+          name="rewardFrequency"
+          value={gameData.rewardFrequency}
+          onChange={handleGameChange}
+          disabled={!gameData.rewardsEnabled}
+          style={{
+            width: "100%",
+            minWidth: 0,
+            minHeight: "44px",
+            padding: "10px",
+            border: `1px solid ${BORDER}`,
+            borderRadius: "8px",
+            backgroundColor: WHITE,
+            color: ROYAL_BLUE,
+          }}
+        >
+          <option value="Once Per Game">
+            Once per customer for this game
+          </option>
+          <option value="Daily">
+            Once daily per customer — Jamaica time
+          </option>
+        </select>
+      </label>
+
+      <label style={{ display: "grid", gap: "7px" }}>
+        {["Spin Wheel", "Scratch Card"].includes(
+          gameData.gameType
+        )
+          ? "Game score per completed play"
+          : "Game score per successful play"}
+
+        <input
+          type="number"
+          name="scorePerSuccess"
+          min="0"
+          max="10000"
+          step="1"
+          value={gameData.scorePerSuccess}
+          onChange={handleGameChange}
+          style={{
+            width: "100%",
+            minWidth: 0,
+            minHeight: "44px",
+            boxSizing: "border-box",
+            padding: "10px",
+            border: `1px solid ${BORDER}`,
+            borderRadius: "8px",
+          }}
+        />
+      </label>
+    </div>
+
+    <p style={{ marginBottom: 0, lineHeight: 1.7 }}>
+      {gameData.rewardsEnabled
+        ? gameData.rewardFrequency === "Daily"
+          ? "Each customer gets one reward opportunity per Jamaica calendar day. Further plays are practice and can still earn game score."
+          : "Each customer gets one reward opportunity for this game. Further plays are practice and can still earn game score."
+        : "All plays are practice. Customers can earn game score, but no EK Points or prize deliveries are awarded."}
+    </p>
+
+    <p style={{ marginBottom: 0, lineHeight: 1.7, fontSize: "13px" }}>
+      A recorded incorrect Trivia answer or a No Prize
+      Wheel/Scratch result uses its reward opportunity.
+      Invalid puzzle submissions are not recorded.
+      Set game score to 0 to disable score earnings.
+    </p>
+  </section>
+
+
   <textarea
     name="instructions"
     placeholder="Game instructions..."
@@ -1084,6 +1240,36 @@ const removeGame = async (id) => {
         <h3 style={{ marginTop: 0, color: ROYAL_BLUE }}>{game.title}</h3>
         <p style={{ color: MUTED }}>{game.gameType}</p>
         <p>{game.instructions}</p>
+                <div
+          style={{
+            padding: "12px",
+            marginBottom: "12px",
+            border: `1px solid ${BORDER}`,
+            borderRadius: "10px",
+            backgroundColor: "#f5f3ff",
+            color: ROYAL_BLUE,
+            lineHeight: 1.7,
+          }}
+        >
+          <strong>Repeated play enabled</strong>
+
+          <div>
+            Game score per{" "}
+            {["Spin Wheel", "Scratch Card"].includes(game.gameType)
+              ? "completed play"
+              : "successful play"}
+            : {(game.scorePerSuccess ?? 100).toLocaleString()}
+          </div>
+
+          <div>
+            Rewards:{" "}
+            {game.rewardsEnabled === false
+              ? "Disabled — game score only"
+              : game.rewardFrequency === "Daily"
+                ? "One opportunity daily per customer — Jamaica time"
+                : "One opportunity per customer for this game"}
+          </div>
+        </div>
 
         {game.question ? <p><strong>Question/Clue:</strong> {game.question}</p> : null}
         {game.rewardText ? <p style={{ color: "#16a34a", fontWeight: "bold" }}>Reward: {game.rewardText}</p> : null}
@@ -1230,7 +1416,9 @@ const removeGame = async (id) => {
                   <th>EKON ID</th>
                   <th>Answer</th>
                   <th>Correct</th>
-                  <th>Points Credited</th>
+                                    <th>Game Score</th>
+                  <th>Play Mode</th>
+                  <th>EK Points Credited</th>
                   <th>Prize</th>
                   <th>Fulfilment</th>
                   <th>Played At</th>
@@ -1244,12 +1432,31 @@ const removeGame = async (id) => {
                     <td>{play.submittedAnswer || "-"}</td>
                     <td>{play.isCorrect ? "YES" : "NO"}</td>
                                         <td>
+                      {(play.scoreEarned ?? 0).toLocaleString()}
+                    </td>
+                    <td>
+                      {play.playMode === "Practice"
+                        ? "Practice — no reward"
+                        : play.playMode === "Standard"
+                          ? "Reward opportunity"
+                          : "Earlier play"}
+                    </td>
+                                        <td>
                       {play.pointsAwarded == null
                         ? "Not recorded"
                         : play.pointsAwarded}
                     </td>
                                         <td>
-                      {play.outcome ? (
+                                            {play.playMode === "Practice" ? (
+                        <>
+                          <strong>No prize awarded</strong>
+                          {play.outcome ? (
+                            <div>
+                              Simulated result: {play.outcome.label}
+                            </div>
+                          ) : null}
+                        </>
+                      ) : play.outcome ? (
                         <>
                           <strong>{play.outcome.label}</strong>
                           <div>
