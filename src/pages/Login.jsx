@@ -333,7 +333,130 @@ export default function Login() {
             padding:22px;
           }
         }
+
+                /* Full-screen seasonal login */
+        .ek-admin-login-seasonal {
+          position:relative;
+          isolation:isolate;
+          display:flex;
+          flex-direction:column;
+          min-height:100vh;
+          min-height:100svh;
+          background:#10254a;
+        }
+
+        .ek-admin-login-wallpaper {
+          position:fixed;
+          inset:0;
+          z-index:-2;
+          pointer-events:none;
+        }
+
+        .ek-admin-login-wallpaper img {
+          display:block;
+          width:100%;
+          height:100%;
+          object-fit:cover;
+        }
+
+        .ek-admin-login-wallpaper-shade {
+          position:absolute;
+          inset:0;
+        }
+
+        .ek-admin-login-seasonal .ek-admin-login-header {
+          background:transparent;
+          padding:28px 36px;
+          text-shadow:0 2px 8px rgba(0,0,0,.8);
+        }
+
+        .ek-admin-login-seasonal .ek-admin-login-layout {
+          display:flex;
+          flex-direction:column;
+          align-items:flex-end;
+          justify-content:flex-end;
+          flex:1;
+          width:100%;
+          max-width:1500px;
+          margin:0 auto;
+          padding:40px 48px;
+          gap:18px;
+        }
+
+        .ek-admin-login-seasonal .ek-admin-login-feature {
+          width:100%;
+          max-width:380px;
+        }
+
+        .ek-admin-login-seasonal .ek-admin-login-announcement {
+          margin:0;
+          padding:18px;
+          background:rgba(8,25,52,.65);
+          border:1px solid rgba(255,255,255,.25);
+          border-radius:16px;
+          backdrop-filter:blur(8px);
+          -webkit-backdrop-filter:blur(8px);
+        }
+
+        .ek-admin-login-seasonal .ek-admin-login-announcement h1 {
+          font-size:26px;
+        }
+
+        .ek-admin-login-seasonal .ek-admin-login-announcement p {
+          font-size:15px;
+        }
+
+        .ek-admin-login-seasonal .ek-admin-login-card {
+          background:rgba(255,255,255,.9);
+          border:1px solid rgba(255,255,255,.65);
+          backdrop-filter:blur(10px);
+          -webkit-backdrop-filter:blur(10px);
+          box-shadow:0 12px 36px rgba(0,0,0,.2);
+          padding:22px;
+        }
+
+        @media(max-width:760px) {
+          .ek-admin-login-seasonal .ek-admin-login-header {
+            padding:24px 22px;
+          }
+
+          .ek-admin-login-seasonal .ek-admin-login-layout {
+            align-items:center;
+            padding:140px 18px 28px;
+            gap:16px;
+          }
+
+          .ek-admin-login-seasonal .ek-admin-login-card,
+          .ek-admin-login-seasonal .ek-admin-login-feature {
+            max-width:400px;
+          }
+
+          .ek-admin-login-seasonal .ek-admin-login-card {
+            padding:22px;
+          }
+        }
+
       `}</style>
+
+            {displayImage && (
+        <div className="ek-admin-login-wallpaper" aria-hidden="true">
+          <img
+            src={imageUrl}
+            alt=""
+            style={{
+              objectPosition: appearance.position || "center",
+            }}
+            onError={() => setFailedImage(imageUrl)}
+          />
+
+          <div
+            className="ek-admin-login-wallpaper-shade"
+            style={{
+              background: `rgba(0,0,0,${overlay})`,
+            }}
+          />
+        </div>
+      )}
 
       <header className="ek-admin-login-header">
         <strong>{appearance?.companyName || "Eltham Konnect"}</strong>
@@ -341,40 +464,15 @@ export default function Login() {
       </header>
 
       <div className="ek-admin-login-layout">
-        {appearance && (
+                {appearance && (appearance.heading || appearance.message) && (
           <section
             className="ek-admin-login-feature"
             aria-label="Staff announcement"
           >
-            {(appearance.heading || appearance.message) && (
-              <div className="ek-admin-login-announcement">
-                {appearance.heading && <h1>{appearance.heading}</h1>}
-                {appearance.message && <p>{appearance.message}</p>}
-              </div>
-            )}
-
-            {displayImage && (
-              <div className="ek-admin-login-art">
-                <img
-                  src={imageUrl}
-                  alt="Eltham Konnect seasonal announcement"
-                  style={{
-                    objectPosition: appearance.position || "center",
-                  }}
-                  onError={() => setFailedImage(imageUrl)}
-                />
-
-                <div
-                  aria-hidden="true"
-                  style={{
-                    position: "absolute",
-                    inset: 0,
-                    pointerEvents: "none",
-                    background: `rgba(0,0,0,${overlay})`,
-                  }}
-                />
-              </div>
-            )}
+            <div className="ek-admin-login-announcement">
+              {appearance.heading && <h1>{appearance.heading}</h1>}
+              {appearance.message && <p>{appearance.message}</p>}
+            </div>
           </section>
         )}
 
