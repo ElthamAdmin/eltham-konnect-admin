@@ -435,6 +435,61 @@ export default function Login() {
             padding:22px;
           }
         }
+                  /* Compact floating login */
+        .ek-admin-login-seasonal .ek-admin-login-card {
+          max-width:320px;
+          padding:18px;
+          border-radius:16px;
+          background:rgba(255,255,255,.86);
+        }
+
+        .ek-admin-login-seasonal .ek-admin-login-card h2 {
+          font-size:23px;
+          margin-bottom:16px;
+        }
+
+        .ek-admin-login-seasonal .ek-admin-login-description {
+          display:none;
+        }
+
+        .ek-admin-login-seasonal .ek-admin-login-field {
+          margin-bottom:12px;
+        }
+
+        .ek-admin-login-seasonal .ek-admin-login-card label {
+          font-size:13px;
+          margin-bottom:5px;
+        }
+
+        .ek-admin-login-seasonal .ek-admin-login-card input {
+          min-height:44px;
+          padding:10px;
+          font-size:16px;
+        }
+
+        .ek-admin-login-seasonal .ek-admin-login-card button {
+          min-height:44px;
+        }
+
+        .ek-admin-login-seasonal .ek-admin-login-submit {
+          padding:10px;
+        }
+
+        @media(max-width:760px) {
+          .ek-admin-login-seasonal .ek-admin-login-layout {
+            padding:140px 16px 18px;
+          }
+
+          .ek-admin-login-seasonal .ek-admin-login-card {
+            max-width:320px;
+            padding:16px;
+          }
+
+          .ek-admin-login-seasonal .ek-admin-login-card h2 {
+            font-size:22px;
+            margin-bottom:14px;
+          }
+        }
 
       `}</style>
 
