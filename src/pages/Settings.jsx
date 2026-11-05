@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import api from "../api";
 import CustomerPolicyManager from "../components/CustomerPolicyManager";
+import LoginAppearanceManager from "../components/LoginAppearanceManager";
 
 function Settings() {
   const [settings, setSettings] = useState({
@@ -896,6 +897,8 @@ function Settings() {
           </div>
         </div>
       </div>
+
+      <LoginAppearanceManager />
 
       <div style={cardStyle}>
         <h2>Branches</h2>
