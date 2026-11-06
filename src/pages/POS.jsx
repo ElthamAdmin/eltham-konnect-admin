@@ -21,6 +21,8 @@ function POS() {
   }, []);
   const [invoiceNumber, setInvoiceNumber] = useState("");
   const [loadedInvoice, setLoadedInvoice] = useState(null);
+  const [pickupTrackingNumbers, setPickupTrackingNumbers] = useState([]);
+  const [handoverTrackingNumbers, setHandoverTrackingNumbers] = useState([]);
   const [invoiceType, setInvoiceType] = useState("");
   const [drawer, setDrawer] = useState(null);
   const [drawerHistory, setDrawerHistory] = useState([]);
@@ -204,9 +206,13 @@ const [
       const res = await api.get(`/api/pos/invoice/${invoiceNumber.trim()}`);
       setInvoiceType(res.data.data.invoiceType);
       setLoadedInvoice(res.data.data.invoice);
+      setPickupTrackingNumbers(res.data.data.pickupTrackingNumbers || []);
+      setHandoverTrackingNumbers([]);
       setAmountTendered("");
     } catch (error) {
       setLoadedInvoice(null);
+            setPickupTrackingNumbers([]);
+      setHandoverTrackingNumbers([]);
       setInvoiceType("");
       alert(error?.response?.data?.message || "Invoice not found.");
     }
@@ -501,6 +507,8 @@ const currentInvoiceBalance =
           setInvoiceType(latestData.invoiceType);
           setLoadedInvoice(latestInvoice);
           setAmountTendered("");
+                    setPickupTrackingNumbers(latestData.pickupTrackingNumbers || []);
+          setHandoverTrackingNumbers([]);
 
           alert(
             "This invoice changed after it was loaded. " +
@@ -524,6 +532,31 @@ const currentInvoiceBalance =
           return;
         }
 
+                const selectedForHandover =
+          invoiceType === "Shipping" ? handoverTrackingNumbers : [];
+
+        if (selectedForHandover.length) {
+          const eligible = latestData.pickupTrackingNumbers || [];
+
+          if (selectedForHandover.some((number) => !eligible.includes(number))) {
+            setPickupTrackingNumbers(eligible);
+            setHandoverTrackingNumbers([]);
+            alert(
+              "The packages ready for pickup have changed. " +
+              "Review the refreshed list before pressing PAY again."
+            );
+            return;
+          }
+
+          if (Math.round(tendered * 100) < Math.round(getInvoiceBalance(latestInvoice) * 100)) {
+            alert(
+              "This payment does not clear the balance. " +
+              "Uncheck the handover packages to record a partial payment."
+            );
+            return;
+          }
+        }
+
         request = savePendingPayment("POS", {
           invoiceType,
           invoiceNumber: latestInvoice.invoiceNumber,
@@ -532,6 +565,9 @@ const currentInvoiceBalance =
           paidIntoAccountName,
           paidIntoAccountNumber,
           notes,
+                    ...(selectedForHandover.length
+            ? { handoverTrackingNumbers: [...selectedForHandover] }
+            : {}),
         });
 
         setPendingPayment(request);
@@ -569,6 +605,8 @@ const currentInvoiceBalance =
       setInvoiceNumber(request.payload.invoiceNumber);
       setInvoiceType(request.payload.invoiceType);
       setLoadedInvoice(data.invoice);
+            setHandoverTrackingNumbers([]);
+      setPickupTrackingNumbers([]);
       setDrawer(data.drawer);
 
       setPaymentMethod("Cash");
@@ -594,6 +632,7 @@ const currentInvoiceBalance =
 
         setInvoiceType(fresh.data.data.invoiceType);
         setLoadedInvoice(fresh.data.data.invoice);
+                setPickupTrackingNumbers(fresh.data.data.pickupTrackingNumbers || []);
       } catch (error) {
         console.error(
           "Payment confirmed; invoice refresh failed:",
@@ -601,11 +640,17 @@ const currentInvoiceBalance =
         );
       }
 
+            const paymentMessage = response.data.paymentRequestReplayed
+        ? "This payment was already recorded. No additional payment was created."
+        : response.data.message || "Invoice payment recorded successfully.";
+
+      const delivered = data.deliveredTrackingNumbers || [];
+
       alert(
-        response.data.paymentRequestReplayed
-          ? "This payment was already recorded. No additional payment was created."
-          : response.data.message ||
-              "Invoice payment recorded successfully."
+        paymentMessage +
+          (delivered.length
+            ? `\n\nPackages marked Delivered:\n${delivered.join("\n")}`
+            : "")
       );
     } catch (error) {
       if (paymentConfirmed) {
@@ -617,11 +662,20 @@ const currentInvoiceBalance =
       }
 
       const status = error?.response?.status;
+            const handoverRejected =
+        status === 409 &&
+        error.response?.data?.message ===
+          "One or more selected packages are no longer ready for pickup. Refresh the invoice before trying again.";
+
+      if (handoverRejected) {
+        setHandoverTrackingNumbers([]);
+        setPickupTrackingNumbers([]);
+      }
       let retained = Boolean(request);
 
       if (
         request &&
-        [400, 404, 422].includes(status)
+                ([400, 404, 422].includes(status) || handoverRejected)
       ) {
         try {
           clearPendingPayment(
@@ -1251,6 +1305,49 @@ const currentInvoiceBalance =
             )}
           </div>
         </div>
+
+                        {invoiceType === "Shipping" &&
+                  loadedInvoice &&
+                  loadedInvoice.status !== "Paid" &&
+                  pickupTrackingNumbers.length > 0 && (
+                    <fieldset
+                      disabled={Boolean(posBusy || pendingPayment)}
+                      style={{ margin: "12px 0", padding: "12px", minWidth: 0 }}
+                    >
+                      <legend><strong>Packages being handed over now</strong></legend>
+                      <p style={{ margin: "0 0 8px" }}>
+                        Select only the packages you are giving to the customer.
+                        Leave all boxes unchecked for payment only.
+                      </p>
+
+                      {pickupTrackingNumbers.map((trackingNumber) => (
+                        <label
+                          key={trackingNumber}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 10,
+                            minHeight: 44,
+                            overflowWrap: "anywhere",
+                          }}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={handoverTrackingNumbers.includes(trackingNumber)}
+                            onChange={(event) => {
+                              const checked = event.target.checked;
+                              setHandoverTrackingNumbers((current) =>
+                                checked
+                                  ? [...current, trackingNumber]
+                                  : current.filter((number) => number !== trackingNumber)
+                              );
+                            }}
+                          />
+                          {trackingNumber}
+                        </label>
+                      ))}
+                    </fieldset>
+                  )}
 
                 {/* PAY BUTTON */}
         <button
