@@ -706,6 +706,71 @@ const currentInvoiceBalance =
     }
   };
 
+    const confirmPaidPickup = async () => {
+    if (
+      paymentInFlight.current ||
+      posBusy ||
+      pendingPayment ||
+      invoiceType !== "Shipping" ||
+      loadedInvoice?.status !== "Paid" ||
+      !loadedInvoice.invoiceNumber ||
+      !handoverTrackingNumbers.length
+    ) {
+      return;
+    }
+
+    const pickupInvoiceNumber = loadedInvoice.invoiceNumber;
+    const selected = [...handoverTrackingNumbers];
+
+    paymentInFlight.current = true;
+    setPosBusy(true);
+
+    try {
+      const response = await api.post("/api/pos/pickup", {
+        invoiceNumber: pickupInvoiceNumber,
+        handoverTrackingNumbers: selected,
+      });
+
+      const data = response.data?.data;
+
+      if (
+        !response.data?.success ||
+        data?.invoiceNumber !== pickupInvoiceNumber ||
+        !Array.isArray(data.deliveredTrackingNumbers) ||
+        !Array.isArray(data.alreadyDeliveredTrackingNumbers)
+      ) {
+        throw new Error(
+          "Pickup could not be confirmed. Reload the invoice and check the package statuses."
+        );
+      }
+
+      const delivered = data.deliveredTrackingNumbers;
+      const alreadyDelivered = data.alreadyDeliveredTrackingNumbers;
+      const completed = new Set([...delivered, ...alreadyDelivered]);
+
+      setHandoverTrackingNumbers([]);
+      setPickupTrackingNumbers((current) =>
+        current.filter((number) => !completed.has(number))
+      );
+
+      alert(
+        [
+          response.data.message || "Pickup confirmed.",
+          delivered.length && `Marked Delivered: ${delivered.join(", ")}`,
+          alreadyDelivered.length && `Already Delivered: ${alreadyDelivered.join(", ")}`,
+        ].filter(Boolean).join("\n")
+      );
+    } catch (error) {
+      alert(
+        error.response?.data?.message ||
+          "Could not confirm pickup. Reload the invoice and check package statuses before trying again."
+      );
+    } finally {
+      paymentInFlight.current = false;
+      setPosBusy(false);
+    }
+  };
+
   const invoiceItems =
     invoiceType === "Marketplace"
       ? loadedInvoice?.items || []
@@ -1306,18 +1371,21 @@ const currentInvoiceBalance =
           </div>
         </div>
 
-                        {invoiceType === "Shipping" &&
+                                        {invoiceType === "Shipping" &&
                   loadedInvoice &&
-                  loadedInvoice.status !== "Paid" &&
+                  !["Cancelled", "Refunded", "Written Off", "Reversed"].includes(
+                    loadedInvoice.status
+                  ) &&
                   pickupTrackingNumbers.length > 0 && (
                     <fieldset
                       disabled={Boolean(posBusy || pendingPayment)}
                       style={{ margin: "12px 0", padding: "12px", minWidth: 0 }}
                     >
                       <legend><strong>Packages being handed over now</strong></legend>
-                      <p style={{ margin: "0 0 8px" }}>
-                        Select only the packages you are giving to the customer.
-                        Leave all boxes unchecked for payment only.
+                                            <p style={{ margin: "0 0 8px" }}>
+                        {loadedInvoice.status === "Paid"
+                          ? "Select the packages you are giving to the customer, then click Confirm Pickup. No payment will be recorded."
+                          : "Select only the packages you are giving to the customer. Leave all boxes unchecked for payment only."}
                       </p>
 
                       {pickupTrackingNumbers.map((trackingNumber) => (
@@ -1346,6 +1414,33 @@ const currentInvoiceBalance =
                           {trackingNumber}
                         </label>
                       ))}
+
+                                            {loadedInvoice.status === "Paid" && (
+                        <button
+                          type="button"
+                          onClick={confirmPaidPickup}
+                          disabled={
+                            posBusy ||
+                            Boolean(pendingPayment) ||
+                            handoverTrackingNumbers.length === 0
+                          }
+                          style={{
+                            width: "100%",
+                            minHeight: 44,
+                            marginTop: 8,
+                            border: 0,
+                            borderRadius: 8,
+                            background: "#0b3d91",
+                            color: "#fff",
+                            fontWeight: "bold",
+                            opacity: posBusy || pendingPayment || !handoverTrackingNumbers.length
+                              ? 0.55
+                              : 1,
+                          }}
+                        >
+                          {posBusy ? "Confirming…" : "Confirm Pickup"}
+                        </button>
+                      )}
                     </fieldset>
                   )}
 
