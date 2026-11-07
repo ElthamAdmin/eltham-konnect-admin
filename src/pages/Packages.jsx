@@ -1354,6 +1354,70 @@ const clearWeightAnalysisFilter = async () => {
 
                     <td>
                       <span style={getStatusBadgeStyle(pkg.status)}>{pkg.status}</span>
+                      <details style={{ marginTop: 10, minWidth: 150 }}>
+  <summary
+    style={{
+      cursor: "pointer",
+      color: "#0b3d91",
+      fontWeight: "bold",
+      padding: "8px 0",
+    }}
+  >
+    Status history ({pkg.statusHistory?.length || 0})
+  </summary>
+
+  {pkg.statusHistory?.length ? (
+    <ol
+      style={{
+        paddingLeft: 20,
+        margin: "8px 0",
+        maxHeight: 300,
+        overflowY: "auto",
+      }}
+    >
+      {[...pkg.statusHistory].reverse().map((entry, index) => (
+        <li
+          key={entry._id || index}
+          style={{
+            marginBottom: 14,
+            paddingBottom: 10,
+            borderBottom: "1px solid #dbe3ef",
+            lineHeight: 1.5,
+            overflowWrap: "anywhere",
+          }}
+        >
+          <strong>
+            {entry.previousStatus || "Not recorded"} → {entry.newStatus}
+          </strong>
+
+          <div>
+            {entry.changedAt &&
+              new Date(entry.changedAt).toLocaleString("en-JM", {
+                timeZone: "America/Jamaica",
+                year: "numeric",
+                month: "short",
+                day: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
+                second: "2-digit",
+              })}
+            {" "}— Jamaica time
+          </div>
+
+          <div>{entry.changedByName || "Not recorded"}</div>
+          <div>{entry.source || "Staff action"}</div>
+
+          {entry.reason && <div>Reason: {entry.reason}</div>}
+        </li>
+      ))}
+    </ol>
+  ) : (
+    <p style={{ lineHeight: 1.5 }}>
+      No status changes recorded since history tracking was enabled.
+      Earlier movements have not been reconstructed.
+    </p>
+  )}
+</details>
                     </td>
 
                     <td>
