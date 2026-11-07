@@ -171,6 +171,7 @@ function Manifests() {
       const res = await api.put(`${API_BASE}/manifests/${manifestNumber}/depart`);
       alert(res.data.message || "Manifest departed.");
       await fetchManifests();
+            await fetchPackages();
     } catch (error) {
       alert(error?.response?.data?.message || "Could not update manifest.");
     }
@@ -354,7 +355,8 @@ function Manifests() {
       <div style={{ marginBottom: "18px" }}>
         <h1 style={{ margin: 0, color: "#0f172a" }}>Manifests</h1>
         <p style={{ color: MUTED, marginTop: "6px" }}>
-          Manage shipment manifests, package movement, arrival status, and shipment value.
+                    Assign warehouse packages, confirm departure, and record arrival.
+          Arrival does not automatically clear packages through customs.
         </p>
       </div>
 
