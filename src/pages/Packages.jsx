@@ -200,7 +200,36 @@ const clearWeightAnalysisFilter = async () => {
     }
   };
 
-    const updateStatus = async (trackingNumber, status) => {
+      const updateStatus = async (trackingNumber, status) => {
+    const pkg = packages.find(
+      (item) => item.trackingNumber === trackingNumber
+    );
+
+    if (!pkg) {
+      alert("Refresh Packages before changing this status.");
+      return;
+    }
+
+    const payload = { status };
+
+    if (pkg.status === "Delivered" && status !== "Delivered") {
+      const reason = window.prompt(
+        `Correct package ${trackingNumber} from Delivered to ${status}.\n\n` +
+        "Enter a reason of 10–1000 characters. " +
+        "The original collection details will remain recorded."
+      );
+
+      if (reason === null) return;
+
+      if (reason.trim().length < 10 || reason.trim().length > 1000) {
+        alert("Enter a correction reason of 10–1000 characters.");
+        return;
+      }
+
+      payload.confirmCorrection = true;
+      payload.reason = reason.trim();
+    }
+
     if (
       status === "Delivered" &&
       !window.confirm(
@@ -211,12 +240,22 @@ const clearWeightAnalysisFilter = async () => {
     }
 
     try {
-      await api.put(`/api/packages/${trackingNumber}/status`, { status });
+      const response = await api.put(
+        `/api/packages/${encodeURIComponent(trackingNumber)}/status`,
+        payload
+      );
+
+      if (!response.data?.success) {
+        throw new Error("Could not confirm the status update.");
+      }
+
       await fetchPackages();
       await fetchWeightAnalysis();
-    } catch (err) {
-      console.error(err);
-      alert("Status update failed");
+    } catch (error) {
+      alert(
+        error.response?.data?.message ||
+        "Could not confirm the status update. Refresh Packages before retrying."
+      );
     }
   };
 
@@ -259,10 +298,13 @@ const clearWeightAnalysisFilter = async () => {
         return;
       }
 
-      for (const trackingNumber of selectedPackages) {
-        await api.put(`/api/packages/${trackingNumber}/status`, {
-          status: bulkStatus,
-        });
+            const response = await api.put("/api/packages/bulk-status", {
+        trackingNumbers: [...selectedPackages],
+        status: bulkStatus,
+      });
+
+      if (!response.data?.success) {
+        throw new Error("Could not confirm the bulk update.");
       }
 
       alert("Selected package statuses updated successfully.");
