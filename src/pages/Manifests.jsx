@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import api from "../api";
 
 const API_BASE = "/api";
@@ -12,6 +12,8 @@ function Manifests() {
   const [pageSize, setPageSize] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
   const [expanded, setExpanded] = useState({});
+    const actionInFlight = useRef(false);
+  const [busy, setBusy] = useState(false);
 
   const isMobile = window.innerWidth <= 768;
 
@@ -95,97 +97,169 @@ function Manifests() {
   const endIndex = startIndex + pageSize;
   const paginatedManifests = filteredManifests.slice(startIndex, endIndex);
 
-  const createManifest = async () => {
+    const runManifestAction = async (request) => {
+    if (actionInFlight.current) return;
+
+    actionInFlight.current = true;
+    setBusy(true);
+
     try {
-      const res = await api.post(`${API_BASE}/manifests`, { origin });
-      alert(res.data.message || "Manifest created successfully.");
-      setOrigin("Florida");
-      await fetchManifests();
+      const response = await request();
+
+      if (!response.data?.success) {
+        throw new Error("Could not confirm the manifest action.");
+      }
+
+      let refreshFailed = false;
+
+      try {
+        await Promise.all([
+          fetchManifests(),
+          fetchPackages(),
+        ]);
+      } catch {
+        refreshFailed = true;
+      }
+
+      alert(
+        (response.data.message || "Manifest action completed.") +
+          (refreshFailed
+            ? "\nThe action succeeded, but the display could not refresh. Reload this page before another action."
+            : "")
+      );
+
+      return true;
     } catch (error) {
-      alert(error?.response?.data?.message || "Could not create manifest.");
+      alert(
+        error.response?.data?.message ||
+          "Could not confirm the action. Refresh manifests and packages before retrying."
+      );
+
+      return false;
+    } finally {
+      actionInFlight.current = false;
+      setBusy(false);
     }
+  };
+
+  const manifestPath = (manifestNumber) =>
+    `${API_BASE}/manifests/${encodeURIComponent(manifestNumber)}`;
+
+  const createManifest = async () => {
+    if (actionInFlight.current) return;
+
+    const created = await runManifestAction(() =>
+      api.post(`${API_BASE}/manifests`, { origin })
+    );
+
+    if (created) setOrigin("Florida");
   };
 
   const editManifest = async (manifest) => {
-    const newOrigin = prompt("Enter new manifest origin", manifest.origin);
-    if (!newOrigin) return;
+    if (actionInFlight.current) return;
 
-    try {
-      const res = await api.put(`${API_BASE}/manifests/${manifest.manifestNumber}`, {
-        origin: newOrigin,
-      });
-      alert(res.data.message || "Manifest updated.");
-      await fetchManifests();
-    } catch (error) {
-      alert(error?.response?.data?.message || "Could not update manifest.");
+    const newOrigin = window.prompt(
+      "Enter new manifest origin",
+      manifest.origin
+    );
+
+    if (newOrigin === null) return;
+
+    if (!newOrigin.trim()) {
+      alert("Enter a manifest origin.");
+      return;
     }
+
+    await runManifestAction(() =>
+      api.put(manifestPath(manifest.manifestNumber), {
+        origin: newOrigin.trim(),
+      })
+    );
   };
 
   const deleteManifest = async (manifestNumber) => {
-    if (!window.confirm("Delete this manifest? Packages will be returned to At Warehouse.")) return;
+    if (actionInFlight.current) return;
 
-    try {
-      const res = await api.delete(`${API_BASE}/manifests/${manifestNumber}`);
-      alert(res.data.message || "Manifest deleted.");
-      await fetchManifests();
-      await fetchPackages();
-    } catch (error) {
-      alert(error?.response?.data?.message || "Could not delete manifest.");
+    if (
+      !window.confirm(
+        "Delete this undeparted manifest? " +
+          "Its Manifest Assigned packages will return to At Warehouse. " +
+          "The action will be rejected if packages have progressed."
+      )
+    ) {
+      return;
     }
+
+    await runManifestAction(() =>
+      api.delete(manifestPath(manifestNumber))
+    );
   };
 
   const openAddPackage = async (manifestNumber) => {
-    const tracking = prompt("Enter package tracking number");
-    if (!tracking) return;
+    if (actionInFlight.current) return;
 
-    try {
-      const res = await api.post(`${API_BASE}/manifests/${manifestNumber}/add-package`, {
+    const tracking = window.prompt(
+      "Enter the tracking number of a package currently At Warehouse."
+    );
+
+    if (!tracking?.trim()) return;
+
+    await runManifestAction(() =>
+      api.post(`${manifestPath(manifestNumber)}/add-package`, {
         trackingNumber: tracking.trim(),
-      });
-      alert(res.data.message || "Package added.");
-      await fetchManifests();
-      await fetchPackages();
-    } catch (error) {
-      alert(error?.response?.data?.message || "Package could not be added.");
-    }
+      })
+    );
   };
 
   const removePackage = async (manifestNumber) => {
-    const tracking = prompt("Enter package tracking number to remove");
-    if (!tracking) return;
+    if (actionInFlight.current) return;
 
-    try {
-      const res = await api.post(`${API_BASE}/manifests/${manifestNumber}/remove-package`, {
+    const tracking = window.prompt(
+      "Enter the tracking number to remove from this manifest."
+    );
+
+    if (!tracking?.trim()) return;
+
+    await runManifestAction(() =>
+      api.post(`${manifestPath(manifestNumber)}/remove-package`, {
         trackingNumber: tracking.trim(),
-      });
-      alert(res.data.message || "Package removed.");
-      await fetchManifests();
-      await fetchPackages();
-    } catch (error) {
-      alert(error?.response?.data?.message || "Package could not be removed.");
-    }
+      })
+    );
   };
 
   const departManifest = async (manifestNumber) => {
-    try {
-      const res = await api.put(`${API_BASE}/manifests/${manifestNumber}/depart`);
-      alert(res.data.message || "Manifest departed.");
-      await fetchManifests();
-            await fetchPackages();
-    } catch (error) {
-      alert(error?.response?.data?.message || "Could not update manifest.");
+    if (actionInFlight.current) return;
+
+    if (
+      !window.confirm(
+        `Confirm manifest ${manifestNumber} has departed? ` +
+          "Its assigned packages will become In Transit. " +
+          "Manifest membership cannot be edited after departure."
+      )
+    ) {
+      return;
     }
+
+    await runManifestAction(() =>
+      api.put(`${manifestPath(manifestNumber)}/depart`)
+    );
   };
 
   const arriveManifest = async (manifestNumber) => {
-    try {
-      const res = await api.put(`${API_BASE}/manifests/${manifestNumber}/arrive`);
-      alert(res.data.message || "Manifest arrived.");
-      await fetchManifests();
-      await fetchPackages();
-    } catch (error) {
-      alert(error?.response?.data?.message || "Could not update manifest.");
+    if (actionInFlight.current) return;
+
+    if (
+      !window.confirm(
+        `Confirm manifest ${manifestNumber} has arrived in Jamaica? ` +
+          "This records arrival only. It does not confirm customs clearance."
+      )
+    ) {
+      return;
     }
+
+    await runManifestAction(() =>
+      api.put(`${manifestPath(manifestNumber)}/arrive`)
+    );
   };
 
   const formatDate = (value) => {
@@ -202,19 +276,21 @@ function Manifests() {
     return "#64748b";
   };
 
-  const actionButton = (label, onClick, bg, disabled = false) => (
+    const actionButton = (label, onClick, bg, disabled = false) => (
     <button
+      type="button"
       onClick={onClick}
-      disabled={disabled}
+      disabled={disabled || busy}
       style={{
-        backgroundColor: disabled ? "#cbd5e1" : bg,
-        color: disabled ? "#475569" : WHITE,
+        backgroundColor: disabled || busy ? "#cbd5e1" : bg,
+        color: disabled || busy ? "#475569" : WHITE,
         border: "none",
         padding: "8px 10px",
         borderRadius: "8px",
-        cursor: disabled ? "not-allowed" : "pointer",
+        cursor: disabled || busy ? "not-allowed" : "pointer",
         fontWeight: "bold",
         width: "100%",
+        minHeight: 44,
       }}
     >
       {label}
@@ -376,6 +452,7 @@ function Manifests() {
 
           <button
             onClick={createManifest}
+                        disabled={busy}
             style={{
               backgroundColor: ROYAL_BLUE,
               color: WHITE,
@@ -386,7 +463,7 @@ function Manifests() {
               fontWeight: "bold",
             }}
           >
-            Create Manifest
+                        {busy ? "Processing…" : "Create Manifest"}
           </button>
         </div>
       </div>
