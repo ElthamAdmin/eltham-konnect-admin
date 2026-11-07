@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import api from "../api";
 import InvoiceFileButton from "../components/InvoiceFileButton";
 import PackageEditForm from "../components/PackageEditForm";
@@ -10,6 +10,8 @@ function Packages() {
   const [searchTerm, setSearchTerm] = useState("");
   const [rateMap, setRateMap] = useState({});
   const [selectedPackages, setSelectedPackages] = useState([]);
+    const statusRequestRef = useRef(false);
+  const [statusBusy, setStatusBusy] = useState(false);
 const [bulkStatus, setBulkStatus] = useState("");
 const [billingStorageId, setBillingStorageId] = useState("");
 const [pageSize, setPageSize] = useState(25);
@@ -201,6 +203,8 @@ const clearWeightAnalysisFilter = async () => {
   };
 
       const updateStatus = async (trackingNumber, status) => {
+    if (statusRequestRef.current) return;
+
     const pkg = packages.find(
       (item) => item.trackingNumber === trackingNumber
     );
@@ -214,9 +218,9 @@ const clearWeightAnalysisFilter = async () => {
 
     if (pkg.status === "Delivered" && status !== "Delivered") {
       const reason = window.prompt(
-        `Correct package ${trackingNumber} from Delivered to ${status}.\n\n` +
+        `Correct ${trackingNumber} from Delivered to ${status}.\n\n` +
         "Enter a reason of 10–1000 characters. " +
-        "The original collection details will remain recorded."
+        "Original collection details remain recorded."
       );
 
       if (reason === null) return;
@@ -232,12 +236,16 @@ const clearWeightAnalysisFilter = async () => {
 
     if (
       status === "Delivered" &&
+      pkg.status !== "Delivered" &&
       !window.confirm(
         `Confirm package ${trackingNumber} has actually been collected or delivered to the customer?`
       )
     ) {
       return;
     }
+
+    statusRequestRef.current = true;
+    setStatusBusy(true);
 
     try {
       const response = await api.put(
@@ -251,11 +259,18 @@ const clearWeightAnalysisFilter = async () => {
 
       await fetchPackages();
       await fetchWeightAnalysis();
+
+      if (response.data.unchanged) {
+        alert(response.data.message);
+      }
     } catch (error) {
       alert(
         error.response?.data?.message ||
         "Could not confirm the status update. Refresh Packages before retrying."
       );
+    } finally {
+      statusRequestRef.current = false;
+      setStatusBusy(false);
     }
   };
 
@@ -277,28 +292,33 @@ const clearWeightAnalysisFilter = async () => {
   }
 };
 
-  const updateBulkStatus = async () => {
+    const updateBulkStatus = async () => {
+    if (statusRequestRef.current) return;
+
+    if (!bulkStatus) {
+      alert("Please select a bulk status.");
+      return;
+    }
+
+    if (!selectedPackages.length) {
+      alert("Please select at least one package.");
+      return;
+    }
+
+    if (
+      bulkStatus === "Delivered" &&
+      !window.confirm(
+        `Confirm all ${selectedPackages.length} selected packages have actually been collected or delivered?`
+      )
+    ) {
+      return;
+    }
+
+    statusRequestRef.current = true;
+    setStatusBusy(true);
+
     try {
-      if (!bulkStatus) {
-        alert("Please select a bulk status.");
-        return;
-      }
-
-      if (selectedPackages.length === 0) {
-        alert("Please select at least one package.");
-        return;
-      }
-
-            if (
-        bulkStatus === "Delivered" &&
-        !window.confirm(
-          `Confirm all ${selectedPackages.length} selected package(s) have actually been collected or delivered to the customer?`
-        )
-      ) {
-        return;
-      }
-
-            const response = await api.put("/api/packages/bulk-status", {
+      const response = await api.put("/api/packages/bulk-status", {
         trackingNumbers: [...selectedPackages],
         status: bulkStatus,
       });
@@ -307,14 +327,27 @@ const clearWeightAnalysisFilter = async () => {
         throw new Error("Could not confirm the bulk update.");
       }
 
-      alert("Selected package statuses updated successfully.");
+      const updatedCount = response.data.updatedCount;
+
+      alert(
+        Number.isInteger(updatedCount)
+          ? `${updatedCount} package(s) changed. Packages already at the selected status were left unchanged.`
+          : response.data.message || "Bulk update completed."
+      );
+
       setSelectedPackages([]);
       setBulkStatus("");
+
       await fetchPackages();
       await fetchWeightAnalysis();
     } catch (error) {
-      console.error("Bulk status update failed:", error);
-      alert(error?.response?.data?.message || "Bulk status update failed");
+      alert(
+        error.response?.data?.message ||
+        "Could not confirm the bulk update. Refresh Packages and check the selected records before retrying."
+      );
+    } finally {
+      statusRequestRef.current = false;
+      setStatusBusy(false);
     }
   };
 
@@ -1222,6 +1255,7 @@ const clearWeightAnalysisFilter = async () => {
 
           <button
             onClick={updateBulkStatus}
+            disabled={statusBusy}
             style={{
               backgroundColor: ROYAL_BLUE,
               color: WHITE,
@@ -1546,9 +1580,32 @@ const clearWeightAnalysisFilter = async () => {
         ? "Checking Storage…"
         : "Generate Storage Invoice"}
     </button>
+                            {pkg.status === "Delivered" && (
+                          <button
+                            type="button"
+                            disabled={statusBusy}
+                            onClick={() =>
+                              updateStatus(
+                                pkg.trackingNumber,
+                                "Ready for Pickup"
+                              )
+                            }
+                            style={{
+                              ...actionButtonStyle,
+                              backgroundColor: "#fff7ed",
+                              color: "#9a3412",
+                              border: "1px solid #fdba74",
+                              opacity: statusBusy ? 0.6 : 1,
+                            }}
+                          >
+                            Correct Delivery Status
+                          </button>
+                        )}
+
                         {nextStatus ? (
                           <button
                             onClick={() => updateStatus(pkg.trackingNumber, nextStatus)}
+                            disabled={statusBusy}
                             style={{
                               ...actionButtonStyle,
                               backgroundColor: GOLD,
