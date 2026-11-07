@@ -1,227 +1,120 @@
 import { useEffect, useMemo, useState } from "react";
 import api from "../api";
 
-function IntegrationLogs() {
+export default function IntegrationLogs() {
   const [logs, setLogs] = useState([]);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState("All");
-  const [sourceFilter, setSourceFilter] = useState("All");
+  const [search, setSearch] = useState("");
+  const [status, setStatus] = useState("All");
+  const [source, setSource] = useState("All");
   const [pageSize, setPageSize] = useState(25);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [expandedPayloads, setExpandedPayloads] = useState({});
-  const [syncingLtw, setSyncingLtw] = useState(false);
-
-  const ROYAL_BLUE = "#0B3D91";
-  const WHITE = "#ffffff";
-  const BORDER = "#dbe3ef";
-  const MUTED = "#64748b";
+  const [page, setPage] = useState(1);
+  const [expanded, setExpanded] = useState({});
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   const fetchLogs = async () => {
+    setLoading(true);
+    setError("");
+
     try {
-      const res = await api.get("/api/integration-logs");
-      setLogs(res.data.data || []);
-    } catch (error) {
-      console.error("Error loading integration logs:", error);
-      alert(error?.response?.data?.message || "Could not load integration logs.");
+      const response = await api.get("/api/integration-logs");
+
+      if (!response.data?.success || !Array.isArray(response.data.data)) {
+        throw new Error("Could not confirm the integration logs.");
+      }
+
+      setLogs(response.data.data);
+    } catch (err) {
+      setError(
+        err.response?.data?.message ||
+          err.message ||
+          "Could not load integration logs."
+      );
+    } finally {
+      setLoading(false);
     }
   };
-
-  const syncLtwPackages = async () => {
-  const confirmed = window.confirm(
-    "Sync the latest LTW packages into EKOS now? Start with page 1 and 10 packages for safety."
-  );
-
-  if (!confirmed) return;
-
-  try {
-    setSyncingLtw(true);
-
-    const res = await api.get("/api/integrations/ltw/sync-packages?page=1&limit=10");
-
-    const summary = res.data?.data || {};
-
-    alert(
-      `LTW Sync Complete\n\nImported: ${summary.importedCount || 0}\nDuplicates: ${summary.duplicateCount || 0}\nUnmatched: ${summary.unmatchedCount || 0}\nFailed: ${summary.failedCount || 0}`
-    );
-
-    await fetchLogs();
-  } catch (error) {
-    console.error("LTW sync error:", error);
-    alert(error?.response?.data?.message || "LTW sync failed.");
-  } finally {
-    setSyncingLtw(false);
-  }
-};
 
   useEffect(() => {
     fetchLogs();
   }, []);
 
   useEffect(() => {
-    setCurrentPage(1);
-  }, [searchTerm, statusFilter, sourceFilter, pageSize]);
+    setPage(1);
+  }, [search, status, source, pageSize]);
 
-  const uniqueSources = useMemo(() => {
-    return ["All", ...new Set(logs.map((log) => log.source).filter(Boolean))];
-  }, [logs]);
+  const sources = useMemo(
+    () => ["All", ...new Set(logs.map((log) => log.source).filter(Boolean))],
+    [logs]
+  );
 
-  const filteredLogs = useMemo(() => {
+  const filtered = useMemo(() => {
+    const term = search.toLowerCase();
+
     return logs.filter((log) => {
-      const matchesSearch =
-        `${log.logNumber || ""} ${log.source || ""} ${log.eventType || ""} ${log.status || ""} ${log.trackingNumber || ""} ${log.customerEkonId || ""} ${log.message || ""} ${log.errorDetails || ""}`
-          .toLowerCase()
-          .includes(searchTerm.toLowerCase());
+      const text = [
+        log.logNumber,
+        log.source,
+        log.eventType,
+        log.status,
+        log.trackingNumber,
+        log.customerEkonId,
+        log.message,
+        log.errorDetails,
+      ].filter(Boolean).join(" ").toLowerCase();
 
-      const matchesStatus =
-        statusFilter === "All" || log.status === statusFilter;
-
-      const matchesSource =
-        sourceFilter === "All" || log.source === sourceFilter;
-
-      return matchesSearch && matchesStatus && matchesSource;
+      return (
+        text.includes(term) &&
+        (status === "All" || log.status === status) &&
+        (source === "All" || log.source === source)
+      );
     });
-  }, [logs, searchTerm, statusFilter, sourceFilter]);
+  }, [logs, search, status, source]);
 
-  const totalPages = Math.max(1, Math.ceil(filteredLogs.length / pageSize));
-  const safeCurrentPage = Math.min(currentPage, totalPages);
-  const startIndex = (safeCurrentPage - 1) * pageSize;
-  const endIndex = startIndex + pageSize;
-  const paginatedLogs = filteredLogs.slice(startIndex, endIndex);
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const currentPage = Math.min(page, totalPages);
+  const start = (currentPage - 1) * pageSize;
+  const visible = filtered.slice(start, start + pageSize);
 
-  const summary = useMemo(() => {
-    return {
-      total: logs.length,
-      success: logs.filter((log) => log.status === "Success").length,
-      failed: logs.filter((log) => log.status === "Failed").length,
-      duplicate: logs.filter((log) => log.status === "Duplicate").length,
-    };
-  }, [logs]);
-
-  const formatDateTime = (value) => {
-    if (!value) return "";
-    try {
-      return new Date(value).toLocaleString();
-    } catch {
-      return value;
-    }
+  const dateLabel = (value) => {
+    const date = new Date(value);
+    return value && Number.isFinite(date.getTime())
+      ? date.toLocaleString("en-JM", { timeZone: "America/Jamaica" })
+      : "—";
   };
 
-  const statusBadge = (status) => {
-    const color =
-      status === "Success"
-        ? "#16a34a"
-        : status === "Failed"
-        ? "#dc2626"
-        : status === "Duplicate"
-        ? "#f59e0b"
-        : "#64748b";
-
-    return (
-      <span
-        style={{
-          backgroundColor: color,
-          color: WHITE,
-          padding: "5px 10px",
-          borderRadius: "999px",
-          fontWeight: "bold",
-          fontSize: "12px",
-          whiteSpace: "nowrap",
-        }}
-      >
-        {status}
-      </span>
-    );
-  };
-
-  const togglePayload = (id) => {
-    setExpandedPayloads((prev) => ({
-      ...prev,
-      [id]: !prev[id],
-    }));
-  };
-
-  const payloadPreview = (payload, expanded) => {
-    const text = JSON.stringify(payload || {}, null, 2);
-    if (expanded || text.length <= 160) return text;
-    return `${text.slice(0, 160)}...`;
-  };
-
-  const cardStyle = {
-    backgroundColor: WHITE,
-    border: `1px solid ${BORDER}`,
-    borderRadius: "12px",
-    padding: "16px",
-    boxShadow: "0 2px 8px rgba(15,23,42,0.04)",
-  };
-
-  const paginationControls = (
-    <div
-      style={{
-        backgroundColor: WHITE,
-        border: `1px solid ${BORDER}`,
-        borderRadius: "10px",
-        padding: "12px 15px",
-        marginBottom: "15px",
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "center",
-        gap: "12px",
-        flexWrap: "wrap",
-      }}
-    >
+  const pagination = (
+    <div className="ek-integration-toolbar">
       <strong>
-        Showing {filteredLogs.length === 0 ? 0 : startIndex + 1} to{" "}
-        {Math.min(endIndex, filteredLogs.length)} of {filteredLogs.length}
+        Showing {filtered.length ? start + 1 : 0} to{" "}
+        {Math.min(start + pageSize, filtered.length)} of {filtered.length}
       </strong>
 
-      <select
-        value={pageSize}
-        onChange={(e) => setPageSize(Number(e.target.value))}
-        style={{
-          padding: "8px 10px",
-          borderRadius: "8px",
-          border: `1px solid ${BORDER}`,
-        }}
-      >
-        <option value={10}>10 per page</option>
-        <option value={25}>25 per page</option>
-        <option value={50}>50 per page</option>
-        <option value={100}>100 per page</option>
-      </select>
+      <label>
+        Rows{" "}
+        <select
+          value={pageSize}
+          onChange={(event) => setPageSize(Number(event.target.value))}
+        >
+          {[10, 25, 50, 100].map((size) => (
+            <option key={size} value={size}>{size}</option>
+          ))}
+        </select>
+      </label>
 
-      <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+      <div className="ek-integration-toolbar">
         <button
-          onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
-          disabled={safeCurrentPage === 1}
-          style={{
-            backgroundColor: safeCurrentPage === 1 ? "#94a3b8" : ROYAL_BLUE,
-            color: WHITE,
-            border: "none",
-            padding: "8px 12px",
-            borderRadius: "8px",
-            cursor: safeCurrentPage === 1 ? "not-allowed" : "pointer",
-            fontWeight: "bold",
-          }}
+          type="button"
+          disabled={currentPage === 1}
+          onClick={() => setPage(currentPage - 1)}
         >
           Previous
         </button>
-
-        <strong>
-          Page {safeCurrentPage} of {totalPages}
-        </strong>
-
+        <span>Page {currentPage} of {totalPages}</span>
         <button
-          onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
-          disabled={safeCurrentPage === totalPages}
-          style={{
-            backgroundColor: safeCurrentPage === totalPages ? "#94a3b8" : ROYAL_BLUE,
-            color: WHITE,
-            border: "none",
-            padding: "8px 12px",
-            borderRadius: "8px",
-            cursor: safeCurrentPage === totalPages ? "not-allowed" : "pointer",
-            fontWeight: "bold",
-          }}
+          type="button"
+          disabled={currentPage === totalPages}
+          onClick={() => setPage(currentPage + 1)}
         >
           Next
         </button>
@@ -230,276 +123,225 @@ function IntegrationLogs() {
   );
 
   return (
-    <div>
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          gap: "12px",
-          flexWrap: "wrap",
-          marginBottom: "20px",
-        }}
-      >
+    <section className="ek-integration-archive">
+      <style>{`
+        .ek-integration-archive {
+          color:#0f172a;
+        }
+        .ek-integration-archive .ek-integration-card {
+          padding:16px;
+          margin-bottom:16px;
+          border:1px solid #dbe3ef;
+          border-radius:12px;
+          background:#fff;
+        }
+        .ek-integration-toolbar {
+          display:flex;
+          align-items:center;
+          justify-content:space-between;
+          flex-wrap:wrap;
+          gap:12px;
+          margin:12px 0;
+        }
+        .ek-integration-archive button,
+        .ek-integration-archive input,
+        .ek-integration-archive select {
+          min-height:44px;
+          padding:9px 12px;
+          border:1px solid #cbd5e1;
+          border-radius:8px;
+          font:inherit;
+        }
+        .ek-integration-archive button {
+          background:#0b3d91;
+          color:#fff;
+          cursor:pointer;
+        }
+        .ek-integration-archive button:disabled {
+          opacity:.5;
+          cursor:default;
+        }
+        .ek-integration-filters {
+          display:grid;
+          grid-template-columns:2fr 1fr 1fr;
+          gap:12px;
+        }
+        .ek-integration-filters label {
+          display:grid;
+          gap:6px;
+          min-width:0;
+        }
+        .ek-integration-filters input,
+        .ek-integration-filters select {
+          width:100%;
+          min-width:0;
+        }
+        .ek-integration-table {
+          overflow:auto;
+          max-height:70vh;
+        }
+        .ek-integration-table table {
+          min-width:1400px;
+          width:100%;
+          border-collapse:collapse;
+        }
+        .ek-integration-table th,
+        .ek-integration-table td {
+          padding:12px;
+          text-align:left;
+          vertical-align:top;
+          border:1px solid #dbe3ef;
+        }
+        .ek-integration-table th {
+          position:sticky;
+          top:0;
+          background:#eef4ff;
+          z-index:1;
+        }
+        .ek-integration-table pre {
+          margin:0 0 8px;
+          white-space:pre-wrap;
+          overflow-wrap:anywhere;
+          max-width:380px;
+          font-size:12px;
+        }
+        @media(max-width:700px) {
+          .ek-integration-filters {
+            grid-template-columns:1fr;
+          }
+        }
+      `}</style>
+
+      <div className="ek-integration-toolbar">
         <div>
           <h1 style={{ margin: 0 }}>Integration Logs</h1>
-          <p style={{ margin: "6px 0 0", color: MUTED }}>
-            Monitor freight API package imports, failures, duplicates, and payloads.
-          </p>
+          <p>Historical freight integration activity.</p>
         </div>
-
-        <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
-  <button
-    onClick={syncLtwPackages}
-    disabled={syncingLtw}
-    style={{
-      backgroundColor: syncingLtw ? "#94a3b8" : "#f59e0b",
-      color: syncingLtw ? "white" : "black",
-      border: "none",
-      padding: "10px 16px",
-      borderRadius: "8px",
-      cursor: syncingLtw ? "not-allowed" : "pointer",
-      fontWeight: "bold",
-    }}
-  >
-    {syncingLtw ? "Syncing LTW..." : "Sync LTW Packages"}
-  </button>
-
-  <button
-    onClick={fetchLogs}
-    style={{
-      backgroundColor: "#16a34a",
-      color: WHITE,
-      border: "none",
-      padding: "10px 16px",
-      borderRadius: "8px",
-      cursor: "pointer",
-      fontWeight: "bold",
-    }}
-  >
-    Refresh
-  </button>
-</div>
+        <button type="button" disabled={loading} onClick={fetchLogs}>
+          {loading ? "Loading…" : "Refresh Logs"}
+        </button>
       </div>
 
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-          gap: "14px",
-          marginBottom: "18px",
-        }}
-      >
-        <div style={cardStyle}>
-          <h2 style={{ margin: 0, color: ROYAL_BLUE }}>{summary.total}</h2>
-          <p style={{ marginBottom: 0, fontWeight: "bold" }}>Total Logs</p>
-        </div>
+      <div className="ek-integration-card" role="note">
+        <strong>Freight API synchronization is discontinued.</strong>
+        <p style={{ lineHeight: 1.6, marginBottom: 0 }}>
+          KP and LTW are no longer Eltham Konnect freight partners.
+          Kajay Warehousing shipments are managed manually until an API
+          connection becomes available. Previous logs remain available
+          for reference.
+        </p>
+      </div>
 
-        <div style={cardStyle}>
-          <h2 style={{ margin: 0, color: "#16a34a" }}>{summary.success}</h2>
-          <p style={{ marginBottom: 0, fontWeight: "bold" }}>Successful</p>
-        </div>
+      {error && <p role="alert" style={{ color: "#b91c1c" }}>{error}</p>}
 
-        <div style={cardStyle}>
-          <h2 style={{ margin: 0, color: "#dc2626" }}>{summary.failed}</h2>
-          <p style={{ marginBottom: 0, fontWeight: "bold" }}>Failed</p>
-        </div>
+      <div className="ek-integration-card">
+        <div className="ek-integration-filters">
+          <label>
+            Search historical logs
+            <input
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Tracking, customer, source or message"
+            />
+          </label>
 
-        <div style={cardStyle}>
-          <h2 style={{ margin: 0, color: "#f59e0b" }}>{summary.duplicate}</h2>
-          <p style={{ marginBottom: 0, fontWeight: "bold" }}>Duplicates</p>
+          <label>
+            Status
+            <select value={status} onChange={(event) => setStatus(event.target.value)}>
+              {["All", "Success", "Failed", "Duplicate"].map((value) => (
+                <option key={value} value={value}>{value}</option>
+              ))}
+            </select>
+          </label>
+
+          <label>
+            Historical source
+            <select value={source} onChange={(event) => setSource(event.target.value)}>
+              {sources.map((value) => (
+                <option key={value} value={value}>{value}</option>
+              ))}
+            </select>
+          </label>
         </div>
       </div>
 
-      <div style={{ ...cardStyle, marginBottom: "15px" }}>
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "2fr 1fr 1fr",
-            gap: "12px",
-          }}
-        >
-          <input
-            type="text"
-            placeholder="Search logs by tracking, customer, source, message, or error"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            style={{
-              padding: "11px",
-              borderRadius: "8px",
-              border: `1px solid ${BORDER}`,
-            }}
-          />
+      <div className="ek-integration-card">
+        {pagination}
 
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            style={{
-              padding: "11px",
-              borderRadius: "8px",
-              border: `1px solid ${BORDER}`,
-            }}
-          >
-            <option value="All">All Statuses</option>
-            <option value="Success">Success</option>
-            <option value="Failed">Failed</option>
-            <option value="Duplicate">Duplicate</option>
-          </select>
-
-          <select
-            value={sourceFilter}
-            onChange={(e) => setSourceFilter(e.target.value)}
-            style={{
-              padding: "11px",
-              borderRadius: "8px",
-              border: `1px solid ${BORDER}`,
-            }}
-          >
-            {uniqueSources.map((source) => (
-              <option key={source} value={source}>
-                {source}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
-
-      {paginationControls}
-
-      <div style={cardStyle}>
-        <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>Freight API Activity</h2>
-
-        <div
-          style={{
-            overflowX: "auto",
-            overflowY: "auto",
-            maxHeight: "70vh",
-            border: `1px solid ${BORDER}`,
-            borderRadius: "12px",
-          }}
-        >
-          <table
-            border="1"
-            cellPadding="10"
-            style={{
-              minWidth: "1700px",
-              width: "100%",
-              borderCollapse: "collapse",
-              borderColor: BORDER,
-            }}
-          >
-            <thead
-              style={{
-                backgroundColor: "#eef4ff",
-                position: "sticky",
-                top: 0,
-                zIndex: 5,
-              }}
-            >
+        <div className="ek-integration-table">
+          <table>
+            <thead>
               <tr>
-                <th
-                  style={{
-                    position: "sticky",
-                    left: 0,
-                    backgroundColor: "#eef4ff",
-                    zIndex: 6,
-                    minWidth: "180px",
-                  }}
-                >
-                  Date/Time
-                </th>
-                <th>Log No.</th>
-                <th>Source</th>
-                <th>Event</th>
-                <th>Status</th>
-                <th>Tracking</th>
-                <th>Customer EKON</th>
-                <th>Message</th>
-                <th>Error</th>
-                <th>Payload</th>
+                {[
+                  "Date/Time — Jamaica",
+                  "Log No.",
+                  "Source",
+                  "Event",
+                  "Status",
+                  "Tracking",
+                  "Customer EKON",
+                  "Message",
+                  "Error",
+                  "Payload",
+                ].map((heading) => <th key={heading}>{heading}</th>)}
               </tr>
             </thead>
 
             <tbody>
-              {paginatedLogs.length > 0 ? (
-                paginatedLogs.map((log, index) => {
-                  const rowKey = log._id || index;
-                  const isExpanded = !!expandedPayloads[rowKey];
+              {visible.map((log, index) => {
+                const key = log._id || `${start + index}`;
+                const payload = JSON.stringify(log.payload || {}, null, 2);
+                const isExpanded = Boolean(expanded[key]);
 
-                  return (
-                    <tr key={rowKey}>
-                      <td
-                        style={{
-                          position: "sticky",
-                          left: 0,
-                          backgroundColor: WHITE,
-                          zIndex: 4,
-                          minWidth: "180px",
-                          boxShadow: "4px 0 8px rgba(15,23,42,0.08)",
-                        }}
-                      >
-                        {formatDateTime(log.createdAt)}
-                      </td>
-
-                      <td>{log.logNumber}</td>
-                      <td>{log.source}</td>
-                      <td>{log.eventType}</td>
-                      <td>{statusBadge(log.status)}</td>
-                      <td>{log.trackingNumber}</td>
-                      <td>{log.customerEkonId}</td>
-                      <td>{log.message}</td>
-                      <td style={{ color: log.errorDetails ? "#dc2626" : MUTED }}>
-                        {log.errorDetails || "—"}
-                      </td>
-                      <td>
-                        <pre
-                          style={{
-                            margin: 0,
-                            whiteSpace: "pre-wrap",
-                            wordBreak: "break-word",
-                            maxWidth: "420px",
-                            fontSize: "12px",
-                          }}
+                return (
+                  <tr key={key}>
+                    <td>{dateLabel(log.createdAt)}</td>
+                    <td>{log.logNumber}</td>
+                    <td>{log.source}</td>
+                    <td>{log.eventType}</td>
+                    <td>{log.status}</td>
+                    <td>{log.trackingNumber}</td>
+                    <td>{log.customerEkonId}</td>
+                    <td>{log.message}</td>
+                    <td>{log.errorDetails || "—"}</td>
+                    <td>
+                      <pre>
+                        {isExpanded || payload.length <= 160
+                          ? payload
+                          : `${payload.slice(0, 160)}…`}
+                      </pre>
+                      {payload.length > 160 && (
+                        <button
+                          type="button"
+                          aria-expanded={isExpanded}
+                          onClick={() =>
+                            setExpanded((previous) => ({
+                              ...previous,
+                              [key]: !previous[key],
+                            }))
+                          }
                         >
-                          {payloadPreview(log.payload, isExpanded)}
-                        </pre>
+                          {isExpanded ? "Show Less" : "View More"}
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
 
-                        {JSON.stringify(log.payload || {}).length > 160 && (
-                          <button
-                            onClick={() => togglePayload(rowKey)}
-                            style={{
-                              marginTop: "8px",
-                              backgroundColor: "#e2e8f0",
-                              color: "#0f172a",
-                              border: "none",
-                              padding: "7px 10px",
-                              borderRadius: "8px",
-                              cursor: "pointer",
-                              fontWeight: "bold",
-                            }}
-                          >
-                            {isExpanded ? "Show Less" : "View More"}
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })
-              ) : (
+              {!visible.length && (
                 <tr>
-                  <td colSpan="10" style={{ textAlign: "center", color: MUTED }}>
-                    No integration logs found.
+                  <td colSpan={10}>
+                    {loading ? "Loading logs…" : "No matching historical logs."}
                   </td>
                 </tr>
               )}
             </tbody>
           </table>
         </div>
-      </div>
 
-      <div style={{ marginTop: "15px" }}>{paginationControls}</div>
-    </div>
+        {pagination}
+      </div>
+    </section>
   );
 }
-
-export default IntegrationLogs;
