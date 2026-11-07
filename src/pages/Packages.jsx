@@ -260,8 +260,15 @@ const clearWeightAnalysisFilter = async () => {
       await fetchPackages();
       await fetchWeightAnalysis();
 
-      if (response.data.unchanged) {
-        alert(response.data.message);
+            const warnings = response.data.warnings || [];
+
+      if (response.data.unchanged || warnings.length) {
+        alert(
+          [
+            response.data.message,
+            ...warnings,
+          ].filter(Boolean).join("\n")
+        );
       }
     } catch (error) {
       alert(
@@ -327,12 +334,13 @@ const clearWeightAnalysisFilter = async () => {
         throw new Error("Could not confirm the bulk update.");
       }
 
-      const updatedCount = response.data.updatedCount;
+            const warnings = response.data.warnings || [];
 
       alert(
-        Number.isInteger(updatedCount)
-          ? `${updatedCount} package(s) changed. Packages already at the selected status were left unchanged.`
-          : response.data.message || "Bulk update completed."
+        [
+          response.data.message || "Bulk update completed.",
+          ...warnings,
+        ].filter(Boolean).join("\n")
       );
 
       setSelectedPackages([]);
