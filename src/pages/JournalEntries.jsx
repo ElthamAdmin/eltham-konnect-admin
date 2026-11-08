@@ -1,8 +1,38 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import api from "../api";
+import OpeningBalanceForm from "../components/OpeningBalanceForm";
+
+const jamaicaToday = () => {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Jamaica",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+
+  return ["year", "month", "day"]
+    .map((type) => parts.find((part) => part.type === type).value)
+    .join("-");
+};
 
 function JournalEntries() {
   const [entries, setEntries] = useState([]);
+    const [options, setOptions] = useState({
+    capabilities: {
+      canPrepare: false,
+      canAdmin: false,
+    },
+    entities: [],
+    manualAccounts: [],
+    openingAccounts: [],
+    offsetAccounts: [],
+  });
+
+  const [showOpening, setShowOpening] = useState(false);
+  const [actionBusy, setActionBusy] = useState(false);
+
+  const actionLock = useRef(false);
+  const manualRequestId = useRef(crypto.randomUUID());
   const [accounts, setAccounts] = useState([]);
   const [showForm, setShowForm] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -15,7 +45,9 @@ const [selectedEntry, setSelectedEntry] = useState(null);
 const [reverseReason, setReverseReason] = useState("");
 
   const [formData, setFormData] = useState({
-    entryDate: new Date().toISOString().slice(0, 10),
+        entryDate: jamaicaToday(),
+    entityCode: "",
+    branch: "",
     memo: "",
     reference: "",
     sourceModule: "Manual",
@@ -30,20 +62,23 @@ const [reverseReason, setReverseReason] = useState("");
   const BORDER = "#dbe3ef";
   const MUTED = "#64748b";
 
-  const fetchData = async () => {
+    const fetchData = async () => {
     try {
-      const [entriesRes, accountsRes, healthRes] = await Promise.all([
-  api.get("/api/journal-entries"),
-  api.get("/api/chart-of-accounts"),
-  api.get("/api/journal-entries/health"),
-]);
+      const [entriesRes, optionsRes, healthRes] = await Promise.all([
+        api.get("/api/journal-entries"),
+        api.get("/api/journal-entries/options"),
+        api.get("/api/journal-entries/health"),
+      ]);
 
-setEntries(entriesRes.data.data || []);
-setAccounts(accountsRes.data.data || []);
-setHealth(healthRes.data.data || null);
+      setEntries(entriesRes.data.data || []);
+      setOptions(optionsRes.data.data);
+      setAccounts(optionsRes.data.data.manualAccounts || []);
+      setHealth(healthRes.data.data || null);
     } catch (error) {
-      console.error("Error loading journal entries:", error);
-      alert(error?.response?.data?.message || "Could not load journal entries.");
+      alert(
+        error?.response?.data?.message ||
+          "Could not load journal entries."
+      );
     }
   };
 
@@ -95,143 +130,179 @@ setHealth(healthRes.data.data || null);
     };
   }, [formData.lines]);
 
-  const saveJournalEntry = async () => {
-  try {
-    if (!formData.entryDate || !formData.memo) {
-      alert("Entry date and memo are required.");
-      return;
+    const runJournalAction = async (action) => {
+    if (actionLock.current) return;
+
+    actionLock.current = true;
+    setActionBusy(true);
+
+    try {
+      await action();
+    } catch (error) {
+      alert(
+        error?.response?.data?.message ||
+          error.message ||
+          "Could not confirm this action. Refresh before retrying."
+      );
+    } finally {
+      actionLock.current = false;
+      setActionBusy(false);
     }
+  };
 
-    const lines = formData.lines
-      .filter((line) => line.accountCode && (Number(line.debit || 0) > 0 || Number(line.credit || 0) > 0))
-      .map((line) => ({
-        ...line,
-        accountName: getAccountName(line.accountCode),
-      }));
+  const openJournalEntry = async (entryNumber) => {
+    try {
+      const response = await api.get(
+        `/api/journal-entries/${encodeURIComponent(entryNumber)}`
+      );
 
-    if (lines.length < 2) {
-      alert("At least two valid journal lines are required.");
-      return;
+      setSelectedEntry(response.data.data || null);
+      setReverseReason("");
+    } catch (error) {
+      alert(
+        error?.response?.data?.message ||
+          "Could not load journal entry."
+      );
     }
+  };
 
-    const debitTotal = lines.reduce((sum, line) => sum + Number(line.debit || 0), 0);
-    const creditTotal = lines.reduce((sum, line) => sum + Number(line.credit || 0), 0);
+  const saveJournalEntry = () =>
+    runJournalAction(async () => {
+      const response = await api.post(
+        "/api/journal-entries/draft",
+        {
+          ...formData,
+          sourceModule: "Manual",
+          manualRequestId: manualRequestId.current,
+          lines: formData.lines.map((line) => ({
+            ...line,
+            accountName: getAccountName(line.accountCode),
+          })),
+        }
+      );
 
-    if (Number(debitTotal.toFixed(2)) !== Number(creditTotal.toFixed(2))) {
-      alert("Journal entry is not balanced. Debits must equal credits.");
-      return;
-    }
+      alert(response.data.message);
+      manualRequestId.current = crypto.randomUUID();
 
-    await api.post("/api/journal-entries", {
-      ...formData,
-      lines,
+      setFormData({
+        entryDate: jamaicaToday(),
+        entityCode: "",
+        branch: "",
+        memo: "",
+        reference: "",
+        sourceModule: "Manual",
+        lines: [
+          { accountCode: "", debit: 0, credit: 0, description: "" },
+          { accountCode: "", debit: 0, credit: 0, description: "" },
+        ],
+      });
+
+      setShowForm(false);
+
+      await fetchData();
+      await openJournalEntry(response.data.data.entryNumber);
     });
 
-    alert("Journal entry posted successfully.");
+  const actOnEntry = (entryNumber, action, label) =>
+    runJournalAction(async () => {
+      if (!window.confirm(`${label} ${entryNumber}?`)) return;
 
-    setFormData({
-      entryDate: new Date().toISOString().slice(0, 10),
-      memo: "",
-      reference: "",
-      sourceModule: "Manual",
-      lines: [
-        { accountCode: "", debit: 0, credit: 0, description: "" },
-        { accountCode: "", debit: 0, credit: 0, description: "" },
-      ],
+      const response = await api.post(
+        `/api/journal-entries/${encodeURIComponent(entryNumber)}/${action}`
+      );
+
+      alert(response.data.message);
+
+      await fetchData();
+      await openJournalEntry(entryNumber);
     });
 
-    setShowForm(false);
-    await fetchData();
-  } catch (error) {
-    console.error("Error posting journal entry:", error);
-    alert(error?.response?.data?.message || "Could not post journal entry.");
-  }
-};
+  const submitForApproval = (number) =>
+    actOnEntry(number, "submit", "Submit for approval:");
 
-const openJournalEntry = async (entryNumber) => {
-  try {
-    const res = await api.get(`/api/journal-entries/${entryNumber}`);
-    setSelectedEntry(res.data.data || null);
-    setReverseReason("");
-  } catch (error) {
-    console.error("Error loading journal entry:", error);
-    alert(error?.response?.data?.message || "Could not load journal entry.");
-  }
-};
+  const approveJournal = (number) =>
+    actOnEntry(number, "approve", "Approve:");
 
-const reverseEntry = async () => {
-  try {
-    if (!selectedEntry?.entryNumber) {
-      alert("No journal entry selected.");
-      return;
-    }
+  const postApprovedJournal = (number) =>
+    actOnEntry(number, "post", "Post this approved journal:");
 
-    if (selectedEntry.status === "Reversed") {
-      alert("This journal entry is already reversed.");
-      return;
-    }
+  const reverseEntry = () =>
+    runJournalAction(async () => {
+      if (
+        !selectedEntry ||
+        reverseReason.trim().length < 10
+      ) {
+        alert(
+          "Select a posted manual entry and enter a reversal reason of at least 10 characters."
+        );
+        return;
+      }
 
-    if (!reverseReason.trim()) {
-      alert("Please enter a reversal reason.");
-      return;
-    }
+      const reversalDate = prompt(
+        "Reversal posting date (YYYY-MM-DD):",
+        jamaicaToday()
+      );
 
-    if (!window.confirm(`Reverse journal entry ${selectedEntry.entryNumber}? This cannot be undone.`)) {
-      return;
-    }
+      if (reversalDate === null) return;
 
-    await api.post(`/api/journal-entries/${selectedEntry.entryNumber}/reverse`, {
-      reversalReason: reverseReason.trim(),
+      const number = selectedEntry.entryNumber;
+
+      if (
+        !window.confirm(
+          `Reverse ${number} on ${reversalDate}? A separate reversing journal will be posted.`
+        )
+      ) {
+        return;
+      }
+
+      const response = await api.post(
+        `/api/journal-entries/${encodeURIComponent(number)}/reverse`,
+        {
+          reversalReason: reverseReason.trim(),
+          reversalDate,
+        }
+      );
+
+      alert(response.data.message);
+
+      await fetchData();
+      await openJournalEntry(number);
     });
 
-    alert("Journal entry reversed successfully.");
-    setSelectedEntry(null);
-    setReverseReason("");
-    await fetchData();
-  } catch (error) {
-    console.error("Reverse journal entry error:", error);
-    alert(error?.response?.data?.message || "Could not reverse journal entry.");
-  }
-};
+  const discardDraft = () =>
+    runJournalAction(async () => {
+      if (
+        !selectedEntry ||
+        !window.confirm(
+          `Discard unposted draft ${selectedEntry.entryNumber}? Its audit record will be retained.`
+        )
+      ) {
+        return;
+      }
 
-const submitForApproval = async (entryNumber) => {
-  try {
-    await api.post(`/api/journal-entries/${entryNumber}/submit`);
-    await fetchData();
+      await api.delete(
+        `/api/journal-entries/${encodeURIComponent(selectedEntry.entryNumber)}/draft`
+      );
 
-    if (selectedEntry?.entryNumber === entryNumber) {
-      await openJournalEntry(entryNumber);
-    }
-  } catch (error) {
-    alert(error?.response?.data?.message || "Could not submit journal.");
-  }
-};
+      setSelectedEntry(null);
+      await fetchData();
+    });
 
-const approveJournal = async (entryNumber) => {
-  try {
-    await api.post(`/api/journal-entries/${entryNumber}/approve`);
-    await fetchData();
+  const selectedIsManual = selectedEntry && (
+    ["Manual", "Opening Balance"].includes(selectedEntry.entryKind) ||
+    (
+      !selectedEntry.entryKind &&
+      selectedEntry.sourceModule === "Manual"
+    )
+  );
 
-    if (selectedEntry?.entryNumber === entryNumber) {
-      await openJournalEntry(entryNumber);
-    }
-  } catch (error) {
-    alert(error?.response?.data?.message || "Could not approve journal.");
-  }
-};
-
-const postApprovedJournal = async (entryNumber) => {
-  try {
-    await api.post(`/api/journal-entries/${entryNumber}/post`);
-    await fetchData();
-
-    if (selectedEntry?.entryNumber === entryNumber) {
-      await openJournalEntry(entryNumber);
-    }
-  } catch (error) {
-    alert(error?.response?.data?.message || "Could not post journal.");
-  }
-};
+  const canPrepareSelected =
+    options.capabilities.canPrepare &&
+    selectedIsManual &&
+    (
+      selectedEntry.entryKind !== "Opening Balance" ||
+      options.capabilities.canAdmin
+    );
 
   const filteredEntries = entries.filter((entry) => {
   const matchesSearch = `${entry.entryNumber} ${entry.entryDate} ${entry.memo} ${entry.reference} ${entry.sourceModule}`
@@ -312,6 +383,7 @@ const statusBadge = (status) => (
         </div>
 
         <button
+                    disabled={actionBusy || !options.capabilities.canPrepare}
           onClick={() => setShowForm((prev) => !prev)}
           style={{
             backgroundColor: ROYAL_BLUE,
@@ -323,7 +395,7 @@ const statusBadge = (status) => (
             fontWeight: "bold",
           }}
         >
-          {showForm ? "Close Form" : "+ New Journal Entry"}
+                    {showForm ? "Close Form" : "+ New Manual Draft"}
         </button>
       </div>
 
@@ -368,16 +440,85 @@ const statusBadge = (status) => (
   </div>
 </div>
 
-{showForm && (
+{options.capabilities.canAdmin && (
+  <button
+    type="button"
+    disabled={actionBusy}
+    onClick={() => setShowOpening((value) => !value)}
+    style={{
+      backgroundColor: ROYAL_BLUE,
+      color: WHITE,
+      border: "none",
+      padding: "10px 16px",
+      borderRadius: "8px",
+      marginBottom: "16px",
+      cursor: "pointer",
+      fontWeight: "bold",
+    }}
+  >
+    {showOpening ? "Close Opening Form" : "+ Opening Balance Draft"}
+  </button>
+)}
+
+{showOpening && options.capabilities.canAdmin && (
+  <OpeningBalanceForm
+    options={options}
+    busy={actionBusy}
+    runAction={runJournalAction}
+    onSaved={async (entry) => {
+      setShowOpening(false);
+      await fetchData();
+      await openJournalEntry(entry.entryNumber);
+    }}
+  />
+)}
+
+{showForm && options.capabilities.canPrepare && (
 
         <div style={{ ...cardStyle, marginBottom: "20px" }}>
-          <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>Post Journal Entry</h2>
+          <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>Prepare Manual Journal Draft</h2>
 
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))", gap: "12px", marginBottom: "16px" }}>
             <input type="date" value={formData.entryDate} onChange={(e) => setFormData({ ...formData, entryDate: e.target.value })} style={inputStyle} />
             <input placeholder="Memo" value={formData.memo} onChange={(e) => setFormData({ ...formData, memo: e.target.value })} style={inputStyle} />
             <input placeholder="Reference" value={formData.reference} onChange={(e) => setFormData({ ...formData, reference: e.target.value })} style={inputStyle} />
-            <input placeholder="Source Module" value={formData.sourceModule} onChange={(e) => setFormData({ ...formData, sourceModule: e.target.value })} style={inputStyle} />
+                        <select
+              value={formData.entityCode}
+              onChange={(event) =>
+                setFormData({
+                  ...formData,
+                  entityCode: event.target.value,
+                })
+              }
+              style={inputStyle}
+            >
+              <option value="">Select active business</option>
+              {options.entities.map((entity) => (
+                <option
+                  key={entity.entityCode}
+                  value={entity.entityCode}
+                >
+                  {entity.legalName} ({entity.entityCode})
+                </option>
+              ))}
+            </select>
+
+            <select
+              value={formData.branch}
+              onChange={(event) =>
+                setFormData({
+                  ...formData,
+                  branch: event.target.value,
+                })
+              }
+              style={inputStyle}
+            >
+              <option value="">Unassigned / company-wide</option>
+              <option>Eltham Park Mainstore</option>
+              <option>Brown's Town Square</option>
+            </select>
+
+            <input value="Manual" readOnly style={inputStyle} />
           </div>
 
           <div style={{ overflowX: "auto", border: `1px solid ${BORDER}`, borderRadius: "12px" }}>
@@ -437,8 +578,20 @@ const statusBadge = (status) => (
               {totals.balanced ? "Balanced" : "Not Balanced"}
             </span>
 
-            <button onClick={saveJournalEntry} style={{ backgroundColor: "#16a34a", color: WHITE, border: "none", padding: "10px 16px", borderRadius: "8px", cursor: "pointer", fontWeight: "bold" }}>
-              Post Entry
+                        <button
+              onClick={saveJournalEntry}
+              disabled={actionBusy}
+              style={{
+                backgroundColor: "#16a34a",
+                color: WHITE,
+                border: "none",
+                padding: "10px 16px",
+                borderRadius: "8px",
+                cursor: "pointer",
+                fontWeight: "bold",
+              }}
+            >
+              Save Draft
             </button>
           </div>
         </div>
@@ -570,7 +723,38 @@ const statusBadge = (status) => (
       <div><strong>Total Credit:</strong> {money(selectedEntry.totalCredit)}</div>
     </div>
 
-    <p><strong>Memo:</strong> {selectedEntry.memo || "—"}</p>
+        <p>
+      <strong>Business:</strong>{" "}
+      {selectedEntry.entitySnapshot?.legalName ||
+        selectedEntry.entityCode ||
+        "Not attributed — needs review"}
+    </p>
+
+    <p>
+      <strong>Branch:</strong>{" "}
+      {selectedEntry.branch || "Unassigned / company-wide"}
+    </p>
+
+    <p>
+      <strong>Approved By:</strong>{" "}
+      {selectedEntry.approvedBy || "—"}
+    </p>
+
+    {selectedEntry.openingDetails && (
+      <p>
+        <strong>Opening:</strong>{" "}
+        {selectedEntry.openingDetails.currency}{" "}
+        {selectedEntry.openingDetails.nativeBalance}
+        {" × "}
+        {selectedEntry.openingDetails.exchangeRate}
+        {" = "}
+        {money(selectedEntry.openingDetails.baseBalance)}
+      </p>
+    )}
+
+    <p>
+      <strong>Memo:</strong> {selectedEntry.memo || "—"}
+    </p>
 
     <div style={{ overflowX: "auto", border: `1px solid ${BORDER}`, borderRadius: "12px", marginTop: "12px" }}>
       <table border="1" cellPadding="10" style={{ minWidth: "900px", width: "100%", borderCollapse: "collapse" }}>
@@ -607,12 +791,34 @@ const statusBadge = (status) => (
     alignItems: "center",
   }}
 >
-  {selectedEntry.status === "Draft" && (
+    {options.capabilities.canAdmin &&
+    selectedIsManual &&
+    selectedEntry.status === "Draft" && (
+      <button
+        type="button"
+        disabled={actionBusy}
+        onClick={discardDraft}
+        style={{
+          backgroundColor: "#64748b",
+          color: WHITE,
+          border: "none",
+          padding: "10px 18px",
+          borderRadius: "8px",
+          cursor: "pointer",
+          fontWeight: "bold",
+        }}
+      >
+        Discard Unposted Draft
+      </button>
+    )}
+
+  {canPrepareSelected && selectedEntry.status === "Draft" && (
     <button
+      disabled={actionBusy}
       onClick={() => submitForApproval(selectedEntry.entryNumber)}
       style={{
         backgroundColor: "#7c3aed",
-        color: "#fff",
+        color: WHITE,
         border: "none",
         padding: "10px 18px",
         borderRadius: "8px",
@@ -624,58 +830,15 @@ const statusBadge = (status) => (
     </button>
   )}
 
-  {selectedEntry.status === "Pending Approval" && (
-    <button
-      onClick={() => approveJournal(selectedEntry.entryNumber)}
-      style={{
-        backgroundColor: "#2563eb",
-        color: "#fff",
-        border: "none",
-        padding: "10px 18px",
-        borderRadius: "8px",
-        cursor: "pointer",
-        fontWeight: "bold",
-      }}
-    >
-      Approve Journal
-    </button>
-  )}
-
-  {selectedEntry.status === "Approved" && (
-    <button
-      onClick={() => postApprovedJournal(selectedEntry.entryNumber)}
-      style={{
-        backgroundColor: "#16a34a",
-        color: "#fff",
-        border: "none",
-        padding: "10px 18px",
-        borderRadius: "8px",
-        cursor: "pointer",
-        fontWeight: "bold",
-      }}
-    >
-      Post Journal
-    </button>
-  )}
-
-  {selectedEntry.status === "Posted" && (
-    <>
-      <input
-        placeholder="Reason for reversal"
-        value={reverseReason}
-        onChange={(e) => setReverseReason(e.target.value)}
-        style={{
-          flex: 1,
-          minWidth: "250px",
-          ...inputStyle,
-        }}
-      />
-
+  {options.capabilities.canAdmin &&
+    selectedIsManual &&
+    selectedEntry.status === "Pending Approval" && (
       <button
-        onClick={reverseEntry}
+        disabled={actionBusy}
+        onClick={() => approveJournal(selectedEntry.entryNumber)}
         style={{
-          backgroundColor: "#dc2626",
-          color: "#fff",
+          backgroundColor: "#2563eb",
+          color: WHITE,
           border: "none",
           padding: "10px 18px",
           borderRadius: "8px",
@@ -683,10 +846,65 @@ const statusBadge = (status) => (
           fontWeight: "bold",
         }}
       >
-        Reverse Journal
+        Approve Journal
       </button>
-    </>
-  )}
+    )}
+
+  {options.capabilities.canAdmin &&
+    selectedIsManual &&
+    selectedEntry.status === "Approved" && (
+      <button
+        disabled={actionBusy}
+        onClick={() =>
+          postApprovedJournal(selectedEntry.entryNumber)
+        }
+        style={{
+          backgroundColor: "#16a34a",
+          color: WHITE,
+          border: "none",
+          padding: "10px 18px",
+          borderRadius: "8px",
+          cursor: "pointer",
+          fontWeight: "bold",
+        }}
+      >
+        Post Journal
+      </button>
+    )}
+
+  {options.capabilities.canAdmin &&
+    selectedIsManual &&
+    selectedEntry.status === "Posted" && (
+      <>
+        <input
+          placeholder="Reversal reason — at least 10 characters"
+          value={reverseReason}
+          onChange={(event) => setReverseReason(event.target.value)}
+          disabled={actionBusy}
+          style={{
+            flex: 1,
+            minWidth: "250px",
+            ...inputStyle,
+          }}
+        />
+
+        <button
+          onClick={reverseEntry}
+          disabled={actionBusy}
+          style={{
+            backgroundColor: "#dc2626",
+            color: WHITE,
+            border: "none",
+            padding: "10px 18px",
+            borderRadius: "8px",
+            cursor: "pointer",
+            fontWeight: "bold",
+          }}
+        >
+          Reverse Manual Journal
+        </button>
+      </>
+    )}
 
   {selectedEntry.status === "Reversed" && (
     <div
