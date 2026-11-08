@@ -47,6 +47,7 @@ import ClosePeriod from "./pages/ClosePeriod";
 import AccountsReceivable from "./pages/AccountsReceivable";
 import CustomerPurchases from "./pages/CustomerPurchases";
 import AccountsPayable from "./pages/AccountsPayable";
+import FreightInvoices from "./pages/FreightInvoices";
 import BankingReconciliation from "./pages/BankingReconciliation";
 import CashFlowStatement from "./pages/CashFlowStatement";
 import FixedAssets from "./pages/FixedAssets";
@@ -205,6 +206,11 @@ useEffect(() => {
   { label: "Accounts Receivable", path: "/accounts-receivable", show: can("finance") },
   { label: "Customer Purchases", path: "/customer-purchases", show: can("finance") },
   { label: "Accounts Payable", path: "/accounts-payable", show: can("finance") },
+    {
+    label: "Freight Forwarder Invoices",
+    path: "/freight-invoices",
+    show: can("finance"),
+  },
   { label: "Banking", path: "/banking-reconciliation", show: can("finance") },
   { label: "Cash Flow", path: "/cash-flow-statement", show: can("finance") },
   { label: "Fixed Assets", path: "/fixed-assets", show: can("finance") },
@@ -606,6 +612,14 @@ const subNavItemStyle = (active) => ({
       <Route path="/warehouse-management" element={can("warehouse") ? <WarehouseManagement /> : <Navigate to="/" replace />} />
       <Route path="/points-history" element={can("pointsHistory") ? <PointsHistory /> : <Navigate to="/" replace />} />
       <Route path="/referrals" element={<ReferralProgram />} />
+            <Route
+        path="/freight-invoices"
+        element={
+          can("finance")
+            ? <FreightInvoices />
+            : <Navigate to="/" replace />
+        }
+      />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

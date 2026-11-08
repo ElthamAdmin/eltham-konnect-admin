@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import api from "../api";
+import { Link } from "react-router-dom";
 
 function AccountsPayable() {
   const [vendors, setVendors] = useState([]);
@@ -402,7 +403,14 @@ function AccountsPayable() {
                       )}
                     </td>
                     <td>
-                      {getDueStatus(p) === "Paid" ? (
+                                            {p.freightInvoiceNumber ? (
+                        <Link
+                          to="/freight-invoices"
+                          style={{ color: ROYAL_BLUE, fontWeight: "bold" }}
+                        >
+                          Open Freight Invoices
+                        </Link>
+                      ) : getDueStatus(p) === "Paid" ? (
                         <span style={{ color: "#16a34a", fontWeight: "bold" }}>Paid</span>
                       ) : (
                         <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
