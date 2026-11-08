@@ -122,6 +122,8 @@ export default function FreightInvoices() {
   const [selected, setSelected] = useState(null);
   const [payment, setPayment] = useState(null);
   const [proof, setProof] = useState(null);
+    const [expenseLink, setExpenseLink] = useState(null);
+  const [expensePreview, setExpensePreview] = useState(null);
   const busy = useRef(false);
   const fileRef = useRef(null);
 
@@ -342,6 +344,65 @@ export default function FreightInvoices() {
       setSaving(false);
     }
   };
+
+    const previewExistingExpense = async () => {
+    if (busy.current || !expenseLink) return;
+
+    busy.current = true;
+    setSaving(true);
+    setExpensePreview(null);
+
+    try {
+      const response = await api.post(
+        `/api/freight-invoices/${encodeURIComponent(
+          expenseLink.invoice.freightInvoiceNumber
+        )}/existing-expense/preview`,
+        { expenseNumber: expenseLink.expenseNumber.trim() }
+      );
+
+      setExpensePreview(response.data.data);
+    } catch (error) {
+      alert(await errorMessage(error));
+    } finally {
+      busy.current = false;
+      setSaving(false);
+    }
+  };
+
+  const confirmExistingExpense = async () => {
+    if (busy.current || !expenseLink || !expensePreview) return;
+
+    busy.current = true;
+    setSaving(true);
+
+    try {
+      const response = await api.post(
+        `/api/freight-invoices/${encodeURIComponent(
+          expenseLink.invoice.freightInvoiceNumber
+        )}/existing-expense/link`,
+        {
+          expenseNumber: expenseLink.expenseNumber.trim(),
+          postingDate: expenseLink.postingDate,
+          reason: expenseLink.reason,
+          fingerprint: expensePreview.fingerprint,
+        }
+      );
+
+      setExpenseLink(null);
+      setExpensePreview(null);
+      setSelected(null);
+
+      alert(response.data.message);
+      await load();
+    } catch (error) {
+      setExpensePreview(null);
+      alert(await errorMessage(error));
+    } finally {
+      busy.current = false;
+      setSaving(false);
+    }
+  };
+
 
   const openDocument = async (invoice, paymentId) => {
     const preview = window.open("about:blank", "_blank");
@@ -663,10 +724,35 @@ export default function FreightInvoices() {
                       {invoice.invoiceAttachment && (
                         <button style={button} onClick={() => openDocument(invoice)}>View Invoice</button>
                       )}
-                      {invoice.balanceDue > 0 && (
-                        <button style={button} disabled={saving} onClick={() => openPayment(invoice)}>
-                          Record Payment
-                        </button>
+                                            {invoice.balanceDue > 0 && (
+                        <>
+                          <button
+                            style={button}
+                            disabled={saving}
+                            onClick={() => openPayment(invoice)}
+                          >
+                            Record Payment
+                          </button>
+
+                          {invoice.status === "Unpaid" &&
+                            invoice.paymentHistory.length === 0 && (
+                              <button
+                                style={button}
+                                disabled={saving}
+                                onClick={() => {
+                                  setExpensePreview(null);
+                                  setExpenseLink({
+                                    invoice,
+                                    expenseNumber: "",
+                                    postingDate: today(),
+                                    reason: "",
+                                  });
+                                }}
+                              >
+                                Link Existing Expense
+                              </button>
+                            )}
+                        </>
                       )}
                     </div>
                   </td>
@@ -733,6 +819,16 @@ export default function FreightInvoices() {
                 <br />Reference: {entry.paymentReference}
                 <br />Journal: {entry.journalEntryNumber}
                 <br />Recorded by: {entry.paidBy}
+                                {entry.sourceExpenseNumber && (
+                  <>
+                    <br />
+                    Existing expense: {entry.sourceExpenseNumber}
+                    <br />
+                    Original payment journal: {entry.originalJournalEntryNumber}
+                    <br />
+                    Difference retained in original expense; no new payment.
+                  </>
+                )}
               </p>
               <p>{entry.notes}</p>
               {entry.proof && (
@@ -746,6 +842,187 @@ export default function FreightInvoices() {
         </section>
       )}
 
+            {expenseLink && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "#0f172a99",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 9999,
+            padding: 16,
+          }}
+        >
+          <section
+            style={{
+              ...panel,
+              width: "min(760px, 96vw)",
+              maxHeight: "90vh",
+              overflowY: "auto",
+              marginBottom: 0,
+            }}
+          >
+            <h2>Link Existing Paid Expense</h2>
+
+            <p>
+              Invoice: <strong>
+                {expenseLink.invoice.supplierInvoiceNumber}
+              </strong>
+              <br />
+              Use this when payment was already recorded under Finance
+              Expenses. The original bank or card charge is retained.
+            </p>
+
+            <div style={grid}>
+              <Field label="Existing expense number">
+                <input
+                  style={input}
+                  value={expenseLink.expenseNumber}
+                  disabled={saving}
+                  placeholder="EXP-..."
+                  onChange={(event) => {
+                    setExpensePreview(null);
+                    setExpenseLink({
+                      ...expenseLink,
+                      expenseNumber: event.target.value,
+                    });
+                  }}
+                />
+              </Field>
+
+              <Field label="Correction posting date">
+                <input
+                  style={input}
+                  type="date"
+                  value={expenseLink.postingDate}
+                  disabled={saving}
+                  onChange={(event) =>
+                    setExpenseLink({
+                      ...expenseLink,
+                      postingDate: event.target.value,
+                    })
+                  }
+                />
+              </Field>
+
+              <Field label="Reason — confirm why this expense belongs to this invoice">
+                <textarea
+                  style={input}
+                  minLength={10}
+                  maxLength={1000}
+                  value={expenseLink.reason}
+                  disabled={saving}
+                  onChange={(event) =>
+                    setExpenseLink({
+                      ...expenseLink,
+                      reason: event.target.value,
+                    })
+                  }
+                />
+              </Field>
+            </div>
+
+            <p>
+              <button
+                style={button}
+                disabled={saving || !expenseLink.expenseNumber.trim()}
+                onClick={previewExistingExpense}
+              >
+                {saving ? "Checking…" : "Preview Existing Expense"}
+              </button>
+            </p>
+
+            {expensePreview && (
+              <div style={panel}>
+                <h3>Review this match</h3>
+                <p>
+                  Supplier: {expensePreview.vendorName}
+                  <br />
+                  Invoice: {expensePreview.supplierInvoiceNumber}
+                  <br />
+                  Invoice total:{" "}
+                  {money(
+                    expensePreview.invoiceAmount,
+                    expensePreview.invoiceCurrency
+                  )}
+                  <br />
+                  Payable to clear:{" "}
+                  {money(expensePreview.liabilityJmdAmount)}
+                  <br />
+                  Existing expense: {expensePreview.expenseNumber}
+                  <br />
+                  Description: {expensePreview.expenseDescription}
+                  <br />
+                  Category: {expensePreview.expenseCategory}
+                  <br />
+                  Original payment: {money(expensePreview.actualJmdAmount)}
+                  <br />
+                  Account: {expensePreview.paymentAccountName}
+                  <br />
+                  Payment date: {expensePreview.paymentDate}
+                  <br />
+                  Original journal:{" "}
+                  {expensePreview.originalJournalEntryNumber}
+                  <br />
+                  Original transaction:{" "}
+                  {expensePreview.originalTransactionNumber}
+                  <br />
+                  Difference: {money(expensePreview.difference)}
+                </p>
+
+                <p>
+                  Confirm only if this expense paid this supplier invoice
+                  in full. The correction clears the payable and offsets
+                  the duplicate invoice cost. The original expense amount
+                  and bank/card charge remain unchanged.
+                </p>
+
+                <p>
+                  Any difference remains within the original expense.
+                  It is not automatically classified as an exchange fee
+                  or posted again.
+                </p>
+              </div>
+            )}
+
+            <div
+              style={{
+                display: "flex",
+                gap: 10,
+                justifyContent: "flex-end",
+                flexWrap: "wrap",
+              }}
+            >
+              <button
+                style={button}
+                disabled={saving}
+                onClick={() => {
+                  setExpenseLink(null);
+                  setExpensePreview(null);
+                }}
+              >
+                Cancel
+              </button>
+
+              <button
+                style={button}
+                disabled={
+                  saving ||
+                  !expensePreview ||
+                  expenseLink.reason.trim().length < 10
+                }
+                onClick={confirmExistingExpense}
+              >
+                {saving ? "Processing…" : "Confirm Link — No New Payment"}
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
+
+
       {payment && (
         <div style={{
           position: "fixed", inset: 0, background: "#0f172a99",
@@ -757,6 +1034,11 @@ export default function FreightInvoices() {
             overflowY: "auto", marginBottom: 0,
           }}>
             <h2>Record Payment Already Made</h2>
+                        <p>
+              If this payment is already entered under Finance Expenses,
+              cancel and choose <strong>Link Existing Expense</strong>.
+              Recording it here creates an additional accounting payment.
+            </p>
             <p>
               {payment.invoice.vendorName} · {payment.invoice.supplierInvoiceNumber}
               <br />Balance: {money(payment.invoice.balanceDue, payment.invoice.currency)}
