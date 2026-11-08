@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import api from "../api";
+import PreAlertInvoiceButton from "../components/PreAlertInvoiceButton";
 
 function PreAlerts() {
   const [preAlerts, setPreAlerts] = useState([]);
@@ -327,19 +328,11 @@ function PreAlerts() {
                       <td>{item.itemDescription || "-"}</td>
                       <td>{Number(item.estimatedWeight || 0)}</td>
                       <td>
-                        {item.invoiceFilePath ? (
-                          <a
-                            href={`https://eltham-konnect-backend-c2sf.onrender.com${item.invoiceFilePath}`}
-                            target="_blank"
-                            rel="noreferrer"
-                            style={{
-                              color: ROYAL_BLUE,
-                              fontWeight: "bold",
-                              textDecoration: "none",
-                            }}
-                          >
-                            View Invoice
-                          </a>
+                                                {item.invoiceFilePath ? (
+                          <PreAlertInvoiceButton
+                            preAlertNumber={item.preAlertNumber}
+                            staff
+                          />
                         ) : (
                           <span style={{ color: MUTED }}>No file</span>
                         )}
