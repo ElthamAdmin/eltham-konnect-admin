@@ -1,6 +1,25 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import api from "../api";
 import { Link } from "react-router-dom";
+
+const todayInJamaica = () => {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Jamaica",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+
+  return ["year", "month", "day"]
+    .map((type) => parts.find((part) => part.type === type)?.value)
+    .join("-");
+};
+
+const newRequestId = () =>
+  globalThis.crypto?.randomUUID
+    ? globalThis.crypto.randomUUID()
+    : `ap-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
 
 function AccountsPayable() {
   const [vendors, setVendors] = useState([]);
@@ -10,6 +29,10 @@ function AccountsPayable() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedVendorCode, setSelectedVendorCode] = useState("");
   const [selectedPayable, setSelectedPayable] = useState(null);
+    const actionInFlight = useRef(false);
+  const creationRequest = useRef(null);
+  const paymentRequest = useRef("");
+  const [saving, setSaving] = useState(false);
 
   const [vendorForm, setVendorForm] = useState({
     vendorName: "",
@@ -24,7 +47,7 @@ function AccountsPayable() {
   const [payableForm, setPayableForm] = useState({
     vendorCode: "",
     billNumber: "",
-    payableDate: new Date().toISOString().slice(0, 10),
+    payableDate: todayInJamaica(),
     dueDate: "",
     description: "",
     expenseAccountCode: "6000",
@@ -34,7 +57,7 @@ function AccountsPayable() {
 
   const [paymentForm, setPaymentForm] = useState({
     paymentAccountNumber: "",
-    paymentDate: new Date().toISOString().slice(0, 10),
+    paymentDate: todayInJamaica(),
     paymentAmount: "",
     paymentMethod: "Bank Transfer",
     paymentReference: "",
@@ -75,19 +98,29 @@ function AccountsPayable() {
     return Math.max(0, Math.floor((Date.now() - date.getTime()) / 86400000));
   };
 
-  const getDueStatus = (payable) => {
-    if (payable.status === "Paid") return "Paid";
-    if (payable.status === "Partially Paid") return "Partially Paid";
-    if (payable.status === "Void") return "Void";
+    const getDueStatus = (payable) => {
+    if (["Paid", "Void", "Draft"].includes(payable.status)) {
+      return payable.status;
+    }
 
-    const due = new Date(payable.dueDate);
-    if (Number.isNaN(due.getTime())) return payable.status || "Unpaid";
+    if (
+      Number(payable.balanceDue || 0) > 0 &&
+      payable.dueDate &&
+      payable.dueDate < todayInJamaica()
+    ) {
+      return "Overdue";
+    }
 
-    return Date.now() > due.getTime() ? "Overdue" : payable.status || "Unpaid";
+    return payable.status || "Unpaid";
   };
 
+
   const summary = useMemo(() => {
-    const openBills = payables.filter((p) => getDueStatus(p) !== "Paid");
+        const openBills = payables.filter(
+      (p) =>
+        !["Paid", "Void", "Draft"].includes(p.status) &&
+        Number(p.balanceDue || 0) > 0
+    );
 
     return {
       totalPayable: openBills.reduce((sum, p) => sum + Number(p.balanceDue || 0), 0),
@@ -108,6 +141,84 @@ function AccountsPayable() {
     if (!selectedVendorCode) return [];
     return payables.filter((p) => p.vendorCode === selectedVendorCode);
   }, [payables, selectedVendorCode]);
+
+    const supplierStatement = useMemo(() => {
+    if (!selectedVendor) return { rows: [], closingBalance: 0 };
+
+    const rows = [];
+
+    for (const payable of selectedVendorPayables) {
+      if (["Draft", "Void"].includes(payable.status)) continue;
+
+      rows.push({
+        date: payable.payableDate,
+        reference: payable.billNumber || payable.payableNumber,
+        description: payable.description || "Supplier bill",
+        charge: Number(payable.amount || 0),
+        payment: 0,
+        order: 0,
+      });
+
+      const history = Array.isArray(payable.paymentHistory)
+        ? payable.paymentHistory
+        : [];
+
+      let itemizedPaid = 0;
+
+      for (const entry of history) {
+        const amount = Number(entry.paymentAmount || 0);
+        itemizedPaid += amount;
+
+        rows.push({
+          date: entry.paymentDate,
+          reference: entry.paymentReference || payable.payableNumber,
+          description: `Payment against ${payable.billNumber || payable.payableNumber}`,
+          charge: 0,
+          payment: amount,
+          order: 1,
+        });
+      }
+
+      const unitemized = Math.round(
+        (Number(payable.amountPaid || 0) - itemizedPaid) * 100
+      ) / 100;
+
+      if (unitemized !== 0) {
+        rows.push({
+          date: "",
+          reference: payable.payableNumber,
+          description:
+            "Existing payment balance without matching itemized history — review separately",
+          charge: 0,
+          payment: unitemized,
+          order: 2,
+        });
+      }
+    }
+
+    rows.sort(
+      (a, b) =>
+        (a.date || "9999").localeCompare(b.date || "9999") ||
+        a.order - b.order ||
+        a.reference.localeCompare(b.reference)
+    );
+
+    let balance = Number(selectedVendor.openingBalance || 0);
+
+    const statementRows = rows.map((row) => {
+      balance = Math.round(
+        (balance + row.charge - row.payment) * 100
+      ) / 100;
+
+      return { ...row, balance };
+    });
+
+    return {
+      rows: statementRows,
+      closingBalance: balance,
+    };
+  }, [selectedVendor, selectedVendorPayables]);
+
 
   const filteredPayables = useMemo(() => {
     return payables.filter((p) =>
@@ -145,20 +256,51 @@ function AccountsPayable() {
     }
   };
 
-  const savePayable = async () => {
-    try {
-      if (!payableForm.vendorCode || !payableForm.dueDate || !payableForm.amount) {
-        alert("Vendor, due date, and amount are required.");
-        return;
-      }
+    const savePayable = async () => {
+    if (actionInFlight.current) return;
 
-      await api.post("/api/accounts-payable", payableForm);
-      alert("Payable bill created successfully.");
+    const details = {
+      ...payableForm,
+      billNumber: payableForm.billNumber.trim(),
+      amount: Number(payableForm.amount),
+    };
+
+    if (
+      !details.vendorCode ||
+      !details.billNumber ||
+      !details.payableDate ||
+      !details.dueDate ||
+      !Number.isFinite(details.amount) ||
+      details.amount <= 0
+    ) {
+      alert("Vendor, supplier bill number, dates and a positive amount are required.");
+      return;
+    }
+
+    const fingerprint = JSON.stringify(details);
+
+    if (creationRequest.current?.fingerprint !== fingerprint) {
+      creationRequest.current = {
+        fingerprint,
+        id: newRequestId(),
+      };
+    }
+
+    actionInFlight.current = true;
+    setSaving(true);
+
+    try {
+      const response = await api.post("/api/accounts-payable", {
+        ...details,
+        requestId: creationRequest.current.id,
+      });
+
+      creationRequest.current = null;
 
       setPayableForm({
         vendorCode: "",
         billNumber: "",
-        payableDate: new Date().toISOString().slice(0, 10),
+        payableDate: todayInJamaica(),
         dueDate: "",
         description: "",
         expenseAccountCode: "6000",
@@ -167,18 +309,27 @@ function AccountsPayable() {
       });
 
       setActiveForm("");
+      alert(response.data.message);
       await loadData();
     } catch (error) {
-      console.error("Payable save error:", error);
-      alert(error?.response?.data?.message || "Could not create payable.");
+      alert(
+        error?.response?.data?.message ||
+          "Could not confirm bill creation. Refresh records before retrying."
+      );
+    } finally {
+      actionInFlight.current = false;
+      setSaving(false);
     }
   };
 
+
   const openPaymentModal = (payable, fullPayment = false) => {
+        if (actionInFlight.current) return;
+    paymentRequest.current = newRequestId();
     setSelectedPayable(payable);
     setPaymentForm({
       paymentAccountNumber: "",
-      paymentDate: new Date().toISOString().slice(0, 10),
+      paymentDate: todayInJamaica(),
       paymentAmount: fullPayment ? Number(payable.balanceDue || 0) : "",
       paymentMethod: "Bank Transfer",
       paymentReference: "",
@@ -190,7 +341,7 @@ function AccountsPayable() {
     setSelectedPayable(null);
     setPaymentForm({
       paymentAccountNumber: "",
-      paymentDate: new Date().toISOString().slice(0, 10),
+      paymentDate: todayInJamaica(),
       paymentAmount: "",
       paymentMethod: "Bank Transfer",
       paymentReference: "",
@@ -198,49 +349,57 @@ function AccountsPayable() {
     });
   };
 
-  const recordPayment = async () => {
+    const recordPayment = async () => {
+    if (actionInFlight.current || !selectedPayable) return;
+
+    const amountToPay = Number(paymentForm.paymentAmount);
+
+    if (
+      !paymentForm.paymentAccountNumber ||
+      !paymentForm.paymentDate ||
+      !paymentForm.paymentReference.trim() ||
+      !Number.isFinite(amountToPay) ||
+      amountToPay <= 0
+    ) {
+      alert("Payment account, date, reference and a positive amount are required.");
+      return;
+    }
+
+    if (amountToPay > Number(selectedPayable.balanceDue || 0)) {
+      alert("Payment amount cannot exceed the balance due.");
+      return;
+    }
+
+    actionInFlight.current = true;
+    setSaving(true);
+
     try {
-      if (!selectedPayable) return;
-
-      const amountToPay = Number(paymentForm.paymentAmount || 0);
-
-      if (!paymentForm.paymentAccountNumber) {
-        alert("Please select the payment account.");
-        return;
-      }
-
-      if (amountToPay <= 0) {
-        alert("Payment amount must be greater than zero.");
-        return;
-      }
-
-      if (amountToPay > Number(selectedPayable.balanceDue || 0)) {
-        alert("Payment amount cannot exceed the balance due.");
-        return;
-      }
-
-      await api.put(`/api/accounts-payable/${selectedPayable.payableNumber}/payments`, {
-        paymentAccountNumber: paymentForm.paymentAccountNumber,
-        paymentDate: paymentForm.paymentDate,
-        paymentAmount: amountToPay,
-        paymentMethod: paymentForm.paymentMethod,
-        paymentReference: paymentForm.paymentReference,
-        notes: paymentForm.notes,
-      });
-
-      alert(
-        amountToPay === Number(selectedPayable.balanceDue || 0)
-          ? "Payable paid successfully."
-          : "Partial payment recorded successfully."
+      const response = await api.put(
+        `/api/accounts-payable/${encodeURIComponent(
+          selectedPayable.payableNumber
+        )}/payments`,
+        {
+          ...paymentForm,
+          paymentAmount: amountToPay,
+          paymentReference: paymentForm.paymentReference.trim(),
+          requestId: paymentRequest.current,
+        }
       );
 
       closePaymentModal();
+      alert(response.data.message);
       await loadData();
     } catch (error) {
-      console.error("Payment error:", error);
-      alert(error?.response?.data?.message || "Could not record payment.");
+      alert(
+        error?.response?.data?.message ||
+          "Could not confirm payment. Refresh records before retrying."
+      );
+    } finally {
+      actionInFlight.current = false;
+      setSaving(false);
     }
   };
+
 
   return (
     <div>
@@ -281,7 +440,12 @@ function AccountsPayable() {
             <input placeholder="Contact Person" value={vendorForm.contactPerson} onChange={(e) => setVendorForm({ ...vendorForm, contactPerson: e.target.value })} style={input(BORDER)} />
             <input placeholder="Email" value={vendorForm.email} onChange={(e) => setVendorForm({ ...vendorForm, email: e.target.value })} style={input(BORDER)} />
             <input placeholder="Phone" value={vendorForm.phone} onChange={(e) => setVendorForm({ ...vendorForm, phone: e.target.value })} style={input(BORDER)} />
-            <input type="number" placeholder="Opening Balance" value={vendorForm.openingBalance} onChange={(e) => setVendorForm({ ...vendorForm, openingBalance: Number(e.target.value || 0) })} style={input(BORDER)} />
+                        <input
+              aria-label="Opening balance"
+              value="Opening balance: JMD 0.00"
+              readOnly
+              style={input(BORDER)}
+            />
             <textarea placeholder="Address" value={vendorForm.address} onChange={(e) => setVendorForm({ ...vendorForm, address: e.target.value })} style={{ ...input(BORDER), gridColumn: "1 / -1" }} />
           </div>
           <button onClick={saveVendor} style={{ ...button("#16a34a"), marginTop: "14px" }}>Save Vendor</button>
@@ -294,7 +458,13 @@ function AccountsPayable() {
           <div style={grid}>
             <select value={payableForm.vendorCode} onChange={(e) => setPayableForm({ ...payableForm, vendorCode: e.target.value })} style={input(BORDER)}>
               <option value="">Select Vendor</option>
-              {vendors.map((vendor) => (
+                            {vendors
+                .filter(
+                  (vendor) =>
+                    vendor.status === "Active" &&
+                    vendor.vendorType !== "Freight Forwarder"
+                )
+                .map((vendor) => (
                 <option key={vendor._id} value={vendor.vendorCode}>
                   {vendor.vendorName} ({vendor.vendorType})
                 </option>
@@ -308,7 +478,13 @@ function AccountsPayable() {
             <input placeholder="Description" value={payableForm.description} onChange={(e) => setPayableForm({ ...payableForm, description: e.target.value })} style={input(BORDER)} />
             <textarea placeholder="Notes" value={payableForm.notes} onChange={(e) => setPayableForm({ ...payableForm, notes: e.target.value })} style={{ ...input(BORDER), gridColumn: "1 / -1" }} />
           </div>
-          <button onClick={savePayable} style={{ ...button("#16a34a"), marginTop: "14px" }}>Save Payable</button>
+                    <button
+            onClick={savePayable}
+            disabled={saving}
+            style={{ ...button("#16a34a"), marginTop: "14px" }}
+          >
+            {saving ? "Saving…" : "Save Payable"}
+          </button>
         </div>
       )}
 
@@ -328,12 +504,100 @@ function AccountsPayable() {
             <Card><strong>Vendor</strong><p>{selectedVendor.vendorName}</p></Card>
             <Card><strong>Status</strong><p>{selectedVendor.status}</p></Card>
             <Card><strong>Current Balance</strong><p style={{ fontWeight: "bold", color: "#7c3aed" }}>{money(selectedVendor.currentBalance)}</p></Card>
-            <Card><strong>Open Bills</strong><p>{selectedVendorPayables.filter((p) => getDueStatus(p) !== "Paid").length}</p></Card>
+            <Card><strong>Open Bills</strong><p>{selectedVendorPayables.filter(
+  (p) =>
+    !["Paid", "Void", "Draft"].includes(p.status) &&
+    Number(p.balanceDue || 0) > 0
+).length}</p></Card>
             <Card><strong>Total Paid</strong><p>{money(selectedVendorPayables.reduce((sum, p) => sum + Number(p.amountPaid || 0), 0))}</p></Card>
             <Card><strong>Contact</strong><p>{selectedVendor.phone || selectedVendor.email || "—"}</p></Card>
           </div>
         )}
       </div>
+
+            {selectedVendor && (
+        <div style={panel(BORDER)}>
+          <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>
+            Supplier Statement — {selectedVendor.vendorName}
+          </h2>
+
+          <p>
+            JMD accounting values. Opening balance:{" "}
+            <strong>{money(selectedVendor.openingBalance)}</strong>.
+            Draft and Void bills are excluded.
+          </p>
+
+          <div style={{ overflowX: "auto" }}>
+            <table
+              border="1"
+              cellPadding="10"
+              style={{
+                minWidth: "850px",
+                width: "100%",
+                borderCollapse: "collapse",
+                borderColor: BORDER,
+              }}
+            >
+              <thead style={{ backgroundColor: "#eef4ff" }}>
+                <tr>
+                  <th>Date</th>
+                  <th>Reference</th>
+                  <th>Description</th>
+                  <th>Charges</th>
+                  <th>Payments Applied</th>
+                  <th>Balance</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>—</td>
+                  <td>Opening balance</td>
+                  <td>Existing vendor opening balance</td>
+                  <td>—</td>
+                  <td>—</td>
+                  <td>{money(selectedVendor.openingBalance)}</td>
+                </tr>
+
+                {supplierStatement.rows.map((row, index) => (
+                  <tr key={`${row.reference}-${index}`}>
+                    <td>{row.date || "Date unavailable"}</td>
+                    <td>{row.reference}</td>
+                    <td>{row.description}</td>
+                    <td>{row.charge ? money(row.charge) : "—"}</td>
+                    <td>{row.payment ? money(row.payment) : "—"}</td>
+                    <td>{money(row.balance)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <p>
+            Statement closing balance:{" "}
+            <strong>{money(supplierStatement.closingBalance)}</strong>
+            <br />
+            Saved vendor balance:{" "}
+            <strong>{money(selectedVendor.currentBalance)}</strong>
+          </p>
+
+          {Math.abs(
+            supplierStatement.closingBalance -
+            Number(selectedVendor.currentBalance || 0)
+          ) > 0.009 && (
+            <p style={{ color: "#b45309" }}>
+              These balances differ. The statement displays existing
+              records; it does not repair or rewrite historical balances.
+            </p>
+          )}
+
+          <p style={{ color: MUTED }}>
+            Freight bills show their JMD payable amounts here. Their
+            original-currency totals and actual payment costs remain
+            available in Freight Forwarder Invoices.
+          </p>
+        </div>
+      )}
+
 
       <div style={panel(BORDER)}>
         <input
@@ -410,8 +674,8 @@ function AccountsPayable() {
                         >
                           Open Freight Invoices
                         </Link>
-                      ) : getDueStatus(p) === "Paid" ? (
-                        <span style={{ color: "#16a34a", fontWeight: "bold" }}>Paid</span>
+                                            ) : ["Paid", "Void", "Draft"].includes(p.status) ? (
+                                                <span style={{ fontWeight: "bold" }}>{p.status}</span>
                       ) : (
                         <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
                           <button onClick={() => openPaymentModal(p, false)} style={button("#f59e0b")}>
@@ -452,7 +716,13 @@ function AccountsPayable() {
             <div style={grid}>
               <select value={paymentForm.paymentAccountNumber} onChange={(e) => setPaymentForm({ ...paymentForm, paymentAccountNumber: e.target.value })} style={input(BORDER)}>
                 <option value="">Select Payment Account</option>
-                {accounts.map((account) => (
+                                {accounts
+                  .filter(
+                    (account) =>
+                      account.status === "Active" &&
+                      String(account.currency || "JMD").toUpperCase() === "JMD"
+                  )
+                  .map((account) => (
                   <option key={account._id} value={account.accountNumber}>
                     {account.accountName} ({account.accountType}) - {money(account.currentBalance)}
                   </option>
@@ -479,8 +749,20 @@ function AccountsPayable() {
             </div>
 
             <div style={{ display: "flex", gap: "10px", justifyContent: "flex-end", marginTop: "16px" }}>
-              <button onClick={closePaymentModal} style={button("#64748b")}>Cancel</button>
-              <button onClick={recordPayment} style={button("#16a34a")}>Record Payment</button>
+                            <button
+                onClick={closePaymentModal}
+                disabled={saving}
+                style={button("#64748b")}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={recordPayment}
+                disabled={saving}
+                style={button("#16a34a")}
+              >
+                {saving ? "Recording…" : "Record Payment"}
+              </button>
             </div>
           </div>
         </div>
