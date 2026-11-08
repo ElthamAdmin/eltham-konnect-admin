@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import api from "../api";
 
 const ROYAL_BLUE = "#0B3D91";
@@ -80,6 +80,9 @@ function CustomerPurchases() {
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(false);
+    const [refundBusy, setRefundBusy] = useState(false);
+  const refundActionLock = useRef(false);
+
 
     const [selectedPurchase, setSelectedPurchase] = useState(null);
 
@@ -755,6 +758,367 @@ function CustomerPurchases() {
       );
     }
   };
+
+    const refundToday = () => {
+    const parts = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "America/Jamaica",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).formatToParts(new Date());
+
+    return ["year", "month", "day"]
+      .map(
+        (type) =>
+          parts.find((part) => part.type === type).value
+      )
+      .join("-");
+  };
+
+  const runRefundAction = async (action) => {
+    if (refundActionLock.current) return;
+
+    refundActionLock.current = true;
+    setRefundBusy(true);
+
+    try {
+      await action();
+    } catch (error) {
+      alert(
+        error?.response?.data?.message ||
+          error.message ||
+          "Could not confirm this action. Check refund history before retrying."
+      );
+    } finally {
+      refundActionLock.current = false;
+      setRefundBusy(false);
+    }
+  };
+
+  const refundPurchase = (purchase) =>
+    runRefundAction(async () => {
+      const key = encodeURIComponent(
+        purchase.purchaseNumber
+      );
+
+      const currentResponse = await api.get(
+        `/api/customer-purchases/${key}`
+      );
+
+      const current = currentResponse.data.data;
+
+      const available =
+        Math.round(
+          (
+            Number(current.baseCurrencyAmount || 0) -
+            Number(current.refundedAmount || 0)
+          ) * 100
+        ) / 100;
+
+      if (available <= 0) {
+        alert(
+          "No original purchase cost remains refundable."
+        );
+        return;
+      }
+
+      const entered = prompt(
+        "Merchant refund actually received, in JMD:",
+        String(available)
+      );
+
+      if (entered === null) return;
+
+      const amount =
+        Math.round(Number(entered) * 100) / 100;
+
+      if (
+        !Number.isFinite(amount) ||
+        amount <= 0 ||
+        amount > available
+      ) {
+        alert(
+          "Enter a positive amount within the remaining refundable purchase cost."
+        );
+        return;
+      }
+
+      const merchantReference = prompt(
+        "Merchant refund reference (use the same reference when retrying):",
+        ""
+      );
+
+      if (merchantReference === null) return;
+
+      if (merchantReference.trim().length < 3) {
+        alert("A merchant refund reference is required.");
+        return;
+      }
+
+      const refundDate = prompt(
+        "Date the merchant refund was received (YYYY-MM-DD):",
+        refundToday()
+      );
+
+      if (refundDate === null) return;
+
+      const notes = prompt(
+        "Merchant refund notes:",
+        ""
+      );
+
+      if (notes === null) return;
+
+      const estimatedReduction = current.invoiceNumber
+        ? Math.min(
+            amount,
+            Number(current.outstandingAmount || 0)
+          )
+        : 0;
+
+      const estimatedCredit = current.invoiceNumber
+        ? amount - estimatedReduction
+        : 0;
+
+      const confirmed = window.confirm(
+        `Record merchant refund for ${purchase.purchaseNumber}?\n\n` +
+          `Received into original bank/card: ${formatMoney(amount)}\n` +
+          (
+            current.invoiceNumber
+              ? `Estimated invoice reduction: ${formatMoney(estimatedReduction)}\n` +
+                `Estimated customer credit: ${formatMoney(estimatedCredit)}\n`
+              : `Uninvoiced purchase cost reduction: ${formatMoney(amount)}\n`
+          ) +
+          "\nThis records a merchant refund already received. It does not pay money to the customer."
+      );
+
+      if (!confirmed) return;
+
+      const response = await api.patch(
+        `/api/customer-purchases/${key}/refund`,
+        {
+          refundAmount: amount,
+          refundDate,
+          merchantReference:
+            merchantReference.trim(),
+          notes,
+        }
+      );
+
+      const record = response.data.data;
+
+      alert(
+        `${response.data.replayed ? "Already recorded" : "Merchant refund recorded"}: ${record.refundNumber}\n\n` +
+          `Merchant refund: ${formatMoney(record.amount)}\n` +
+          `Invoice reduction: ${formatMoney(record.invoiceReduction)}\n` +
+          `Customer credit created: ${formatMoney(record.creditAmount)}\n` +
+          `Credit still owed: ${formatMoney(record.creditRemaining)}`
+      );
+
+      await Promise.all([
+        refreshPage(),
+        loadReferenceData(),
+      ]);
+    });
+
+  const viewPurchaseRefunds = (purchase) =>
+    runRefundAction(async () => {
+      const response = await api.get(
+        `/api/customer-purchases/${encodeURIComponent(purchase.purchaseNumber)}/refunds`
+      );
+
+      const records = response.data.data || [];
+
+      if (!records.length) {
+        alert(
+          "No merchant refund records have been created through the new workflow."
+        );
+        return;
+      }
+
+      alert(
+        records
+          .map(
+            (record) =>
+              `${record.refundNumber}\n` +
+              `Merchant reference: ${record.merchantReference}\n` +
+              `Date: ${record.refundDate}\n` +
+              `Received: ${formatMoney(record.amount)}\n` +
+              `Invoice reduction: ${formatMoney(record.invoiceReduction)}\n` +
+              `Customer credit: ${formatMoney(record.creditAmount)}\n` +
+              `Still owed: ${formatMoney(record.creditRemaining)}\n` +
+              `Customer payouts recorded: ${(record.payouts || []).length}`
+          )
+          .join("\n\n")
+      );
+    });
+
+  const payCustomerCredit = (purchase) =>
+    runRefundAction(async () => {
+      const key = encodeURIComponent(
+        purchase.purchaseNumber
+      );
+
+      const response = await api.get(
+        `/api/customer-purchases/${key}/refunds`
+      );
+
+      const records = response.data.data || [];
+
+      const credits = records.filter(
+        (record) =>
+          Number(record.creditRemaining) > 0
+      );
+
+      if (!credits.length) {
+        alert(
+          "No customer credit remains to be paid for this purchase."
+        );
+        return;
+      }
+
+      const selection = prompt(
+        "Select the customer credit to pay:\n" +
+          credits
+            .map(
+              (record, index) =>
+                `${index + 1}. ${record.merchantReference}: ${formatMoney(record.creditRemaining)}`
+            )
+            .join("\n"),
+        "1"
+      );
+
+      if (selection === null) return;
+
+      const index = Number(selection) - 1;
+
+      const credit = Number.isInteger(index)
+        ? credits[index]
+        : null;
+
+      if (!credit) {
+        alert("Select a valid customer credit.");
+        return;
+      }
+
+      const accountsResponse = await api.get(
+        "/api/financial-accounts"
+      );
+
+      const liveAccounts =
+        accountsResponse.data.data || [];
+
+      const choices = liveAccounts.filter(
+        (account) =>
+          account.status === "Active" &&
+          ["Bank", "Cash"].includes(
+            account.accountType
+          ) &&
+          String(
+            account.currency || "JMD"
+          ).toUpperCase() === "JMD" &&
+          account.linkedChartAccountCode
+      );
+
+      if (!choices.length) {
+        alert(
+          "No active linked JMD bank/cash payout account is available."
+        );
+        return;
+      }
+
+      const accountSelection = prompt(
+        "Select the bank/cash account used for the payout:\n" +
+          choices
+            .map(
+              (account, accountIndex) =>
+                `${accountIndex + 1}. ${account.accountName} (${account.accountNumber})`
+            )
+            .join("\n"),
+        "1"
+      );
+
+      if (accountSelection === null) return;
+
+      const accountIndex =
+        Number(accountSelection) - 1;
+
+      const account = Number.isInteger(accountIndex)
+        ? choices[accountIndex]
+        : null;
+
+      if (!account) {
+        alert("Select a valid payout account.");
+        return;
+      }
+
+      const entered = prompt(
+        "Customer payout amount in JMD:",
+        String(credit.creditRemaining)
+      );
+
+      if (entered === null) return;
+
+      const amount =
+        Math.round(Number(entered) * 100) / 100;
+
+      if (
+        !Number.isFinite(amount) ||
+        amount <= 0 ||
+        amount > Number(credit.creditRemaining)
+      ) {
+        alert(
+          "Enter a positive amount within the remaining customer credit."
+        );
+        return;
+      }
+
+      const paymentDate = prompt(
+        "Customer payout date (YYYY-MM-DD):",
+        refundToday()
+      );
+
+      if (paymentDate === null) return;
+
+      const reference = prompt(
+        "Unique bank transfer / cash payout reference (reuse it for a retry):",
+        ""
+      );
+
+      if (reference === null) return;
+
+      if (reference.trim().length < 3) {
+        alert("A payout reference is required.");
+        return;
+      }
+
+      const confirmed = window.confirm(
+        `Record ${formatMoney(amount)} paid to ${purchase.customerName} from ${account.accountName}?\n\n` +
+          "Record this only after the bank/cash payout has actually been made."
+      );
+
+      if (!confirmed) return;
+
+      const payoutResponse = await api.post(
+        `/api/customer-purchases/${key}/refunds/${encodeURIComponent(credit.refundNumber)}/payouts`,
+        {
+          amount,
+          accountNumber: account.accountNumber,
+          paymentDate,
+          reference: reference.trim(),
+        }
+      );
+
+      alert(
+        `${payoutResponse.data.replayed ? "Payout already recorded" : "Customer payout recorded"}.\n` +
+          `Credit still owed: ${formatMoney(payoutResponse.data.data.creditRemaining)}`
+      );
+
+      await Promise.all([
+        refreshPage(),
+        loadReferenceData(),
+      ]);
+    });
 
   const applyFilters = async () => {
     setPagination((previous) => ({
@@ -1874,19 +2238,46 @@ function CustomerPurchases() {
                           </button>
                         )}
 
-                      {purchase.journalEntryNumber &&
+                                            {purchase.journalEntryNumber &&
                         ![
                           "Cancelled",
                           "Refunded",
                           "Reversed",
                         ].includes(purchase.status) && (
                           <button
-                            onClick={() => refundPurchase(purchase)}
+                            onClick={() =>
+                              refundPurchase(purchase)
+                            }
+                            disabled={refundBusy}
                             style={buttonStyle("#dc2626")}
                           >
-                            Refund
+                            Record Merchant Refund
                           </button>
                         )}
+
+                      {purchase.journalEntryNumber && (
+                        <>
+                          <button
+                            onClick={() =>
+                              viewPurchaseRefunds(purchase)
+                            }
+                            disabled={refundBusy}
+                            style={buttonStyle(ROYAL_BLUE)}
+                          >
+                            Refund History / Credits
+                          </button>
+
+                          <button
+                            onClick={() =>
+                              payCustomerCredit(purchase)
+                            }
+                            disabled={refundBusy}
+                            style={buttonStyle("#7c3aed")}
+                          >
+                            Record Customer Credit Payout
+                          </button>
+                        </>
+                      )}
                     </div>
                   </td>
                 </tr>
