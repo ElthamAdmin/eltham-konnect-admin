@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import api from "../api";
 
 function AccountsReceivable() {
@@ -13,6 +13,45 @@ function AccountsReceivable() {
   const [customerProfile, setCustomerProfile] = useState(null);
   const [collectionNote, setCollectionNote] = useState("");
   const [selectedInvoiceNumber, setSelectedInvoiceNumber] = useState("");
+    const profileRequest = useRef(0);
+  const actionInFlight = useRef(false);
+  const [actionBusy, setActionBusy] = useState(false);
+  const [statementCustomerId, setStatementCustomerId] = useState("");
+  const [statement, setStatement] = useState(null);
+
+  const runAction = async (action) => {
+    if (actionInFlight.current) return;
+
+    actionInFlight.current = true;
+    setActionBusy(true);
+
+    try {
+      await action();
+    } finally {
+      actionInFlight.current = false;
+      setActionBusy(false);
+    }
+  };
+
+  const loadStatement = async () => {
+    const ekonId = statementCustomerId.trim();
+
+    if (!ekonId) {
+      alert("Enter the customer EKON ID.");
+      return;
+    }
+
+    try {
+      const response = await api.get(
+        `/api/accounts-receivable/customers/${encodeURIComponent(ekonId)}/statement`
+      );
+
+      setStatement(response.data.data);
+    } catch (error) {
+      setStatement(null);
+      alert(error?.response?.data?.message || "Could not load customer statement.");
+    }
+  };
   const [workflowForm, setWorkflowForm] = useState({
   collectionsStatus: "Normal",
   assignedCollector: "",
@@ -67,25 +106,39 @@ const [writeOffForm, setWriteOffForm] = useState({
     }
   };
 
-  const loadCustomerProfile = async (customerEkonId) => {
+    const loadCustomerProfile = async (customerEkonId) => {
+    const request = ++profileRequest.current;
+
+    setSelectedCustomerId(customerEkonId);
+    setCustomerProfile(null);
+    setSelectedInvoiceNumber("");
+    setCollectionNote("");
+
     try {
-      setSelectedCustomerId(customerEkonId);
       const res = await api.get(
-        `/api/accounts-receivable/collections/customers/${customerEkonId}`
+        `/api/accounts-receivable/collections/customers/${encodeURIComponent(customerEkonId)}`
       );
+
+      if (request !== profileRequest.current) return;
       setCustomerProfile(res.data.data);
     } catch (error) {
-      console.error("Customer collections profile error:", error);
-      alert(error?.response?.data?.message || "Could not load customer profile.");
+      if (request !== profileRequest.current) return;
+
+      alert(
+        error?.response?.data?.message ||
+          "Could not load customer profile."
+      );
     }
   };
 
-  const addNoteToFirstOpenInvoice = async () => {
+    const addNoteToFirstOpenInvoice = async () => {
     try {
-      const firstInvoice = customerProfile?.openInvoices?.[0];
+      const invoice = customerProfile?.openInvoices?.find(
+        (item) => item.invoiceNumber === selectedInvoiceNumber
+      );
 
-      if (!firstInvoice) {
-        alert("No open invoice found for this customer.");
+      if (!invoice) {
+        alert("Click Manage on the invoice that this note belongs to.");
         return;
       }
 
@@ -95,14 +148,15 @@ const [writeOffForm, setWriteOffForm] = useState({
       }
 
       await api.post(
-        `/api/accounts-receivable/collections/invoices/${firstInvoice.invoiceNumber}/notes`,
-        { note: collectionNote }
+        `/api/accounts-receivable/collections/invoices/${encodeURIComponent(
+          invoice.invoiceNumber
+        )}/notes`,
+        { note: collectionNote.trim() }
       );
 
       setCollectionNote("");
       await loadCustomerProfile(customerProfile.customer.ekonId);
     } catch (error) {
-      console.error("Add collection note error:", error);
       alert(error?.response?.data?.message || "Could not add note.");
     }
   };
@@ -279,7 +333,7 @@ const recordRecovery = async (invoiceNumber) => {
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))", gap: "14px", margin: "18px 0" }}>
         <Card><h2 style={{ color: ROYAL_BLUE, margin: 0 }}>{money(dashboard?.kpis?.totalOutstanding)}</h2><p><b>Total Outstanding</b></p></Card>
-        <Card><h2 style={{ color: "#16a34a", margin: 0 }}>{money(dashboard?.kpis?.currentAmount)}</h2><p><b>Current / 1-30</b></p></Card>
+        <Card><h2 style={{ color: "#16a34a", margin: 0 }}>{money(dashboard?.kpis?.currentAmount)}</h2><p><b>Current</b></p></Card>
         <Card><h2 style={{ color: "#f59e0b", margin: 0 }}>{money(dashboard?.agingBuckets?.["31-60"])}</h2><p><b>31-60 Days</b></p></Card>
         <Card><h2 style={{ color: "#ea580c", margin: 0 }}>{money(dashboard?.agingBuckets?.["61-90"])}</h2><p><b>61-90 Days</b></p></Card>
         <Card><h2 style={{ color: "#dc2626", margin: 0 }}>{money(dashboard?.agingBuckets?.["90+"])}</h2><p><b>90+ Days</b></p></Card>
@@ -287,6 +341,98 @@ const recordRecovery = async (invoiceNumber) => {
         <Card><h2 style={{ color: "#0f766e", margin: 0 }}>{dashboard?.kpis?.diagnosticHealthScore?.score || 0}</h2><p><b>AR Health Score</b></p></Card>
         <Card><h2 style={{ color: dashboard?.kpis?.reconciliationDifference === 0 ? "#16a34a" : "#dc2626", margin: 0 }}>{money(dashboard?.kpis?.reconciliationDifference)}</h2><p><b>GL Difference</b></p></Card>
       </div>
+
+            <Section title="Customer Statement">
+        <p>Enter an EKON ID to view statements, including customers with no open invoices.</p>
+
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+          <input
+            value={statementCustomerId}
+            onChange={(event) => setStatementCustomerId(event.target.value)}
+            placeholder="Customer EKON ID"
+            style={{
+              padding: 10,
+              border: `1px solid ${BORDER}`,
+              borderRadius: 8,
+            }}
+          />
+
+          <button
+            type="button"
+            disabled={actionBusy}
+            onClick={() => runAction(loadStatement)}
+          >
+            Load Statement
+          </button>
+        </div>
+
+        {statement && (
+          <>
+            <h3>{statement.customer.name} — {statement.customer.ekonId}</h3>
+
+            <p>
+              Invoiced: <strong>{money(statement.totals.totalInvoiced)}</strong>
+              <br />
+              Cash payments: <strong>{money(statement.totals.totalPaid)}</strong>
+              <br />
+              Written off: <strong>{money(statement.totals.totalWrittenOff)}</strong>
+              <br />
+              Recovered after write-off:{" "}
+              <strong>{money(statement.totals.totalRecoveredAfterWriteOff)}</strong>
+              <br />
+              Outstanding: <strong>{money(statement.totals.totalOutstanding)}</strong>
+            </p>
+
+            <div style={{ overflowX: "auto" }}>
+              <table
+                border="1"
+                cellPadding="9"
+                style={{
+                  minWidth: 1000,
+                  width: "100%",
+                  borderCollapse: "collapse",
+                  borderColor: BORDER,
+                }}
+              >
+                <thead>
+                  <tr>
+                    <th>Invoice</th>
+                    <th>Date</th>
+                    <th>Status</th>
+                    <th>Total</th>
+                    <th>Cash Paid</th>
+                    <th>Written Off</th>
+                    <th>Balance</th>
+                    <th>Included in Totals</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {statement.rows.map((row) => (
+                    <tr key={row.invoiceNumber}>
+                      <td>{row.invoiceNumber}</td>
+                      <td>{String(row.invoiceDate || "").slice(0, 10)}</td>
+                      <td>{row.status}</td>
+                      <td>{money(row.finalTotal)}</td>
+                      <td>{money(row.amountPaid)}</td>
+                      <td>{money(row.writeOffAmount)}</td>
+                      <td>{money(row.balanceDue)}</td>
+                      <td>{row.excludedFromTotals ? "No" : "Yes"}</td>
+                    </tr>
+                  ))}
+                  {!statement.rows.length && (
+                    <tr><td colSpan="8">No invoices found.</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {(statement.notes || []).map((note) => (
+              <p key={note} style={{ color: MUTED }}>{note}</p>
+            ))}
+          </>
+        )}
+      </Section>
+
 
       <Section title="Collections Recommendations">
         {(dashboard?.recommendations || []).length > 0 ? (
@@ -374,6 +520,12 @@ const recordRecovery = async (invoiceNumber) => {
 </Section>
 
 <Section title="Bad Debt / Write-Off Management">
+  <p>
+    Recovery linking verifies a receipt journal already posted in accounting.
+    It does not receive money or create a second bank transaction.
+    The journal must reference the invoice, debit the JMD bank/cash receiving
+    account and credit Bad Debt Expense.
+  </p>
   <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "12px", marginBottom: "16px" }}>
     <Card><h3>{writeOffs?.kpis?.pendingApprovalCount || 0}</h3><p><b>Pending Approval</b></p></Card>
     <Card><h3>{writeOffs?.kpis?.writtenOffCount || 0}</h3><p><b>Written Off</b></p></Card>
@@ -418,19 +570,22 @@ const recordRecovery = async (invoiceNumber) => {
               <td>
                 {item.writeOffStatus === "Pending Approval" && (
                   <>
-                    <button type="button" onClick={() => approveWriteOff(item.invoiceNumber)} style={{ marginRight: "6px", padding: "6px 10px", border: "none", borderRadius: "8px", backgroundColor: "#16a34a", color: "white", fontWeight: "bold", cursor: "pointer" }}>
+                    <button type="button" onClick={() => runAction(() => approveWriteOff(item.invoiceNumber))}
+disabled={actionBusy} style={{ marginRight: "6px", padding: "6px 10px", border: "none", borderRadius: "8px", backgroundColor: "#16a34a", color: "white", fontWeight: "bold", cursor: "pointer" }}>
                       Approve
                     </button>
 
-                    <button type="button" onClick={() => rejectWriteOff(item.invoiceNumber)} style={{ padding: "6px 10px", border: "none", borderRadius: "8px", backgroundColor: "#dc2626", color: "white", fontWeight: "bold", cursor: "pointer" }}>
+                    <button type="button" onClick={() => runAction(() => rejectWriteOff(item.invoiceNumber))}
+disabled={actionBusy} style={{ padding: "6px 10px", border: "none", borderRadius: "8px", backgroundColor: "#dc2626", color: "white", fontWeight: "bold", cursor: "pointer" }}>
                       Reject
                     </button>
                   </>
                 )}
 
                 {["Written Off", "Recovered"].includes(item.writeOffStatus) && (
-                  <button type="button" onClick={() => recordRecovery(item.invoiceNumber)} style={{ padding: "6px 10px", border: "none", borderRadius: "8px", backgroundColor: ROYAL_BLUE, color: "white", fontWeight: "bold", cursor: "pointer" }}>
-                    Record Recovery
+                  <button type="button" onClick={() => runAction(() => recordRecovery(item.invoiceNumber))}
+disabled={actionBusy} style={{ padding: "6px 10px", border: "none", borderRadius: "8px", backgroundColor: ROYAL_BLUE, color: "white", fontWeight: "bold", cursor: "pointer" }}>
+                    Link Posted Recovery
                   </button>
                 )}
               </td>
@@ -489,7 +644,8 @@ const recordRecovery = async (invoiceNumber) => {
       <textarea value={writeOffForm.notes} onChange={(e) => setWriteOffForm({ ...writeOffForm, notes: e.target.value, rejectionNotes: e.target.value })} placeholder="Enter supporting notes, rejection notes, or recovery details..." style={{ width: "100%", minHeight: "75px", padding: "10px", borderRadius: "8px", border: `1px solid ${BORDER}` }} />
     </div>
 
-    <button type="button" onClick={requestWriteOff} style={{ marginTop: "10px", padding: "10px 14px", border: "none", borderRadius: "8px", backgroundColor: ROYAL_BLUE, color: "white", fontWeight: "bold", cursor: "pointer" }}>
+    <button type="button" onClick={() => runAction(requestWriteOff)}
+disabled={actionBusy} style={{ marginTop: "10px", padding: "10px 14px", border: "none", borderRadius: "8px", backgroundColor: ROYAL_BLUE, color: "white", fontWeight: "bold", cursor: "pointer" }}>
       Submit Write-Off Request
     </button>
   </div>
@@ -549,7 +705,8 @@ const recordRecovery = async (invoiceNumber) => {
               <td>
                 <button
                   type="button"
-                  onClick={() => sendReminder(item)}
+                  onClick={() => runAction(() => sendReminder(item))}
+                  disabled={actionBusy}
                   style={{
                     padding: "7px 10px",
                     border: "none",
@@ -777,7 +934,6 @@ const recordRecovery = async (invoiceNumber) => {
           <option>Final Notice</option>
           <option>Collections</option>
           <option>Legal Review</option>
-          <option>Written Off</option>
         </select>
       </div>
 
@@ -847,7 +1003,8 @@ const recordRecovery = async (invoiceNumber) => {
 
     <button
       type="button"
-      onClick={updateWorkflow}
+      onClick={() => runAction(updateWorkflow)}
+      disabled={actionBusy}
       style={{
         padding: "10px 14px",
         border: "none",
@@ -864,7 +1021,13 @@ const recordRecovery = async (invoiceNumber) => {
   </>
 )}
 
-          <h3>Add Collection Note</h3>
+                    <h3>
+            Add Collection Note
+            {selectedInvoiceNumber ? ` — ${selectedInvoiceNumber}` : ""}
+          </h3>
+          {!selectedInvoiceNumber && (
+            <p>Click Manage on the relevant invoice before adding a note.</p>
+          )}
           <textarea
             value={collectionNote}
             onChange={(e) => setCollectionNote(e.target.value)}
@@ -880,7 +1043,8 @@ const recordRecovery = async (invoiceNumber) => {
 
           <button
             type="button"
-            onClick={addNoteToFirstOpenInvoice}
+            onClick={() => runAction(addNoteToFirstOpenInvoice)}
+            disabled={actionBusy}
             style={{
               marginTop: "10px",
               padding: "10px 14px",
