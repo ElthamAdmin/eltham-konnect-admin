@@ -488,7 +488,16 @@ const recordRecovery = async (invoiceNumber) => {
     </div>
 
     <div>
-      <h3>Branch Collections</h3>
+            <h3>Branch Collections</h3>
+
+      {Number(performance?.branchAssignmentIssues?.invoiceCount || 0) > 0 && (
+        <p style={{ color: "#b45309" }}>
+          {performance.branchAssignmentIssues.invoiceCount} invoice(s)
+          have customers whose branch could not be identified.
+          They remain included in overall totals but are excluded from
+          the two branch rows. Historical records have not been changed.
+        </p>
+      )}
       <table border="1" cellPadding="9" style={{ width: "100%", borderCollapse: "collapse", borderColor: BORDER }}>
         <thead style={{ backgroundColor: "#eef4ff" }}>
           <tr>
