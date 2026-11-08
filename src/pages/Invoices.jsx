@@ -10,6 +10,7 @@ import {
 
 function Invoices() {
     const invoicePaymentInFlight = useRef(false);
+        const invoiceCreationInFlight = useRef(false);
 
   const [invoicePaymentBusy, setInvoicePaymentBusy] =
     useState(false);
@@ -465,6 +466,7 @@ const saveInvoiceCharges = async (invoiceNumber) => {
     return packages.filter(
       (pkg) =>
         pkg.readyForPickup === true &&
+              pkg.status === "Ready for Pickup" &&
         pkg.invoiceStatus !== "Issued" &&
         pkg.invoiceStatus !== "Paid"
     );
@@ -611,56 +613,62 @@ const toggleCustomerPurchaseSelection = (
 };
 
 const generateSelectedInvoice = async () => {
+  if (invoiceCreationInFlight.current) return;
+
   if (!selectedCustomerEkonId) {
     alert("Please select a customer.");
     return;
   }
 
   if (
-    selectedPackageIds.length === 0 &&
-    selectedCustomerPurchaseNumbers.length === 0
+    !selectedPackageIds.length &&
+    !selectedCustomerPurchaseNumbers.length
+  ) {
+    alert("Select packages or Shopping Assistance purchases.");
+    return;
+  }
+
+  if (
+    selectedPackageIds.length &&
+    selectedCustomerPurchaseNumbers.length
   ) {
     alert(
-      "Select at least one ready package or customer purchase."
+      "Generate ordinary-package and Shopping Assistance invoices separately. " +
+      "Deselect one group before continuing."
     );
     return;
   }
 
+  invoiceCreationInFlight.current = true;
+  setGeneratingInvoice(true);
+
+  let confirmed = false;
+
   try {
-    setGeneratingInvoice(true);
+    const recovery = selectedCustomerPurchaseNumbers.length > 0;
 
-    let response;
+    const response = await api.post(
+      recovery
+        ? "/api/invoices/generate-customer-purchases"
+        : "/api/invoices/generate-multiple",
+      recovery
+        ? {
+            customerEkonId: selectedCustomerEkonId,
+            customerPurchaseNumbers: [...selectedCustomerPurchaseNumbers],
+          }
+        : {
+            customerEkonId: selectedCustomerEkonId,
+            packageIds: [...selectedPackageIds],
+            pointsToRedeem: Number(pointsToRedeem || 0),
+          }
+    );
 
-    if (
-      selectedCustomerPurchaseNumbers.length > 0
-    ) {
-      response = await api.post(
-        "/api/invoices/generate-customer-purchases",
-        {
-          customerEkonId:
-            selectedCustomerEkonId,
-          customerPurchaseNumbers:
-            selectedCustomerPurchaseNumbers,
-        }
-      );
-    } else {
-      response = await api.post(
-        "/api/invoices/generate-multiple",
-        {
-          customerEkonId:
-            selectedCustomerEkonId,
-          packageIds: selectedPackageIds,
-          pointsToRedeem: Number(
-            pointsToRedeem || 0
-          ),
-        }
-      );
+    if (!response.data?.success || !response.data?.data?.invoiceNumber) {
+      throw new Error("Invoice creation could not be confirmed.");
     }
 
-    alert(
-      response.data.message ||
-        "Invoice generated successfully."
-    );
+    confirmed = true;
+    const number = response.data.data.invoiceNumber;
 
     setSelectedCustomerEkonId("");
     setSelectedPackageIds([]);
@@ -672,18 +680,17 @@ const generateSelectedInvoice = async () => {
       fetchPackages(),
       fetchCustomerPurchases(),
     ]);
-  } catch (error) {
-    console.error(
-      "Error generating selected invoice:",
-      error
-    );
 
+    alert(`Invoice ${number} generated successfully.`);
+  } catch (error) {
     alert(
-      error?.response?.data?.message ||
-        error?.response?.data?.error ||
-        "Could not generate invoice."
+      confirmed
+        ? "The invoice was created, but the display could not fully refresh. Reload Invoices before another action."
+        : error.response?.data?.message ||
+          "Could not confirm invoice creation. Refresh Invoices before retrying."
     );
   } finally {
+    invoiceCreationInFlight.current = false;
     setGeneratingInvoice(false);
   }
 };
