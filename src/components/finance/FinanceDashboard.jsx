@@ -1,244 +1,266 @@
-import {
-  ResponsiveContainer,
-  BarChart,
-  Bar,
-  CartesianGrid,
-  XAxis,
-  YAxis,
-  Tooltip,
-  Legend,
-} from "recharts";
+import React from "react";
+import FinanceTrendChart from "./FinanceTrendChart";
 
-function FinanceDashboard({
+const numberOrNull = (value) => {
+  if (
+    value === null ||
+    value === undefined ||
+    value === ""
+  ) {
+    return null;
+  }
+
+  const number = Number(value);
+
+  return Number.isFinite(number) ? number : null;
+};
+
+const money = (value) => {
+  const number = numberOrNull(value);
+
+  if (number === null) return "Not available";
+
+  return `JMD ${number.toLocaleString("en-JM", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+};
+
+const percentage = (value) =>
+  value === null
+    ? "Not available"
+    : `${value.toFixed(2)}%`;
+
+const difference = (a, b) =>
+  a === null || b === null ? null : a - b;
+
+const margin = (profit, revenue) =>
+  profit === null || revenue === null || revenue <= 0
+    ? null
+    : (profit / revenue) * 100;
+
+const completeMonthPair = (data, filters) => {
+  if (!Array.isArray(data) || !filters?.to) return null;
+
+  const complete = data
+    .filter((row) => {
+      if (
+        !/^\d{4}-\d{2}$/.test(String(row.month)) ||
+        row.recordedActivity === false
+      ) {
+        return false;
+      }
+
+      const first = `${row.month}-01`;
+      const date = new Date(`${first}T00:00:00Z`);
+
+      if (Number.isNaN(date.getTime())) return false;
+
+      date.setUTCMonth(date.getUTCMonth() + 1, 0);
+
+      const last = date.toISOString().slice(0, 10);
+
+      return (
+        (!filters.from || filters.from <= first) &&
+        filters.to >= last &&
+        [
+          row.revenue,
+          row.expenses,
+          row.netProfit,
+        ].every((value) => numberOrNull(value) !== null)
+      );
+    })
+    .sort((a, b) => a.month.localeCompare(b.month));
+
+  if (complete.length < 2) return null;
+
+  const previous = complete[complete.length - 2];
+  const latest = complete[complete.length - 1];
+
+  const nextMonth = new Date(
+    `${previous.month}-01T00:00:00Z`
+  );
+
+  nextMonth.setUTCMonth(nextMonth.getUTCMonth() + 1);
+
+  return nextMonth.toISOString().slice(0, 7) ===
+    latest.month
+    ? { previous, latest }
+    : null;
+};
+
+const changePercent = (current, previous) => {
+  const a = numberOrNull(current);
+  const b = numberOrNull(previous);
+
+  if (a === null || b === null || b <= 0) {
+    return "Not comparable";
+  }
+
+  const change = ((a - b) / b) * 100;
+
+  return `${change > 0 ? "+" : ""}${change.toFixed(2)}%`;
+};
+
+export default function FinanceDashboard({
   summary,
-  reports,
-  accounts,
-  monthlyChart,
   summaryFilter,
   summaryBranch,
   setSummaryFilter,
   setSummaryBranch,
   fetchFinanceData,
   setActiveTab,
-  formatCurrency,
-  cardStyle,
-  metricCardStyle,
-  ROYAL_BLUE,
-  GOLD,
-  WHITE,
-  BORDER,
-  MUTED,
+  onOpenReport,
+  summaryLoading = false,
+  summaryError = "",
+  cardStyle = {},
+  metricCardStyle = {},
+  ROYAL_BLUE = "#103d8f",
+  GOLD = "#d4af37",
+  BORDER = "#d6dfec",
 }) {
-  const totalCashAndBankBalances = accounts
-    .filter(
-      (account) =>
-        account.accountType === "Bank" || account.accountType === "Cash"
-    )
-    .reduce(
-      (sum, account) =>
-        sum + Number(account.baseCurrencyBalance || account.currentBalance || 0),
-      0
-    );
+  const filters = summary?.filters || {};
+  const profit = summary?.profitAndLoss || {};
+  const position = summary?.sections?.balanceSheet;
+  const treasury = summary?.treasury || {};
+  const health = summary?.health || {};
+  const issues = summary?.reportMeta?.issues || [];
 
-  const totalCreditCardBalances = accounts
-    .filter((account) => account.accountType === "Credit Card")
-    .reduce(
-      (sum, account) =>
-        sum + Number(account.baseCurrencyBalance || account.currentBalance || 0),
-      0
-    );
+  const revenue = numberOrNull(profit.revenue);
+  const costOfSales = numberOrNull(profit.costOfSales);
+  const grossProfit = numberOrNull(profit.grossProfit);
 
-  const netCashPosition = totalCashAndBankBalances - totalCreditCardBalances;
-
-    const accountsReceivable =
-    reports?.balanceSheet?.assets?.accounts?.find(
-      (account) => account.accountCode === "1100"
-    )?.amount || summary?.outstandingRevenue || 0;
-
-  const accountsPayable =
-    reports?.balanceSheet?.liabilities?.accounts?.find(
-      (account) => account.accountCode === "2000"
-    )?.amount || 0;
-
-  const currentAssets = Number(reports?.balanceSheet?.assets?.total || 0);
-  const currentLiabilities = Number(
-    reports?.balanceSheet?.liabilities?.total || 0
+  const operatingExpenses = numberOrNull(
+    profit.operatingExpenses
   );
 
-  const workingCapital = currentAssets - currentLiabilities;
+  const netProfit = numberOrNull(profit.netProfit);
+
+  const currentAssets = numberOrNull(
+    position?.assets?.current
+  );
+
+  const currentLiabilities = numberOrNull(
+    position?.liabilities?.current
+  );
+
+  const workingCapital = difference(
+    currentAssets,
+    currentLiabilities
+  );
 
   const currentRatio =
-    currentLiabilities > 0 ? currentAssets / currentLiabilities : 0;
+    currentAssets !== null &&
+    currentLiabilities !== null &&
+    currentLiabilities > 0
+      ? currentAssets / currentLiabilities
+      : null;
 
-  const availableCredit = accounts
-    .filter((account) => account.accountType === "Credit Card")
-    .reduce(
-      (sum, account) =>
-        sum +
-        Number(account.calculatedAvailableCredit ?? account.availableCredit ?? 0),
-      0
-    );
+  const accountsPayable =
+    position?.liabilities?.accounts?.find(
+      (row) => row.accountCode === "2000"
+    )?.amount;
 
-  const creditLimit = accounts
-    .filter((account) => account.accountType === "Credit Card")
-    .reduce((sum, account) => sum + Number(account.creditLimit || 0), 0);
-
-  const creditUtilization =
-    creditLimit > 0 ? (totalCreditCardBalances / creditLimit) * 100 : 0;
-
-  const bankAccounts = accounts.filter((account) => account.accountType === "Bank");
-  const cashAccounts = accounts.filter((account) => account.accountType === "Cash");
-  const creditCards = accounts.filter(
-    (account) => account.accountType === "Credit Card"
+  const pair = completeMonthPair(
+    summary?.monthlyTrend,
+    filters
   );
 
-  const totalRevenue =
-    reports?.profitAndLoss?.revenue ?? summary?.totalRevenue ?? 0;
-
-  const costOfSales = reports?.profitAndLoss?.costOfSales ?? 0;
-
-  const grossProfit = reports?.profitAndLoss?.grossProfit ?? 0;
-
-  const operatingExpenses =
-    reports?.profitAndLoss?.operatingExpenses ?? summary?.totalExpenses ?? 0;
-
-  const netProfit =
-    reports?.profitAndLoss?.netProfit ?? summary?.netPosition ?? 0;
-
-  const grossMargin =
-    Number(totalRevenue) > 0 ? (Number(grossProfit) / Number(totalRevenue)) * 100 : 0;
-
-  const netMargin =
-    Number(totalRevenue) > 0 ? (Number(netProfit) / Number(totalRevenue)) * 100 : 0;
-
-      const getLiquidityHealth = () => {
-    if (currentRatio >= 2) return { label: "Excellent Liquidity", color: "#16a34a" };
-    if (currentRatio >= 1.2) return { label: "Healthy Liquidity", color: "#22c55e" };
-    if (currentRatio >= 1) return { label: "Liquidity Watch", color: "#f97316" };
-    return { label: "Weak Liquidity", color: "#dc2626" };
-  };
-
-  const getCreditHealth = () => {
-    if (creditUtilization >= 90) return { label: "Critical Credit Usage", color: "#dc2626" };
-    if (creditUtilization >= 75) return { label: "High Utilization", color: "#f97316" };
-    if (creditUtilization >= 50) return { label: "Moderate Utilization", color: "#f59e0b" };
-    if (creditUtilization >= 30) return { label: "Healthy Utilization", color: "#22c55e" };
-    return { label: "Excellent Credit Position", color: "#16a34a" };
-  };
-
-  const getProfitHealth = () =>
-    Number(netProfit) >= 0
-      ? { label: "Positive Profit", color: "#16a34a" }
-      : { label: "Loss Position", color: "#dc2626" };
-
-  const getWorkingCapitalHealth = () =>
-    Number(workingCapital) >= 0
-      ? { label: "Positive Working Capital", color: "#16a34a" }
-      : { label: "Negative Working Capital", color: "#dc2626" };
-
-  const getCashHealth = () =>
-    Number(totalCashAndBankBalances) > 0
-      ? { label: "Cash Positive", color: "#16a34a" }
-      : { label: "Cash Concern", color: "#dc2626" };
-
-  const liquidityHealth = getLiquidityHealth();
-  const creditHealth = getCreditHealth();
-  const profitHealth = getProfitHealth();
-  const workingCapitalHealth = getWorkingCapitalHealth();
-  const cashHealth = getCashHealth();
-
-    const latestMonth = monthlyChart?.[monthlyChart.length - 1] || {};
-  const previousMonth = monthlyChart?.[monthlyChart.length - 2] || {};
-
-  const calculateTrend = (current = 0, previous = 0) => {
-    const currentValue = Number(current || 0);
-    const previousValue = Number(previous || 0);
-
-    if (previousValue === 0 && currentValue === 0) return "0.00%";
-    if (previousValue === 0) return "New Activity";
-
-    const change = ((currentValue - previousValue) / previousValue) * 100;
-    return `${change >= 0 ? "+" : ""}${change.toFixed(2)}%`;
-  };
-
-  const latestIncome = Number(latestMonth.income || 0);
-  const previousIncome = Number(previousMonth.income || 0);
-  const latestExpenses = Number(latestMonth.expenses || 0);
-  const previousExpenses = Number(previousMonth.expenses || 0);
-
-  const latestProfit = latestIncome - latestExpenses;
-  const previousProfit = previousIncome - previousExpenses;
-
-    const drillDown = (tab, target = "") => {
-    if (target) {
-      sessionStorage.setItem("financeDrillDownTarget", target);
+  const openReports = () => {
+    if (onOpenReport) {
+      onOpenReport(filters);
+    } else {
+      setActiveTab("reports");
     }
-
-    setActiveTab(tab);
-
-    setTimeout(() => {
-      const element = document.getElementById(target);
-
-      if (element) {
-        element.scrollIntoView({
-          behavior: "smooth",
-          block: "start",
-        });
-      }
-    }, 300);
   };
 
-  const financialAlerts = [
-    currentRatio < 1 && {
-      type: "warning",
-      message: "Current ratio is below 1. Liquidity is weak.",
-    },
-    workingCapital < 0 && {
-      type: "warning",
-      message: "Working capital is negative.",
-    },
-    creditUtilization >= 75 && {
-      type: "warning",
-      message: "Credit utilization is above 75%.",
-    },
-    netProfit < 0 && {
-      type: "warning",
-      message: "Business is currently in a loss position.",
-    },
-    accountsPayable <= 0 && {
-      type: "success",
-      message: "Accounts payable is clear.",
-    },
-    totalCashAndBankBalances > 0 && {
-      type: "success",
-      message: "Cash and bank balances are positive.",
-    },
-  ].filter(Boolean);
+  const card = {
+    background: "#fff",
+    border: `1px solid ${BORDER}`,
+    borderRadius: 12,
+    padding: 18,
+    ...cardStyle,
+    minWidth: 0,
+  };
 
+  const control = {
+    padding: 10,
+    borderRadius: 8,
+    border: `1px solid ${BORDER}`,
+    maxWidth: "100%",
+  };
+
+  const metrics = [
+    ["Revenue", revenue, ROYAL_BLUE, openReports],
+    [
+      "Cost of Sales",
+      costOfSales,
+      "#b45309",
+      openReports,
+    ],
+    [
+      "Gross Profit",
+      grossProfit,
+      "#0f766e",
+      openReports,
+    ],
+    [
+      "Operating Expenses",
+      operatingExpenses,
+      "#b91c1c",
+      openReports,
+    ],
+    [
+      "Net Profit / Loss",
+      netProfit,
+      netProfit !== null && netProfit < 0
+        ? "#b91c1c"
+        : "#0f766e",
+      openReports,
+    ],
+    [
+      "Cash & Bank",
+      treasury.cashAndBank,
+      "#172554",
+      () => setActiveTab("accounts"),
+    ],
+    [
+      "Credit Card Outstanding",
+      treasury.creditCardOutstanding,
+      "#7c3aed",
+      () => setActiveTab("accounts"),
+    ],
+    [
+      "Net Treasury Position",
+      treasury.netTreasuryPosition,
+      "#172554",
+      () => setActiveTab("accounts"),
+    ],
+  ];
 
   return (
     <>
       <div
         style={{
-          ...cardStyle,
-          marginBottom: "20px",
+          ...card,
           display: "flex",
-          gap: "12px",
           flexWrap: "wrap",
           alignItems: "center",
+          gap: 12,
+          marginBottom: 20,
         }}
       >
-        <strong style={{ color: ROYAL_BLUE }}>Dashboard Filter:</strong>
+        <strong style={{ color: ROYAL_BLUE }}>
+          Dashboard Filter:
+        </strong>
 
         <select
+          aria-label="Dashboard period"
           value={summaryFilter}
-          onChange={(e) => setSummaryFilter(e.target.value)}
-          style={{
-            padding: "10px",
-            borderRadius: "8px",
-            border: `1px solid ${BORDER}`,
-            fontWeight: "bold",
-          }}
+          onChange={(event) =>
+            setSummaryFilter(event.target.value)
+          }
+          style={control}
         >
           <option value="today">Today</option>
           <option value="thisWeek">This Week</option>
@@ -248,336 +270,437 @@ function FinanceDashboard({
         </select>
 
         <select
+          aria-label="Dashboard branch"
           value={summaryBranch}
-          onChange={(e) => setSummaryBranch(e.target.value)}
-          style={{
-            padding: "10px",
-            borderRadius: "8px",
-            border: `1px solid ${BORDER}`,
-            fontWeight: "bold",
-            minWidth: "190px",
-          }}
+          onChange={(event) =>
+            setSummaryBranch(event.target.value)
+          }
+          style={control}
         >
           <option value="">All Branches</option>
-          <option value="Eltham Park">Eltham Park</option>
-          <option value="Browns Town Square">Browns Town Square</option>
-          <option value="Brown's Town Square">Brown's Town Square</option>
+          <option value="Eltham Park Mainstore">
+            Eltham Park Mainstore
+          </option>
+          <option value="Brown's Town Square">
+            Brown's Town Square
+          </option>
         </select>
 
         <button
-          onClick={fetchFinanceData}
+          type="button"
+          onClick={() => fetchFinanceData()}
+          disabled={summaryLoading}
           style={{
-            backgroundColor: GOLD,
-            color: "black",
-            border: "none",
-            padding: "10px 16px",
-            borderRadius: "8px",
-            cursor: "pointer",
+            ...control,
+            background: GOLD,
             fontWeight: "bold",
+            cursor: "pointer",
           }}
         >
-          Refresh
+          {summaryLoading ? "Refreshing…" : "Refresh"}
         </button>
       </div>
 
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-          gap: "20px",
-          marginBottom: "24px",
-        }}
-      >
-        <MetricCard
-  title="Revenue"
-  value={formatCurrency(totalRevenue)}
-  color={ROYAL_BLUE}
-  metricCardStyle={metricCardStyle}
-  onClick={() => drillDown("financialReports", "finance-report-revenue")}
-/>
+      {summaryLoading ? (
+        <p role="status">Loading financial summary…</p>
+      ) : summaryError ? (
+        <p role="alert" style={{ color: "#b91c1c" }}>
+          {summaryError}
+        </p>
+      ) : !summary?.filters || !summary?.profitAndLoss ? (
+        <p role="status">
+          The financial summary is not available.
+          Refresh to try again.
+        </p>
+      ) : (
+        <>
+          <div
+            style={{
+              ...card,
+              marginBottom: 20,
+              background: "#fffbeb",
+            }}
+          >
+            <strong>
+              Recorded figures — reconciliation pending
+            </strong>
 
-<MetricCard
-  title="Cost of Sales"
-  value={formatCurrency(costOfSales)}
-  color="#f97316"
-  metricCardStyle={metricCardStyle}
-  onClick={() => drillDown("financialReports", "finance-report-cogs")}
-/>
+            <p style={{ margin: "8px 0" }}>
+              Activity:{" "}
+              {filters.from || "Earliest recorded activity"}
+              {" to "}
+              {filters.to} ·{" "}
+              {filters.branch || "All Branches"} · JMD
+            </p>
 
-<MetricCard
-  title="Gross Profit"
-  value={formatCurrency(grossProfit)}
-  color="#16a34a"
-  metricCardStyle={metricCardStyle}
-  onClick={() => drillDown("financialReports", "finance-report-profit")}
-/>
-
-<MetricCard
-  title="Operating Expenses"
-  value={formatCurrency(operatingExpenses)}
-  color="#dc2626"
-  metricCardStyle={metricCardStyle}
-  onClick={() => drillDown("expenses", "finance-expense-records")}
-/>
-
-<MetricCard
-  title="Net Profit / Loss"
-  value={formatCurrency(netProfit)}
-  color={Number(netProfit) >= 0 ? "#16a34a" : "#dc2626"}
-  metricCardStyle={metricCardStyle}
-  onClick={() => drillDown("financialReports", "finance-report-profit")}
-/>
-
-<MetricCard
-  title="Cash & Bank"
-  value={formatCurrency(totalCashAndBankBalances)}
-  color="#0f172a"
-  metricCardStyle={metricCardStyle}
-  onClick={() => drillDown("accounts", "finance-accounts-table")}
-/>
-
-<MetricCard
-  title="Credit Card Outstanding"
-  value={formatCurrency(totalCreditCardBalances)}
-  color="#7c3aed"
-  metricCardStyle={metricCardStyle}
-  onClick={() => drillDown("accounts", "finance-credit-card-intelligence")}
-/>
-
-<MetricCard
-  title="Net Treasury Position"
-  value={formatCurrency(netCashPosition)}
-  color={Number(netCashPosition) >= 0 ? "#16a34a" : "#dc2626"}
-  metricCardStyle={metricCardStyle}
-  onClick={() => drillDown("accounts", "finance-accounts-table")}
-/>
-      </div>
-
-            <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
-          gap: "20px",
-          marginBottom: "24px",
-        }}
-      >
-        <DashboardPanel title="Financial Position" ROYAL_BLUE={ROYAL_BLUE} cardStyle={cardStyle}>
-          <InfoRow label="Current Assets" value={formatCurrency(currentAssets)} />
-          <InfoRow label="Current Liabilities" value={formatCurrency(currentLiabilities)} />
-          <InfoRow label="Working Capital" value={formatCurrency(workingCapital)} />
-          <InfoRow
-            label="Current Ratio"
-            value={currentRatio > 0 ? currentRatio.toFixed(2) : "—"}
-          />
-          <InfoRow label="Accounts Receivable" value={formatCurrency(accountsReceivable)} />
-          <InfoRow label="Accounts Payable" value={formatCurrency(accountsPayable)} />
-        </DashboardPanel>
-
-        <DashboardPanel title="Revenue & Expense Analysis" ROYAL_BLUE={ROYAL_BLUE} cardStyle={cardStyle}>
-          <InfoRow label="Revenue" value={formatCurrency(totalRevenue)} />
-          <InfoRow label="Cost of Sales" value={formatCurrency(costOfSales)} />
-          <InfoRow label="Gross Profit" value={formatCurrency(grossProfit)} />
-          <InfoRow
-            label="Gross Margin"
-            value={`${grossMargin.toFixed(2)}%`}
-          />
-          <InfoRow label="Operating Expenses" value={formatCurrency(operatingExpenses)} />
-          <InfoRow label="Net Profit / Loss" value={formatCurrency(netProfit)} />
-          <InfoRow label="Net Margin" value={`${netMargin.toFixed(2)}%`} />
-        </DashboardPanel>
-
-        <DashboardPanel title="Banking Intelligence" ROYAL_BLUE={ROYAL_BLUE} cardStyle={cardStyle}>
-          <InfoRow label="Bank Accounts" value={bankAccounts.length} />
-          <InfoRow label="Cash Accounts" value={cashAccounts.length} />
-          <InfoRow label="Credit Cards" value={creditCards.length} />
-          <InfoRow label="Available Credit" value={formatCurrency(availableCredit)} />
-          <InfoRow
-            label="Credit Utilization"
-            value={`${creditUtilization.toFixed(2)}%`}
-          />
-          <InfoRow
-            label="Net Cash Position"
-            value={formatCurrency(netCashPosition)}
-          />
-        </DashboardPanel>
-
-                <DashboardPanel title="Executive Financial Health" ROYAL_BLUE={ROYAL_BLUE} cardStyle={cardStyle}>
-          <HealthRow label="Liquidity" health={liquidityHealth} />
-          <HealthRow label="Working Capital" health={workingCapitalHealth} />
-          <HealthRow label="Credit Position" health={creditHealth} />
-          <HealthRow label="Profitability" health={profitHealth} />
-          <HealthRow label="Cash Position" health={cashHealth} />
-        </DashboardPanel>
-      </div>
-
-            <div style={{ ...cardStyle, marginBottom: "24px" }}>
-        <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>
-          Financial Alerts
-        </h2>
-
-        {financialAlerts.length > 0 ? (
-          <div style={{ display: "grid", gap: "10px" }}>
-            {financialAlerts.map((alert, index) => (
-              <div
-                key={index}
-                style={{
-                  padding: "12px",
-                  borderRadius: "10px",
-                  border: `1px solid ${
-                    alert.type === "warning" ? "#fed7aa" : "#bbf7d0"
-                  }`,
-                  backgroundColor:
-                    alert.type === "warning" ? "#fff7ed" : "#f0fdf4",
-                  color: alert.type === "warning" ? "#9a3412" : "#166534",
-                  fontWeight: "bold",
-                }}
-              >
-                {alert.type === "warning" ? "⚠ " : "✓ "}
-                {alert.message}
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div style={{ color: MUTED, fontWeight: "bold" }}>
-            No financial alerts at this time.
-          </div>
-        )}
-      </div>
-
-            <div style={{ ...cardStyle, marginBottom: "24px" }}>
-        <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>
-          Executive Trend Analytics
-        </h2>
-
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-            gap: "16px",
-          }}
-        >
-          <TrendCard
-            title="Revenue Trend"
-            value={calculateTrend(latestIncome, previousIncome)}
-            detail={`${formatCurrency(previousIncome)} → ${formatCurrency(
-              latestIncome
-            )}`}
-          />
-
-          <TrendCard
-            title="Expense Trend"
-            value={calculateTrend(latestExpenses, previousExpenses)}
-            detail={`${formatCurrency(previousExpenses)} → ${formatCurrency(
-              latestExpenses
-            )}`}
-          />
-
-          <TrendCard
-            title="Profit Trend"
-            value={calculateTrend(latestProfit, previousProfit)}
-            detail={`${formatCurrency(previousProfit)} → ${formatCurrency(
-              latestProfit
-            )}`}
-          />
-
-          <TrendCard
-            title="Gross Margin"
-            value={`${grossMargin.toFixed(2)}%`}
-            detail="Current reporting period"
-          />
-
-          <TrendCard
-            title="Net Margin"
-            value={`${netMargin.toFixed(2)}%`}
-            detail="Current reporting period"
-          />
-
-          <TrendCard
-            title="Credit Utilization"
-            value={`${creditUtilization.toFixed(2)}%`}
-            detail={creditHealth.label}
-          />
-        </div>
-      </div>
-
-      <div style={cardStyle}>
-        <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>Monthly Finance Graph</h2>
-
-        <div style={{ width: "100%", height: 380 }}>
-          {monthlyChart.length > 0 ? (
-            <ResponsiveContainer>
-              <BarChart
-                data={monthlyChart.map((item) => ({
-                  ...item,
-                  monthLabel: item.month,
-                }))}
-                margin={{ top: 10, right: 20, left: 10, bottom: 10 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="monthLabel" />
-                <YAxis />
-                <Tooltip formatter={(value) => formatCurrency(value)} />
-                <Legend />
-                <Bar dataKey="income" name="Income" fill="#0B3D91" radius={[6, 6, 0, 0]} />
-                <Bar dataKey="expenses" name="Expenses" fill="#D4AF37" radius={[6, 6, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          ) : (
-            <div
+            <p
               style={{
-                height: "100%",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                color: MUTED,
-                fontWeight: "bold",
+                margin: "8px 0",
+                fontSize: 13,
               }}
             >
-              No monthly chart data found.
-            </div>
-          )}
-        </div>
-      </div>
+              Financial Position and treasury balances
+              are as of {filters.to}. Payroll is included
+              in expenses once. The account register
+              shows current account settings and balances.
+            </p>
+
+            <p
+              style={{
+                margin: "8px 0 0",
+                fontSize: 13,
+              }}
+            >
+              Business scope:{" "}
+              {summary.reportMeta?.businessScope ||
+                "See report scope"}.
+            </p>
+          </div>
+
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns:
+                "repeat(auto-fit, minmax(min(100%, 210px), 1fr))",
+              gap: 16,
+              marginBottom: 20,
+            }}
+          >
+            {metrics.map(
+              ([title, value, color, action]) => (
+                <button
+                  key={title}
+                  type="button"
+                  onClick={action}
+                  style={{
+                    ...card,
+                    ...metricCardStyle,
+                    textAlign: "left",
+                    fontFamily: "inherit",
+                    cursor: "pointer",
+                    minWidth: 0,
+                  }}
+                >
+                  <div
+                    style={{
+                      fontSize: 25,
+                      fontWeight: "bold",
+                      color,
+                      overflowWrap: "anywhere",
+                    }}
+                  >
+                    {money(value)}
+                  </div>
+
+                  <div
+                    style={{
+                      marginTop: 8,
+                      color: "#334155",
+                      fontWeight: "bold",
+                    }}
+                  >
+                    {title}
+                  </div>
+
+                  <div
+                    style={{
+                      marginTop: 6,
+                      fontSize: 12,
+                      color: "#64748b",
+                    }}
+                  >
+                    {title.includes("Cash") ||
+                    title.includes("Credit") ||
+                    title.includes("Treasury")
+                      ? "Open current account register"
+                      : "Open Financial Reports"}
+                  </div>
+                </button>
+              )
+            )}
+          </div>
+
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns:
+                "repeat(auto-fit, minmax(min(100%, 280px), 1fr))",
+              gap: 16,
+              marginBottom: 20,
+            }}
+          >
+            <Panel title="Financial Position" style={card}>
+              <InfoRow
+                label="Current Assets"
+                value={money(currentAssets)}
+              />
+              <InfoRow
+                label="Current Liabilities"
+                value={money(currentLiabilities)}
+              />
+              <InfoRow
+                label="Working Capital"
+                value={money(workingCapital)}
+              />
+              <InfoRow
+                label="Current Ratio"
+                value={
+                  currentRatio === null
+                    ? "Not available"
+                    : currentRatio.toFixed(2)
+                }
+              />
+              <InfoRow
+                label="Accounts Receivable"
+                value={money(
+                  position?.assets?.accountsReceivable
+                )}
+              />
+              <InfoRow
+                label="Accounts Payable"
+                value={money(accountsPayable)}
+              />
+
+              {(currentAssets === null ||
+                currentLiabilities === null) && (
+                <p style={{ fontSize: 12 }}>
+                  Current/non-current account
+                  classifications require review before
+                  liquidity ratios can be shown.
+                </p>
+              )}
+            </Panel>
+
+            <Panel
+              title="Revenue & Expense Analysis"
+              style={card}
+            >
+              <InfoRow
+                label="Revenue"
+                value={money(revenue)}
+              />
+              <InfoRow
+                label="Cost of Sales"
+                value={money(costOfSales)}
+              />
+              <InfoRow
+                label="Gross Profit"
+                value={money(grossProfit)}
+              />
+              <InfoRow
+                label="Gross Margin"
+                value={percentage(
+                  margin(grossProfit, revenue)
+                )}
+              />
+              <InfoRow
+                label="Operating Expenses"
+                value={money(operatingExpenses)}
+              />
+              <InfoRow
+                label="Total Expenses"
+                value={money(profit.totalExpenses)}
+              />
+              <InfoRow
+                label="Net Profit / Loss"
+                value={money(netProfit)}
+              />
+              <InfoRow
+                label="Net Margin"
+                value={percentage(
+                  margin(netProfit, revenue)
+                )}
+              />
+            </Panel>
+
+            <Panel title="Banking Intelligence" style={card}>
+              <InfoRow
+                label="Cash & Bank"
+                value={money(treasury.cashAndBank)}
+              />
+              <InfoRow
+                label="Credit Card Outstanding"
+                value={money(
+                  treasury.creditCardOutstanding
+                )}
+              />
+              <InfoRow
+                label="Net Treasury Position"
+                value={money(treasury.netTreasuryPosition)}
+              />
+              <InfoRow
+                label="Credit Limit"
+                value={money(treasury.creditLimit)}
+              />
+              <InfoRow
+                label="Available Credit"
+                value={money(treasury.availableCredit)}
+              />
+              <InfoRow
+                label="Credit Utilization"
+                value={percentage(
+                  numberOrNull(treasury.creditUtilization)
+                )}
+              />
+
+              <p style={{ fontSize: 12 }}>
+                Credit limits are shown only when the
+                reporting scope and JMD balances are
+                comparable.
+              </p>
+            </Panel>
+
+            <Panel title="Financial Checks" style={card}>
+              <InfoRow
+                label="Trial Balance"
+                value={
+                  health.trialBalanceBalanced === true
+                    ? "Debits equal credits"
+                    : health.trialBalanceBalanced === false
+                      ? "Difference requires review"
+                      : "Not available"
+                }
+              />
+              <InfoRow
+                label="Trial Balance Difference"
+                value={money(
+                  health.trialBalanceDifference
+                )}
+              />
+              <InfoRow
+                label="Balance Sheet"
+                value={
+                  health.balanceSheetBalanced === true
+                    ? "Equation balances"
+                    : health.balanceSheetBalanced === false
+                      ? "Difference requires review"
+                      : "Not available"
+                }
+              />
+              <InfoRow
+                label="Balance Sheet Difference"
+                value={money(
+                  health.balanceSheetDifference
+                )}
+              />
+
+              <p style={{ fontSize: 12 }}>
+                A balanced report does not establish
+                that all business transactions have
+                been recorded correctly.
+              </p>
+            </Panel>
+          </div>
+
+          <Panel
+            title="Financial Alerts & Review Items"
+            style={{ ...card, marginBottom: 20 }}
+          >
+            {issues.length ? (
+              <ul style={{ margin: 0, paddingLeft: 20 }}>
+                {issues.map((issue) => (
+                  <li
+                    key={issue.code}
+                    style={{
+                      marginBottom: 10,
+                      color: "#92400e",
+                    }}
+                  >
+                    {issue.message}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p>
+                No additional calculation exceptions
+                were returned. Source-record
+                reconciliation is still required.
+              </p>
+            )}
+          </Panel>
+
+          <Panel
+            title="Executive Trend Analytics"
+            style={{ ...card, marginBottom: 20 }}
+          >
+            <InfoRow
+              label="Gross Margin — selected period"
+              value={percentage(
+                margin(grossProfit, revenue)
+              )}
+            />
+            <InfoRow
+              label="Net Margin — selected period"
+              value={percentage(margin(netProfit, revenue))}
+            />
+
+            {pair ? (
+              <>
+                <p style={{ fontSize: 13 }}>
+                  Complete-month comparison:{" "}
+                  {pair.previous.month} → {pair.latest.month}
+                </p>
+
+                <InfoRow
+                  label="Revenue Change"
+                  value={changePercent(
+                    pair.latest.revenue,
+                    pair.previous.revenue
+                  )}
+                />
+                <InfoRow
+                  label="Expense Change"
+                  value={changePercent(
+                    pair.latest.expenses,
+                    pair.previous.expenses
+                  )}
+                />
+                <InfoRow
+                  label="Profit Change (JMD)"
+                  value={money(
+                    Number(pair.latest.netProfit) -
+                      Number(pair.previous.netProfit)
+                  )}
+                />
+              </>
+            ) : (
+              <p style={{ fontSize: 13 }}>
+                Two consecutive complete months with
+                recorded activity are required for a
+                monthly comparison. Partial months are
+                not compared with complete months.
+              </p>
+            )}
+          </Panel>
+
+          <div style={card}>
+            <FinanceTrendChart
+              data={summary.monthlyTrend}
+              filters={filters}
+            />
+          </div>
+        </>
+      )}
     </>
   );
 }
 
-function DashboardPanel({ title, children, ROYAL_BLUE, cardStyle }) {
+function Panel({ title, style, children }) {
   return (
-    <div style={cardStyle}>
-      <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>{title}</h2>
-      <div style={{ display: "grid", gap: "10px" }}>{children}</div>
-    </div>
-  );
-}
-
-function HealthRow({ label, health }) {
-  return (
-    <div
-      style={{
-        display: "flex",
-        justifyContent: "space-between",
-        gap: "12px",
-        borderBottom: "1px solid #e5e7eb",
-        paddingBottom: "8px",
-        fontWeight: "bold",
-        alignItems: "center",
-      }}
-    >
-      <span style={{ color: "#475569" }}>{label}</span>
-      <span
+    <section style={style}>
+      <h3
         style={{
-          color: "white",
-          backgroundColor: health.color,
-          padding: "5px 10px",
-          borderRadius: "999px",
-          fontSize: "12px",
-          whiteSpace: "nowrap",
+          margin: "0 0 14px",
+          color: "#103d8f",
         }}
       >
-        {health.label}
-      </span>
-    </div>
+        {title}
+      </h3>
+
+      <div style={{ display: "grid", gap: 10 }}>
+        {children}
+      </div>
+    </section>
   );
 }
 
@@ -586,90 +709,23 @@ function InfoRow({ label, value }) {
     <div
       style={{
         display: "flex",
+        flexWrap: "wrap",
         justifyContent: "space-between",
-        gap: "12px",
+        gap: 8,
         borderBottom: "1px solid #e5e7eb",
-        paddingBottom: "8px",
-        fontWeight: "bold",
+        paddingBottom: 8,
       }}
     >
       <span style={{ color: "#475569" }}>{label}</span>
-      <span>{value}</span>
-    </div>
-  );
-}
 
-function TrendCard({ title, value, detail }) {
-  return (
-    <div
-      style={{
-        border: "1px solid #e5e7eb",
-        borderRadius: "14px",
-        padding: "16px",
-        backgroundColor: "#ffffff",
-      }}
-    >
-      <div style={{ color: "#475569", fontWeight: "bold", marginBottom: "8px" }}>
-        {title}
-      </div>
-      <div
+      <strong
         style={{
-          fontSize: "24px",
-          fontWeight: "bold",
-          color: "#0B3D91",
-          marginBottom: "6px",
+          textAlign: "right",
+          overflowWrap: "anywhere",
         }}
       >
         {value}
-      </div>
-      <div style={{ color: "#64748b", fontSize: "13px", fontWeight: "bold" }}>
-        {detail}
-      </div>
+      </strong>
     </div>
   );
 }
-
-function MetricCard({ title, value, color, metricCardStyle, onClick }) {
-  return (
-    <div
-      onClick={onClick}
-      style={{
-        ...metricCardStyle,
-        cursor: onClick ? "pointer" : "default",
-        transition: "transform 0.15s ease, box-shadow 0.15s ease",
-      }}
-      title={onClick ? "Click to review details" : ""}
-      onMouseEnter={(e) => {
-        if (onClick) {
-          e.currentTarget.style.transform = "translateY(-2px)";
-          e.currentTarget.style.boxShadow = "0 10px 24px rgba(15, 23, 42, 0.14)";
-        }
-      }}
-      onMouseLeave={(e) => {
-        if (onClick) {
-          e.currentTarget.style.transform = "translateY(0)";
-          e.currentTarget.style.boxShadow = "";
-        }
-      }}
-    >
-      <div
-        style={{
-          fontSize: "30px",
-          fontWeight: "bold",
-          color,
-          marginBottom: "8px",
-        }}
-      >
-        {value}
-      </div>
-      <div style={{ color: "#334155", fontWeight: "bold" }}>{title}</div>
-      {onClick && (
-        <div style={{ color: "#64748b", fontSize: "12px", marginTop: "6px" }}>
-          Click to review
-        </div>
-      )}
-    </div>
-  );
-}
-
-export default FinanceDashboard;

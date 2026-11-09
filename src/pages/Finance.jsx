@@ -1,18 +1,16 @@
-import { useEffect, useMemo, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+
 import api from "../api";
 import { jsPDF } from "jspdf";
 import { autoTable } from "jspdf-autotable";
+
 import FinanceDashboard from "../components/finance/FinanceDashboard";
-import {
-  ResponsiveContainer,
-  BarChart,
-  Bar,
-  CartesianGrid,
-  XAxis,
-  YAxis,
-  Tooltip,
-  Legend,
-} from "recharts";
+import FinanceReportView from "../components/finance/FinanceReportView";
 function Finance() {
   const [activeTab, setActiveTab] = useState("dashboard");
   const [invoices, setInvoices] = useState([]);
@@ -22,9 +20,26 @@ function Finance() {
   const [hrEmployees, setHrEmployees] = useState([]);
   const [summary, setSummary] = useState(null);
   const [reports, setReports] = useState(null);
+  const [summaryLoading, setSummaryLoading] = useState(false);
+const [summaryError, setSummaryError] = useState("");
+
+const [reportLoading, setReportLoading] = useState(false);
+const [reportError, setReportError] = useState("");
+
+const [financeReferenceErrors, setFinanceReferenceErrors] =
+  useState([]);
+
+const summaryRequestId = useRef(0);
+const reportRequestId = useRef(0);
+const referenceRequestId = useRef(0);
+
+const reportQueryRef = useRef({
+  from: "",
+  to: "",
+  branch: "",
+});
   const [accounts, setAccounts] = useState([]);
   const [transactions, setTransactions] = useState([]);
-  const [monthlyChart, setMonthlyChart] = useState([]);
   const [adjustmentPreview, setAdjustmentPreview] = useState([]);
   const [adjustmentBatches, setAdjustmentBatches] = useState([]);
   const [summaryFilter, setSummaryFilter] = useState("today");
@@ -43,154 +58,403 @@ const [payrollAttendanceLoading, setPayrollAttendanceLoading] = useState(false);
   const [reportFilters, setReportFilters] = useState({
   from: "",
   to: "",
-  
+  branch: "",
 });
 
 const downloadSingleReportPdf = (reportType) => {
+  if (
+    !reports?.filters ||
+    reportLoading ||
+    reportError
+  ) {
+    alert(
+      "Load the financial report successfully before exporting."
+    );
+    return;
+  }
+
   try {
-    const doc = new jsPDF("p", "mm", "a4");
+    const landscape =
+      reportType === "Statutory Deductions";
 
-    const generatedAt = reports?.reportMeta?.generatedAt
-      ? formatDate(reports.reportMeta.generatedAt)
-      : formatDate(new Date());
+    const doc = new jsPDF(
+      landscape ? "l" : "p",
+      "mm",
+      "a4"
+    );
 
-    const fromText = reportFilters?.from || "Beginning";
-    const toText = reportFilters?.to || "Today";
+    const width = doc.internal.pageSize.getWidth();
 
-    doc.setFontSize(18);
-    doc.text("Eltham Konnect", 14, 16);
+    const title =
+      reportType === "Cash Flow"
+        ? "Cash Movements"
+        : reportType;
 
-    doc.setFontSize(13);
-    doc.text(reportType, 14, 24);
+    const applied = reports.filters;
+    const meta = reports.reportMeta || {};
+    const profit = reports.profitAndLoss;
+    const cash = reports.cashFlow?.totals;
+    const balance = reports.balanceSheet;
 
-    doc.setFontSize(10);
-    doc.text(`Period: ${fromText} to ${toText}`, 14, 30);
-    doc.text(`Generated: ${generatedAt}`, 14, 35);
+    const deductionFields = [
+      "nisEmployee",
+      "nhtEmployee",
+      "educationTax",
+      "incomeTax",
+      "pensionEmployee",
+    ];
 
-    if (reportType === "Profit and Loss") {
-      autoTable(doc, {
-        startY: 42,
-        head: [["Profit and Loss", "Amount"]],
-        body: [
-          ["Revenue", formatCurrency(reports?.profitAndLoss?.revenue)],
-          ["Operating Expenses", formatCurrency(reports?.profitAndLoss?.operatingExpenses)],
-          ["Payroll Expense", formatCurrency(reports?.profitAndLoss?.payrollExpense)],
-          ["Total Expenses", formatCurrency(reports?.profitAndLoss?.totalExpenses)],
-          ["Net Profit / Loss", formatCurrency(reports?.profitAndLoss?.netProfit)],
-        ],
-        styles: { fontSize: 10 },
-        headStyles: { fillColor: [11, 61, 145] },
-      });
-    }
+    let head;
+    let body;
 
-    if (reportType === "Cash Flow") {
-      autoTable(doc, {
-        startY: 42,
-        head: [["Cash Flow", "Amount"]],
-        body: [
-          ["Collected Revenue", formatCurrency(reports?.cashFlow?.collectedRevenue)],
-          ["Operating Expense Payments", formatCurrency(reports?.cashFlow?.operatingExpensePayments)],
-          ["Payroll Payments", formatCurrency(reports?.cashFlow?.payrollPayments)],
-          ["Total Cash Outflows", formatCurrency(reports?.cashFlow?.totalCashOutflows)],
-          ["Net Cash Flow", formatCurrency(reports?.cashFlow?.netCashFlow)],
-        ],
-        styles: { fontSize: 10 },
-        headStyles: { fillColor: [11, 61, 145] },
-      });
-    }
+    switch (reportType) {
+      case "Profit and Loss":
+        head = ["Description", "Amount"];
+        body = [
+          ["Revenue", formatCurrency(profit.revenue)],
+          [
+            "Cost of Sales",
+            formatCurrency(profit.costOfSales),
+          ],
+          [
+            "Gross Profit",
+            formatCurrency(profit.grossProfit),
+          ],
+          [
+            "Operating Expenses (includes payroll)",
+            formatCurrency(profit.operatingExpenses),
+          ],
+          [
+            "Total Expenses (Cost of Sales + Operating Expenses)",
+            formatCurrency(profit.totalExpenses),
+          ],
+          [
+            "Net Profit / Loss",
+            formatCurrency(profit.netProfit),
+          ],
+          [
+            "Payroll Expense (already included above)",
+            formatCurrency(profit.payrollExpense),
+          ],
+        ];
+        break;
 
-    if (reportType === "Balance Sheet") {
-      autoTable(doc, {
-        startY: 42,
-        head: [["Balance Sheet", "Amount"]],
-        body: [
-          ["Cash On Hand", formatCurrency(reports?.balanceSheet?.assets?.cashOnHand)],
-          ["Accounts Receivable", formatCurrency(reports?.balanceSheet?.assets?.accountsReceivable)],
-          ["Total Assets", formatCurrency(reports?.balanceSheet?.assets?.totalAssets)],
-          ["Total Liabilities", formatCurrency(reports?.balanceSheet?.liabilities?.totalLiabilities)],
-          ["Owner's Equity", formatCurrency(reports?.balanceSheet?.equity?.ownerEquity)],
-        ],
-        styles: { fontSize: 10 },
-        headStyles: { fillColor: [11, 61, 145] },
-      });
-    }
+      case "Cash Flow":
+        head = ["Cash Movements", "Amount"];
+        body = [
+          [
+            "Opening Cash & Bank",
+            formatCurrency(cash?.openingBalance),
+          ],
+          [
+            "Cash/Bank Inflows",
+            formatCurrency(cash?.totalInflows),
+          ],
+          [
+            "Cash/Bank Outflows",
+            formatCurrency(cash?.totalOutflows),
+          ],
+          [
+            "Net Cash Movement",
+            formatCurrency(cash?.netCashFlow),
+          ],
+          [
+            "Closing Cash & Bank",
+            formatCurrency(cash?.closingBalance),
+          ],
+          [
+            "Identified Internal Transfers (excluded above)",
+            formatCurrency(cash?.internalTransfers),
+          ],
+        ];
+        break;
 
-    if (reportType === "Statutory Deductions") {
-      const statutoryRows =
-        reports?.statutoryByEmployee?.length > 0
-          ? reports.statutoryByEmployee.map((item) => [
-              item.employeeId || "-",
-              item.employeeName || "-",
-              formatCurrency(item.nisEmployee),
-              formatCurrency(item.nhtEmployee),
-              formatCurrency(item.educationTax),
-              formatCurrency(item.incomeTax),
-              formatCurrency(item.pensionEmployee),
-              formatCurrency(item.totalDeductions),
-            ])
-          : [["-", "No statutory deduction data found for this period.", "", "", "", "", "", ""]];
+      case "Balance Sheet":
+        head = ["Balance Sheet", "Amount"];
+        body = [
+          [
+            "Total Assets",
+            formatCurrency(balance?.assets?.total),
+          ],
+          [
+            "Total Liabilities",
+            formatCurrency(balance?.liabilities?.total),
+          ],
+          [
+            "Total Equity (includes unclosed ledger earnings)",
+            formatCurrency(balance?.equity?.total),
+          ],
+          [
+            "Liabilities + Equity",
+            formatCurrency(
+              balance?.totals?.liabilitiesPlusEquity
+            ),
+          ],
+          [
+            "Difference",
+            formatCurrency(balance?.totals?.difference),
+          ],
+        ];
+        break;
 
-      autoTable(doc, {
-        startY: 42,
-        head: [[
+      case "Statutory Deductions":
+        head = [
           "Employee ID",
-          "Employee Name",
+          "Employee",
+          "Gross Pay",
+          "Net Pay",
           "NIS",
           "NHT",
           "Education Tax",
           "Income Tax",
           "Pension",
           "Total Deductions",
-        ]],
-        body: statutoryRows,
-        styles: { fontSize: 8 },
-        headStyles: { fillColor: [11, 61, 145] },
-      });
+          "Posting Dates",
+          "Recorded Payment Dates",
+        ];
+
+        body = (
+          reports.statutoryByEmployee || []
+        ).map((item) => [
+          item.employeeId || "Not recorded",
+          item.employeeName,
+          formatCurrency(item.grossPay),
+          formatCurrency(item.netPay),
+          ...deductionFields.map((field) =>
+            formatCurrency(item[field])
+          ),
+          formatCurrency(item.totalDeductions),
+          (item.postingDates || []).join(", "),
+          (item.actualPaymentDates || []).join(", "),
+        ]);
+        break;
+
+      case "Expense Category Breakdown":
+        head = ["Expense Account", "Amount"];
+
+        body = (reports.expenseByCategory || []).map(
+          (item) => [
+            item.category,
+            formatCurrency(item.amount),
+          ]
+        );
+        break;
+
+      case "Monthly Trend":
+        head = [
+          "Month",
+          "Revenue",
+          "Total Expenses (includes payroll)",
+          "Payroll (included)",
+          "Net Profit / Loss",
+        ];
+
+        body = (reports.monthlyTrend || []).map(
+          (item) => [
+            item.month,
+            ...[
+              item.revenue,
+              item.expenses,
+              item.payroll,
+              item.netProfit,
+            ].map((value) =>
+              item.recordedActivity === false
+                ? "No recorded activity"
+                : formatCurrency(value)
+            ),
+          ]
+        );
+        break;
+
+      default:
+        throw new Error(
+          "Select a supported report export."
+        );
     }
 
-    if (reportType === "Expense Category Breakdown") {
-      const expenseRows =
-        reports?.expenseByCategory?.length > 0
-          ? reports.expenseByCategory.map((item) => [
-              item.category,
-              formatCurrency(item.amount),
-            ])
-          : [["No expense data found for this period.", ""]];
+    if (!body.length) {
+      body = [
+        [
+          "No qualifying recorded rows.",
+          ...head.slice(1).map(() => ""),
+        ],
+      ];
+    }
 
+    doc.setFontSize(17);
+    doc.text("Eltham Konnect", 14, 16);
+
+    doc.setFontSize(12);
+    doc.text(title, 14, 24);
+
+    doc.setFontSize(9);
+
+    let y = 32;
+
+    const note = (text) => {
+      const lines = doc.splitTextToSize(
+        String(text),
+        width - 28
+      );
+
+      doc.text(lines, 14, y);
+      y += lines.length * 4 + 2;
+    };
+
+    note(
+      `Applied period: ${
+        applied.from || "Earliest recorded activity"
+      } to ${applied.to}. Branch: ${
+        applied.branch || "All Branches"
+      }. Currency: JMD.`
+    );
+
+    note(
+      meta.periodBasis ||
+        "Recorded General Ledger activity."
+    );
+
+    note(
+      `Business scope: ${
+        meta.businessScope || "See report scope"
+      }.`
+    );
+
+    note(
+      "Provisional: recorded figures; source-record reconciliation is pending."
+    );
+
+    note(
+      `Generated: ${meta.generatedAt || "Not recorded"}`
+    );
+
+    if (reportType === "Cash Flow") {
+      note(
+        "Operating, investing and financing classifications remain under review."
+      );
+    }
+
+    if (reportType === "Statutory Deductions") {
+      note(
+        meta.payrollBasis ||
+          "See payroll reporting basis."
+      );
+
+      note(
+        meta.deductionBasis ||
+          "Employee deduction components only."
+      );
+    }
+
+    const tableOptions = {
+      margin: { bottom: 18 },
+      styles: {
+        fontSize: landscape ? 7 : 9,
+        overflow: "linebreak",
+      },
+      headStyles: {
+        fillColor: [11, 61, 145],
+      },
+      didDrawPage: () => {
+        doc.setFontSize(8);
+
+        doc.text(
+          "Recorded figures - reconciliation pending. Amounts in JMD.",
+          14,
+          doc.internal.pageSize.getHeight() - 8
+        );
+      },
+    };
+
+    autoTable(doc, {
+      ...tableOptions,
+      startY: y + 2,
+      head: [head],
+      body,
+    });
+
+    const reviewRows = (meta.issues || []).map(
+      (issue) => [issue.code, issue.message]
+    );
+
+    if (reviewRows.length) {
       autoTable(doc, {
-        startY: 42,
-        head: [["Expense Category Breakdown", "Amount"]],
-        body: expenseRows,
-        styles: { fontSize: 10 },
-        headStyles: { fillColor: [11, 61, 145] },
+        ...tableOptions,
+        startY: doc.lastAutoTable.finalY + 10,
+        head: [["Review Item", "Details"]],
+        body: reviewRows,
       });
     }
 
-    if (reportType === "Monthly Trend") {
-      const monthlyRows =
-        reports?.monthlyTrend?.length > 0
-          ? reports.monthlyTrend.map((item) => [
-              item.label || item.month,
-              formatCurrency(item.revenue),
-              formatCurrency(item.expenses),
-              formatCurrency(item.payroll),
-              formatCurrency(item.net),
-            ])
-          : [["No monthly trend data found for this period.", "", "", "", ""]];
-
+    if (reportType === "Statutory Deductions") {
       autoTable(doc, {
-        startY: 42,
-        head: [["Monthly Trend", "Revenue", "Operating Expenses", "Payroll", "Net"]],
-        body: monthlyRows,
-        styles: { fontSize: 9 },
-        headStyles: { fillColor: [11, 61, 145] },
+        ...tableOptions,
+        startY: doc.lastAutoTable.finalY + 10,
+        head: [
+          ["Employee Deduction Component", "Total"],
+        ],
+        body: [
+          ...deductionFields.map((field) => [
+            field,
+            formatCurrency(
+              reports.statutoryTotals?.[field]
+            ),
+          ]),
+          [
+            "Total Employee Deductions",
+            formatCurrency(
+              reports.statutoryTotals?.totalDeductions
+            ),
+          ],
+        ],
       });
+
+      const exceptions =
+        meta.payrollExceptions || [];
+
+      if (exceptions.length) {
+        autoTable(doc, {
+          ...tableOptions,
+          startY: doc.lastAutoTable.finalY + 10,
+          head: [
+            ["Payroll Exception", "Scope", "Details"],
+          ],
+          body: exceptions.map((item) => [
+            item.record,
+            item.scope,
+            item.issue,
+          ]),
+        });
+      }
+
+      if (meta.payrollExceptionsTruncated) {
+        autoTable(doc, {
+          ...tableOptions,
+          startY: doc.lastAutoTable.finalY + 10,
+          head: [["Exception Coverage"]],
+          body: [
+            [
+              `Showing the first 100 of ${meta.payrollExceptionCount} exceptions.`,
+            ],
+          ],
+        });
+      }
     }
 
-    doc.save(`eltham-konnect-${reportType.toLowerCase().replace(/\s+/g, "-")}-${generatedAt}.pdf`);
+    const filename = title
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-");
+
+    doc.save(
+      `eltham-konnect-${filename}-${applied.to}.pdf`
+    );
   } catch (error) {
     console.error("Error generating PDF:", error);
-    alert("Could not download PDF report.");
+
+    alert(
+      error.message ||
+        "Could not download PDF report."
+    );
   }
 };
 
@@ -476,21 +740,90 @@ doc.save(`payslip-${safeEmployeeName}-${safePayPeriod}.pdf`);
       netPay: roundMoney(gross - totalDeductions),
     };
   }, [payrollForm]);
-const fetchReports = async (from = reportFilters.from, to = reportFilters.to) => {
+
+const fetchReports = async (
+  options = reportQueryRef.current
+) => {
+  const requested = {
+    from: options.from || "",
+    to: options.to || "",
+    branch: options.branch || "",
+  };
+
+  reportQueryRef.current = requested;
+
+  const requestId = ++reportRequestId.current;
+
+  setReportLoading(true);
+  setReportError("");
+  setReports(null);
+
   try {
     const params = new URLSearchParams();
 
-    if (from) params.append("from", from);
-    if (to) params.append("to", to);
+    Object.entries(requested).forEach(([key, value]) => {
+      if (value) params.set(key, value);
+    });
 
-    const query = params.toString() ? `?${params.toString()}` : "";
-    const res = await api.get(`/api/finance/reports${query}`);
+    const query = params.toString();
 
-    setReports(res.data.data || null);
+    const res = await api.get(
+      `/api/finance/reports${query ? `?${query}` : ""}`
+    );
+
+    if (
+      res.data?.success !== true ||
+      !res.data?.data?.filters ||
+      !res.data?.data?.profitAndLoss
+    ) {
+      throw new Error(
+        "The financial report response is incomplete."
+      );
+    }
+
+    if (requestId === reportRequestId.current) {
+      setReports(res.data.data);
+    }
   } catch (error) {
+    if (requestId !== reportRequestId.current) return;
+
     console.error("Error loading reports:", error);
-    alert(error?.response?.data?.message || "Could not load financial reports.");
+
+    setReportError(
+      error?.response?.data?.message ||
+        error.message ||
+        "Could not load financial reports."
+    );
+  } finally {
+    if (requestId === reportRequestId.current) {
+      setReportLoading(false);
+    }
   }
+};
+
+const clearReports = () => {
+  const cleared = {
+    from: "",
+    to: "",
+    branch: "",
+  };
+
+  setReportFilters(cleared);
+
+  return fetchReports(cleared);
+};
+
+const openDashboardReport = (scope) => {
+  const selected = {
+    from: scope.from || "",
+    to: scope.to || "",
+    branch: scope.branch || "",
+  };
+
+  setReportFilters(selected);
+  setActiveTab("reports");
+
+  return fetchReports(selected);
 };
 
 const fetchExpenseCategories = async () => {
@@ -499,15 +832,6 @@ const fetchExpenseCategories = async () => {
     setExpenseCategories(res.data.data || []);
   } catch (error) {
     console.error("Error loading expense categories:", error);
-  }
-};
-
-const fetchMonthlyChart = async () => {
-  try {
-    const res = await api.get("/api/finance/monthly-chart");
-    setMonthlyChart(res.data.data || []);
-  } catch (error) {
-    console.error("Error loading monthly chart:", error);
   }
 };
 
@@ -523,28 +847,101 @@ const getSummaryQuery = () => {
   return params.toString();
 };
 
-  const fetchStaticFinanceData = async () => {
-  try {
-    const [invoicesRes, summaryRes, accountsRes, hrEmployeesRes] =
-      await Promise.all([
-        api.get("/api/invoices"),
-        api.get(`/api/finance/summary?${getSummaryQuery()}`),
-        api.get("/api/financial-accounts"),
-        api.get("/api/hr"),
-      ]);
+  const fetchSummary = async () => {
+  const requestId = ++summaryRequestId.current;
 
-    setInvoices(invoicesRes.data.data || []);
-    setSummary(summaryRes.data.data || null);
-    setAccounts(accountsRes.data.data || []);
-    setHrEmployees(hrEmployeesRes.data.data || []);
-  } catch (error) {
-    console.error("Error loading finance summary data:", error);
-    alert(
-      error?.response?.data?.message ||
-        error?.message ||
-        "Could not load finance data."
+  setSummaryLoading(true);
+  setSummaryError("");
+  setSummary(null);
+
+  try {
+    const res = await api.get(
+      `/api/finance/summary?${getSummaryQuery()}`
     );
+
+    if (
+      res.data?.success !== true ||
+      !res.data?.data?.filters ||
+      !res.data?.data?.profitAndLoss
+    ) {
+      throw new Error(
+        "The financial summary response is incomplete."
+      );
+    }
+
+    if (requestId === summaryRequestId.current) {
+      setSummary(res.data.data);
+    }
+  } catch (error) {
+    if (requestId !== summaryRequestId.current) return;
+
+    console.error(
+      "Error loading finance summary:",
+      error
+    );
+
+    setSummaryError(
+      error?.response?.data?.message ||
+        error.message ||
+        "Could not load finance summary."
+    );
+  } finally {
+    if (requestId === summaryRequestId.current) {
+      setSummaryLoading(false);
+    }
   }
+};
+
+const fetchReferenceFinanceData = async () => {
+  const requestId = ++referenceRequestId.current;
+
+  const sources = [
+    ["Invoices", "/api/invoices", setInvoices],
+    [
+      "Financial accounts",
+      "/api/financial-accounts",
+      setAccounts,
+    ],
+    ["HR employees", "/api/hr", setHrEmployees],
+  ];
+
+  const results = await Promise.allSettled(
+    sources.map(([, url]) => api.get(url))
+  );
+
+  if (requestId !== referenceRequestId.current) return;
+
+  const unavailable = [];
+
+  results.forEach((result, index) => {
+    const [label, , save] = sources[index];
+
+    if (
+      result.status === "fulfilled" &&
+      Array.isArray(result.value.data?.data)
+    ) {
+      save(result.value.data.data);
+    } else {
+      save([]);
+      unavailable.push(label);
+
+      console.error(
+        `Could not load ${label}:`,
+        result.status === "rejected"
+          ? result.reason
+          : "Unexpected response."
+      );
+    }
+  });
+
+  setFinanceReferenceErrors(unavailable);
+};
+
+const fetchStaticFinanceData = async () => {
+  await Promise.all([
+    fetchSummary(),
+    fetchReferenceFinanceData(),
+  ]);
 };
 
   const fetchExpenses = async (
@@ -802,17 +1199,25 @@ const getSummaryQuery = () => {
   };
 
     const fetchFinanceData = async () => {
-    await Promise.all([
-      fetchStaticFinanceData(),
-      fetchExpenseCategories(),
-      fetchReports(),
-      fetchMonthlyChart(),
-      fetchExpenses(expensePagination.page, expensePagination.limit),
-      fetchPayroll(payrollPagination.page, payrollPagination.limit),
-      fetchTransactions(transactionPagination.page, transactionPagination.limit),
-      fetchAdjustmentBatches(),
-    ]);
-  };
+  await Promise.all([
+    fetchStaticFinanceData(),
+    fetchExpenseCategories(),
+    fetchReports(reportQueryRef.current),
+    fetchExpenses(
+      expensePagination.page,
+      expensePagination.limit
+    ),
+    fetchPayroll(
+      payrollPagination.page,
+      payrollPagination.limit
+    ),
+    fetchTransactions(
+      transactionPagination.page,
+      transactionPagination.limit
+    ),
+    fetchAdjustmentBatches(),
+  ]);
+};
 
   useEffect(() => {
   fetchFinanceData();
@@ -826,11 +1231,26 @@ const getSummaryQuery = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
 }, [activeTab, payrollForm.employeeId, payrollForm.payPeriod, hrEmployees]);
 
-  const formatCurrency = (value, currency = "JMD") =>
-  `${currency} ${Number(value || 0).toLocaleString(undefined, {
+  const formatCurrency = (value, currency = "JMD") => {
+  if (
+    value === null ||
+    value === undefined ||
+    value === ""
+  ) {
+    return "Not available";
+  }
+
+  const amount = Number(value);
+
+  if (!Number.isFinite(amount)) {
+    return "Not available";
+  }
+
+  return `${currency} ${amount.toLocaleString(undefined, {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })}`;
+};
 
   const formatDate = (value) => {
     if (!value) return "";
@@ -1376,8 +1796,18 @@ const treasuryHealthBadge = (health) => {
   );
 };
 
-const utilizationBar = (percent = 0) => {
-  const value = Math.min(Math.max(Number(percent || 0), 0), 100);
+const utilizationBar = (percent) => {
+  if (
+    percent === null ||
+    percent === undefined ||
+    percent === "" ||
+    !Number.isFinite(Number(percent))
+  ) {
+    return <span>Not available</span>;
+  }
+
+  const actualPercent = Number(percent);
+  const value = Math.min(Math.max(actualPercent, 0), 100);
 
   return (
     <div>
@@ -1399,7 +1829,7 @@ const utilizationBar = (percent = 0) => {
           }}
         />
       </div>
-      <strong>{value.toFixed(2)}% used</strong>
+      <strong>{actualPercent.toFixed(2)}% used</strong>
     </div>
   );
 };
@@ -1602,28 +2032,46 @@ const totalAvailableCredit = creditCardAccounts.reduce(
         </button>
       </div>
 
-            {activeTab === "dashboard" && (
-        <FinanceDashboard
-          summary={summary}
-          reports={reports}
-          accounts={accounts}
-          monthlyChart={monthlyChart}
-          summaryFilter={summaryFilter}
-          summaryBranch={summaryBranch}
-          setSummaryFilter={setSummaryFilter}
-          setSummaryBranch={setSummaryBranch}
-          fetchFinanceData={fetchFinanceData}
-          setActiveTab={setActiveTab}
-          formatCurrency={formatCurrency}
-          cardStyle={cardStyle}
-          metricCardStyle={metricCardStyle}
-          ROYAL_BLUE={ROYAL_BLUE}
-          GOLD={GOLD}
-          WHITE={WHITE}
-          BORDER={BORDER}
-          MUTED={MUTED}
-        />
-      )}
+            {financeReferenceErrors.length > 0 && (
+  <p role="alert" style={{ color: "#b91c1c" }}>
+    Supporting lists could not be loaded:{" "}
+    {financeReferenceErrors.join(", ")}.
+    Their records may not be displayed.
+    Refresh or check your access.
+  </p>
+)}
+
+{activeTab === "dashboard" && (
+  <FinanceDashboard
+    summary={summary}
+    summaryFilter={summaryFilter}
+    summaryBranch={summaryBranch}
+    setSummaryFilter={(value) => {
+      summaryRequestId.current += 1;
+      setSummary(null);
+      setSummaryError("");
+      setSummaryLoading(true);
+      setSummaryFilter(value);
+    }}
+    setSummaryBranch={(value) => {
+      summaryRequestId.current += 1;
+      setSummary(null);
+      setSummaryError("");
+      setSummaryLoading(true);
+      setSummaryBranch(value);
+    }}
+    fetchFinanceData={fetchFinanceData}
+    setActiveTab={setActiveTab}
+    onOpenReport={openDashboardReport}
+    summaryLoading={summaryLoading}
+    summaryError={summaryError}
+    cardStyle={cardStyle}
+    metricCardStyle={metricCardStyle}
+    ROYAL_BLUE={ROYAL_BLUE}
+    GOLD={GOLD}
+    BORDER={BORDER}
+  />
+)}
 
       {activeTab === "expenses" && (
         <>
@@ -1860,826 +2308,17 @@ const totalAvailableCredit = creditCardAccounts.reduce(
       )}
 
       {activeTab === "reports" && (
-  <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "24px" }}>
-    <div
-      style={{
-        ...cardStyle,
-        display: "grid",
-        gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-        gap: "16px",
-        alignItems: "end",
-      }}
-    >
-      <div>
-        <h2 style={{ marginTop: 0, marginBottom: "8px", color: ROYAL_BLUE }}>
-          Financial Reports
-        </h2>
-        <p style={{ margin: 0, color: MUTED }}>
-          Review profit, cash flow, balances, expense categories, and monthly
-          business trends.
-        </p>
-      </div>
-
-      <div>
-        <label
-          style={{
-            display: "block",
-            fontWeight: "bold",
-            marginBottom: "6px",
-            color: "#334155",
-          }}
-        >
-          From
-        </label>
-        <input
-          type="date"
-          value={reportFilters.from}
-          onChange={(e) =>
-            setReportFilters((prev) => ({ ...prev, from: e.target.value }))
-          }
-          style={{ padding: "10px", width: "100%" }}
-        />
-      </div>
-
-      <div>
-        <label
-          style={{
-            display: "block",
-            fontWeight: "bold",
-            marginBottom: "6px",
-            color: "#334155",
-          }}
-        >
-          To
-        </label>
-        <input
-          type="date"
-          value={reportFilters.to}
-          onChange={(e) =>
-            setReportFilters((prev) => ({ ...prev, to: e.target.value }))
-          }
-          style={{ padding: "10px", width: "100%" }}
-        />
-      </div>
-
-      <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
-        <button
-          onClick={fetchReports}
-          style={{
-            backgroundColor: ROYAL_BLUE,
-            color: WHITE,
-            border: "none",
-            padding: "10px 16px",
-            borderRadius: "8px",
-            cursor: "pointer",
-            fontWeight: "bold",
-          }}
-        >
-          Apply Filters
-        </button>
-
-        <button
-          onClick={() => {
-            setReportFilters({ from: "", to: "" });
-            setTimeout(() => fetchReports("", ""), 0);
-          }}
-          style={{
-            backgroundColor: WHITE,
-            color: ROYAL_BLUE,
-            border: `1px solid ${ROYAL_BLUE}`,
-            padding: "10px 16px",
-            borderRadius: "8px",
-            cursor: "pointer",
-            fontWeight: "bold",
-          }}
-        >
-          Clear
-        </button>
-
-        <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
-  <button
-    onClick={() => downloadSingleReportPdf("Profit and Loss")}
-    style={{
-      backgroundColor: "#16a34a",
-      color: WHITE,
-      border: "none",
-      padding: "10px 16px",
-      borderRadius: "8px",
-      cursor: "pointer",
-      fontWeight: "bold",
-    }}
-  >
-    P&L PDF
-  </button>
-
-  <button
-    onClick={() => downloadSingleReportPdf("Cash Flow")}
-    style={{
-      backgroundColor: "#0f766e",
-      color: WHITE,
-      border: "none",
-      padding: "10px 16px",
-      borderRadius: "8px",
-      cursor: "pointer",
-      fontWeight: "bold",
-    }}
-  >
-    Cash Flow PDF
-  </button>
-
-  <button
-    onClick={() => downloadSingleReportPdf("Balance Sheet")}
-    style={{
-      backgroundColor: "#7c3aed",
-      color: WHITE,
-      border: "none",
-      padding: "10px 16px",
-      borderRadius: "8px",
-      cursor: "pointer",
-      fontWeight: "bold",
-    }}
-  >
-    Balance Sheet PDF
-  </button>
-
-  <button
-    onClick={() => downloadSingleReportPdf("Statutory Deductions")}
-    style={{
-      backgroundColor: "#b45309",
-      color: WHITE,
-      border: "none",
-      padding: "10px 16px",
-      borderRadius: "8px",
-      cursor: "pointer",
-      fontWeight: "bold",
-    }}
-  >
-    Statutory PDF
-  </button>
-
-  <button
-    onClick={() => downloadSingleReportPdf("Expense Category Breakdown")}
-    style={{
-      backgroundColor: "#2563eb",
-      color: WHITE,
-      border: "none",
-      padding: "10px 16px",
-      borderRadius: "8px",
-      cursor: "pointer",
-      fontWeight: "bold",
-    }}
-  >
-    Expense PDF
-  </button>
-
-  <button
-    onClick={() => downloadSingleReportPdf("Monthly Trend")}
-    style={{
-      backgroundColor: "#dc2626",
-      color: WHITE,
-      border: "none",
-      padding: "10px 16px",
-      borderRadius: "8px",
-      cursor: "pointer",
-      fontWeight: "bold",
-    }}
-  >
-    Trend PDF
-  </button>
-</div>
-
-      </div>
-    </div>
-
-    <div
-      style={{
-        display: "grid",
-        gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-        gap: "18px",
-      }}
-    >
-      <div style={metricCardStyle}>
-  <div
-    style={{
-      fontSize: "13px",
-      color: MUTED,
-      marginBottom: "6px",
-      fontWeight: "bold",
-    }}
-  >
-    NIS Total
-  </div>
-  <div
-    style={{
-      fontSize: "30px",
-      fontWeight: "bold",
-      color: ROYAL_BLUE,
-    }}
-  >
-    {formatCurrency(reports?.statutoryTotals?.nisEmployee)}
-  </div>
-</div>
-
-<div style={metricCardStyle}>
-  <div
-    style={{
-      fontSize: "13px",
-      color: MUTED,
-      marginBottom: "6px",
-      fontWeight: "bold",
-    }}
-  >
-    NHT Total
-  </div>
-  <div
-    style={{
-      fontSize: "30px",
-      fontWeight: "bold",
-      color: ROYAL_BLUE,
-    }}
-  >
-    {formatCurrency(reports?.statutoryTotals?.nhtEmployee)}
-  </div>
-</div>
-
-<div style={metricCardStyle}>
-  <div
-    style={{
-      fontSize: "13px",
-      color: MUTED,
-      marginBottom: "6px",
-      fontWeight: "bold",
-    }}
-  >
-    Education Tax Total
-  </div>
-  <div
-    style={{
-      fontSize: "30px",
-      fontWeight: "bold",
-      color: ROYAL_BLUE,
-    }}
-  >
-    {formatCurrency(reports?.statutoryTotals?.educationTax)}
-  </div>
-</div>
-
-<div style={metricCardStyle}>
-  <div
-    style={{
-      fontSize: "13px",
-      color: MUTED,
-      marginBottom: "6px",
-      fontWeight: "bold",
-    }}
-  >
-    Income Tax Total
-  </div>
-  <div
-    style={{
-      fontSize: "30px",
-      fontWeight: "bold",
-      color: ROYAL_BLUE,
-    }}
-  >
-    {formatCurrency(reports?.statutoryTotals?.incomeTax)}
-  </div>
-</div>
-      <div style={metricCardStyle}>
-        <div
-          style={{
-            fontSize: "13px",
-            color: MUTED,
-            marginBottom: "6px",
-            fontWeight: "bold",
-          }}
-        >
-          Revenue
-        </div>
-        <div
-          style={{
-            fontSize: "30px",
-            fontWeight: "bold",
-            color: ROYAL_BLUE,
-          }}
-        >
-          {formatCurrency(reports?.profitAndLoss?.revenue)}
-        </div>
-      </div>
-
-      <div style={metricCardStyle}>
-        <div
-          style={{
-            fontSize: "13px",
-            color: MUTED,
-            marginBottom: "6px",
-            fontWeight: "bold",
-          }}
-        >
-          Total Expenses
-        </div>
-        <div
-          style={{
-            fontSize: "30px",
-            fontWeight: "bold",
-            color: "#dc2626",
-          }}
-        >
-          {formatCurrency(reports?.profitAndLoss?.totalExpenses)}
-        </div>
-      </div>
-
-      <div style={metricCardStyle}>
-        <div
-          style={{
-            fontSize: "13px",
-            color: MUTED,
-            marginBottom: "6px",
-            fontWeight: "bold",
-          }}
-        >
-          Net Profit / Loss
-        </div>
-        <div
-          style={{
-            fontSize: "30px",
-            fontWeight: "bold",
-            color:
-              Number(reports?.profitAndLoss?.netProfit || 0) >= 0
-                ? "#16a34a"
-                : "#dc2626",
-          }}
-        >
-          {formatCurrency(reports?.profitAndLoss?.netProfit)}
-        </div>
-      </div>
-
-      <div style={metricCardStyle}>
-        <div
-          style={{
-            fontSize: "13px",
-            color: MUTED,
-            marginBottom: "6px",
-            fontWeight: "bold",
-          }}
-        >
-          Accounts Receivable
-        </div>
-        <div
-          style={{
-            fontSize: "30px",
-            fontWeight: "bold",
-            color: GOLD,
-          }}
-        >
-          {formatCurrency(reports?.balanceSheet?.assets?.accountsReceivable)}
-        </div>
-      </div>
-
-      <div style={metricCardStyle}>
-        <div
-          style={{
-            fontSize: "13px",
-            color: MUTED,
-            marginBottom: "6px",
-            fontWeight: "bold",
-          }}
-        >
-          Cash On Hand
-        </div>
-        <div
-          style={{
-            fontSize: "30px",
-            fontWeight: "bold",
-            color: "#0f172a",
-          }}
-        >
-          {formatCurrency(reports?.balanceSheet?.assets?.cashOnHand)}
-        </div>
-      </div>
-
-      <div style={metricCardStyle}>
-        <div
-          style={{
-            fontSize: "13px",
-            color: MUTED,
-            marginBottom: "6px",
-            fontWeight: "bold",
-          }}
-        >
-          Paid Invoices
-        </div>
-        <div
-          style={{
-            fontSize: "30px",
-            fontWeight: "bold",
-            color: "#16a34a",
-          }}
-        >
-          {reports?.invoiceStats?.paidCount || 0}
-        </div>
-      </div>
-
-      <div style={metricCardStyle}>
-        <div
-          style={{
-            fontSize: "13px",
-            color: MUTED,
-            marginBottom: "6px",
-            fontWeight: "bold",
-          }}
-        >
-          Unpaid Invoices
-        </div>
-        <div
-          style={{
-            fontSize: "30px",
-            fontWeight: "bold",
-            color: "#dc2626",
-          }}
-        >
-          {reports?.invoiceStats?.unpaidCount || 0}
-        </div>
-      </div>
-
-      <div style={metricCardStyle}>
-        <div
-          style={{
-            fontSize: "13px",
-            color: MUTED,
-            marginBottom: "6px",
-            fontWeight: "bold",
-          }}
-        >
-          Report Generated
-        </div>
-        <div
-          style={{
-            fontSize: "16px",
-            fontWeight: "bold",
-            color: ROYAL_BLUE,
-            lineHeight: 1.5,
-          }}
-        >
-          {reports?.reportMeta?.generatedAt
-            ? formatDate(reports.reportMeta.generatedAt)
-            : "-"}
-        </div>
-      </div>
-    </div>
-
-    <div style={cardStyle}>
-      <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>
-        Profit and Loss Statement
-      </h2>
-      <table
-        border="1"
-        cellPadding="12"
-        style={{ width: "100%", borderCollapse: "collapse" }}
-      >
-        <tbody>
-          <tr>
-            <td>
-              <strong>Revenue</strong>
-            </td>
-            <td>{formatCurrency(reports?.profitAndLoss?.revenue)}</td>
-          </tr>
-          <tr>
-            <td>
-              <strong>Operating Expenses</strong>
-            </td>
-            <td>
-              {formatCurrency(reports?.profitAndLoss?.operatingExpenses)}
-            </td>
-          </tr>
-          <tr>
-            <td>
-              <strong>Payroll Expense</strong>
-            </td>
-            <td>{formatCurrency(reports?.profitAndLoss?.payrollExpense)}</td>
-          </tr>
-          <tr>
-            <td>
-              <strong>Total Expenses</strong>
-            </td>
-            <td>{formatCurrency(reports?.profitAndLoss?.totalExpenses)}</td>
-          </tr>
-          <tr>
-            <td>
-              <strong>Net Profit / Loss</strong>
-            </td>
-            <td>{formatCurrency(reports?.profitAndLoss?.netProfit)}</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-
-    <div style={cardStyle}>
-      <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>Cash Flow Statement</h2>
-      <table
-        border="1"
-        cellPadding="12"
-        style={{ width: "100%", borderCollapse: "collapse" }}
-      >
-        <tbody>
-          <tr>
-            <td>
-              <strong>Collected Revenue</strong>
-            </td>
-            <td>{formatCurrency(reports?.cashFlow?.collectedRevenue)}</td>
-          </tr>
-          <tr>
-            <td>
-              <strong>Operating Expense Payments</strong>
-            </td>
-            <td>
-              {formatCurrency(reports?.cashFlow?.operatingExpensePayments)}
-            </td>
-          </tr>
-          <tr>
-            <td>
-              <strong>Payroll Payments</strong>
-            </td>
-            <td>{formatCurrency(reports?.cashFlow?.payrollPayments)}</td>
-          </tr>
-          <tr>
-            <td>
-              <strong>Total Cash Outflows</strong>
-            </td>
-            <td>{formatCurrency(reports?.cashFlow?.totalCashOutflows)}</td>
-          </tr>
-          <tr>
-            <td>
-              <strong>Net Cash Flow</strong>
-            </td>
-            <td>{formatCurrency(reports?.cashFlow?.netCashFlow)}</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-
-    <div style={cardStyle}>
-      <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>Balance Sheet</h2>
-      <table
-        border="1"
-        cellPadding="12"
-        style={{ width: "100%", borderCollapse: "collapse" }}
-      >
-        <tbody>
-          <tr>
-            <td>
-              <strong>Cash On Hand</strong>
-            </td>
-            <td>{formatCurrency(reports?.balanceSheet?.assets?.cashOnHand)}</td>
-          </tr>
-          <tr>
-            <td>
-              <strong>Accounts Receivable</strong>
-            </td>
-            <td>
-              {formatCurrency(
-                reports?.balanceSheet?.assets?.accountsReceivable
-              )}
-            </td>
-          </tr>
-          <tr>
-            <td>
-              <strong>Total Assets</strong>
-            </td>
-            <td>{formatCurrency(reports?.balanceSheet?.assets?.totalAssets)}</td>
-          </tr>
-          <tr>
-            <td>
-              <strong>Total Liabilities</strong>
-            </td>
-            <td>
-              {formatCurrency(
-                reports?.balanceSheet?.liabilities?.totalLiabilities
-              )}
-            </td>
-          </tr>
-          <tr>
-            <td>
-              <strong>Owner's Equity</strong>
-            </td>
-            <td>{formatCurrency(reports?.balanceSheet?.equity?.ownerEquity)}</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-
-<div style={cardStyle}>
-  <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>
-    Statutory Deductions Summary
-  </h2>
-  <table
-    border="1"
-    cellPadding="12"
-    style={{ width: "100%", borderCollapse: "collapse" }}
-  >
-    <tbody>
-      <tr>
-        <td><strong>NIS</strong></td>
-        <td>{formatCurrency(reports?.statutoryTotals?.nisEmployee)}</td>
-      </tr>
-      <tr>
-        <td><strong>NHT</strong></td>
-        <td>{formatCurrency(reports?.statutoryTotals?.nhtEmployee)}</td>
-      </tr>
-      <tr>
-        <td><strong>Education Tax</strong></td>
-        <td>{formatCurrency(reports?.statutoryTotals?.educationTax)}</td>
-      </tr>
-      <tr>
-        <td><strong>Income Tax</strong></td>
-        <td>{formatCurrency(reports?.statutoryTotals?.incomeTax)}</td>
-      </tr>
-      <tr>
-        <td><strong>Pension</strong></td>
-        <td>{formatCurrency(reports?.statutoryTotals?.pensionEmployee)}</td>
-      </tr>
-      <tr>
-        <td><strong>Total Deductions</strong></td>
-        <td>{formatCurrency(reports?.statutoryTotals?.totalDeductions)}</td>
-      </tr>
-    </tbody>
-  </table>
-</div>
-
-<div style={cardStyle}>
-  <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>
-    Statutory Deductions by Employee
-  </h2>
-  <div style={{ overflowX: "auto" }}>
-    <table
-      border="1"
-      cellPadding="12"
-      style={{ width: "100%", borderCollapse: "collapse", minWidth: "1100px" }}
-    >
-      <thead style={{ backgroundColor: "#eef4ff" }}>
-        <tr>
-          <th>Employee ID</th>
-          <th>Employee Name</th>
-          <th>Role</th>
-          <th>Gross Pay</th>
-          <th>NIS</th>
-          <th>NHT</th>
-          <th>Education Tax</th>
-          <th>Income Tax</th>
-          <th>Pension</th>
-          <th>Total Deductions</th>
-          <th>Net Pay</th>
-        </tr>
-      </thead>
-      <tbody>
-        {reports?.statutoryByEmployee?.length > 0 ? (
-          reports.statutoryByEmployee.map((item, index) => (
-            <tr key={`${item.employeeId}-${index}`}>
-              <td>{item.employeeId || "-"}</td>
-              <td>{item.employeeName || "-"}</td>
-              <td>{item.role || "-"}</td>
-              <td>{formatCurrency(item.grossPay)}</td>
-              <td>{formatCurrency(item.nisEmployee)}</td>
-              <td>{formatCurrency(item.nhtEmployee)}</td>
-              <td>{formatCurrency(item.educationTax)}</td>
-              <td>{formatCurrency(item.incomeTax)}</td>
-              <td>{formatCurrency(item.pensionEmployee)}</td>
-              <td>{formatCurrency(item.totalDeductions)}</td>
-              <td>{formatCurrency(item.netPay)}</td>
-            </tr>
-          ))
-        ) : (
-          <tr>
-            <td colSpan="11">No statutory deduction data found for this period.</td>
-          </tr>
-        )}
-      </tbody>
-    </table>
-  </div>
-</div>
-
-    <div style={cardStyle}>
-      <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>
-        Expense Category Breakdown
-      </h2>
-      <div style={{ overflowX: "auto" }}>
-        <table
-          border="1"
-          cellPadding="12"
-          style={{ width: "100%", borderCollapse: "collapse" }}
-        >
-          <thead style={{ backgroundColor: "#eef4ff" }}>
-            <tr>
-              <th>Category</th>
-              <th>Amount</th>
-            </tr>
-          </thead>
-          <tbody>
-            {reports?.expenseByCategory?.length > 0 ? (
-              reports.expenseByCategory.map((item, index) => (
-                <tr key={`${item.category}-${index}`}>
-                  <td>{item.category}</td>
-                  <td>{formatCurrency(item.amount)}</td>
-                </tr>
-              ))
-            ) : (
-              <tr>
-                <td colSpan="2">No expense data found for this period.</td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-    </div>
-
-    <div style={cardStyle}>
-  <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>Monthly Trend Chart</h2>
-
-  <div style={{ width: "100%", height: 380 }}>
-    {reports?.monthlyTrend?.length > 0 ? (
-      <ResponsiveContainer>
-        <BarChart
-          data={reports.monthlyTrend.map((item) => ({
-            ...item,
-            monthLabel: item.label || item.month,
-          }))}
-          margin={{ top: 10, right: 20, left: 10, bottom: 10 }}
-        >
-          <CartesianGrid strokeDasharray="3 3" />
-          <XAxis dataKey="monthLabel" />
-          <YAxis />
-          <Tooltip
-            formatter={(value) => formatCurrency(value)}
-          />
-          <Legend />
-          <Bar dataKey="revenue" name="Revenue" fill="#0B3D91" radius={[6, 6, 0, 0]} />
-          <Bar dataKey="expenses" name="Operating Expenses" fill="#D4AF37" radius={[6, 6, 0, 0]} />
-          <Bar dataKey="payroll" name="Payroll" fill="#dc2626" radius={[6, 6, 0, 0]} />
-        </BarChart>
-      </ResponsiveContainer>
-    ) : (
-      <div
-        style={{
-          height: "100%",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          color: MUTED,
-          fontWeight: "bold",
-        }}
-      >
-        No monthly trend data found for this period.
-      </div>
-    )}
-  </div>
-</div>
-
-    <div style={cardStyle}>
-      <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>Monthly Trend</h2>
-      <div style={{ overflowX: "auto" }}>
-        <table
-          border="1"
-          cellPadding="12"
-          style={{ width: "100%", borderCollapse: "collapse", minWidth: "900px" }}
-        >
-          <thead style={{ backgroundColor: "#eef4ff" }}>
-            <tr>
-              <th>Month</th>
-              <th>Revenue</th>
-              <th>Operating Expenses</th>
-              <th>Payroll</th>
-              <th>Net</th>
-            </tr>
-          </thead>
-          
-          <tbody>
-            {reports?.monthlyTrend?.length > 0 ? (
-              reports.monthlyTrend.map((item, index) => (
-                <tr key={`${item.month}-${index}`}>
-                  <td>{item.label || item.month}</td>
-                  <td>{formatCurrency(item.revenue)}</td>
-                  <td>{formatCurrency(item.expenses)}</td>
-                  <td>{formatCurrency(item.payroll)}</td>
-                  <td
-                    style={{
-                      fontWeight: "bold",
-                      color: Number(item.net || 0) >= 0 ? "#16a34a" : "#dc2626",
-                    }}
-                  >
-                    {formatCurrency(item.net)}
-                  </td>
-                </tr>
-              ))
-            ) : (
-              <tr>
-                <td colSpan="5">No monthly trend data found for this period.</td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  </div>
+  <FinanceReportView
+    reports={reports}
+    filters={reportFilters}
+    setFilters={setReportFilters}
+    onApply={fetchReports}
+    onClear={clearReports}
+    onExport={downloadSingleReportPdf}
+    loading={reportLoading}
+    error={reportError}
+    cardStyle={cardStyle}
+  />
 )}
             {activeTab === "accounts" && (
         <>
