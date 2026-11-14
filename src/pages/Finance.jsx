@@ -1457,6 +1457,11 @@ const fetchStaticFinanceData = async () => {
   };
 
   const addExpense = async () => {
+    <p style={{ color: MUTED, marginTop: 0 }}>
+  Record business expenses already paid, including payments
+  made by credit card. Record unpaid supplier bills through
+  Accounts Payable.
+</p>
     try {
       if (
         !expenseForm.date ||
@@ -1494,7 +1499,7 @@ if (!selectedCategory) {
       payload.append("category", expenseForm.category);
       payload.append("description", expenseForm.description);
       payload.append("amount", expenseForm.amount);
-      payload.append("status", expenseForm.status);
+      payload.append("status", "Paid");
       payload.append("paidFromAccountNumber", expenseForm.paidFromAccountNumber);
 
       if (expenseReceipt) {
@@ -2344,15 +2349,17 @@ const totalAvailableCredit = creditCardAccounts.reduce(
                 ))}
               </select>
 
-              <select
-                name="status"
-                value={expenseForm.status}
-                onChange={handleExpenseChange}
-                style={{ padding: "10px" }}
-              >
-                <option value="Paid">Paid</option>
-                <option value="Pending">Pending</option>
-              </select>
+              <input
+  type="text"
+  value="Paid"
+  readOnly
+  aria-label="Payment status"
+  style={{
+    padding: "10px",
+    backgroundColor: "#f1f5f9",
+    color: "#334155",
+  }}
+/>
 
               <input
                 id="expense-receipt-input"
