@@ -11,11 +11,25 @@ import { autoTable } from "jspdf-autotable";
 
 import FinanceDashboard from "../components/finance/FinanceDashboard";
 import FinanceReportView from "../components/finance/FinanceReportView";
+import ExpenseCategoryManager from "../components/finance/ExpenseCategoryManager";
 function Finance() {
   const [activeTab, setActiveTab] = useState("dashboard");
   const [invoices, setInvoices] = useState([]);
   const [expenses, setExpenses] = useState([]);
   const [expenseCategories, setExpenseCategories] = useState([]);
+  const [canManageExpenseCategories, setCanManageExpenseCategories] =
+  useState(false);
+
+const [expenseCategoriesLoading, setExpenseCategoriesLoading] =
+  useState(false);
+
+const [expenseCategoryError, setExpenseCategoryError] =
+  useState("");
+
+const [expenseCategoryIssues, setExpenseCategoryIssues] =
+  useState([]);
+
+const expenseCategoryRequestId = useRef(0);
   const [payroll, setPayroll] = useState([]);
   const [hrEmployees, setHrEmployees] = useState([]);
   const [summary, setSummary] = useState(null);
@@ -641,20 +655,15 @@ doc.save(`payslip-${safeEmployeeName}-${safePayPeriod}.pdf`);
   const BORDER = "#dbe3ef";
   const MUTED = "#64748b";
 
-      const getExpenseCategoryPreview = (category = "") => {
-    const match = expenseCategories.find(
-      (item) => item.category === category
-    );
-
-    return (
-      match || {
-        classification: "Operating Expense",
-        group: "Miscellaneous",
-        accountCode: "",
-        accountName: "Operating Expense",
-        isCOGS: false,
-      }
-    );
+      const getExpenseCategoryPreview = (category = "") =>
+  expenseCategories.find(
+    (item) => item.category === category
+  ) || {
+    classification: "Not available",
+    group: "Not available",
+    accountCode: "—",
+    accountName: "Select an available category",
+    isCOGS: false,
   };
 
   const roundMoney = (value) =>
@@ -827,12 +836,109 @@ const openDashboardReport = (scope) => {
 };
 
 const fetchExpenseCategories = async () => {
+  const requestId = ++expenseCategoryRequestId.current;
+
+  setExpenseCategoriesLoading(true);
+  setExpenseCategoryError("");
+
   try {
-    const res = await api.get("/api/finance/expense-categories");
-    setExpenseCategories(res.data.data || []);
+    const res = await api.get(
+      "/api/finance/expense-categories"
+    );
+
+    if (requestId !== expenseCategoryRequestId.current) {
+      return null;
+    }
+
+    if (
+      res.data?.success !== true ||
+      !Array.isArray(res.data.data)
+    ) {
+      throw new Error(
+        "Expense categories could not be loaded completely."
+      );
+    }
+
+    const available = res.data.data.filter(
+      (item) => item.availableForExpenses === true
+    );
+
+    setCanManageExpenseCategories(
+      res.data.canManageCategories === true
+    );
+
+    setExpenseCategories(available);
+
+    setExpenseCategoryIssues(
+      res.data.data.filter(
+        (item) => item.mappingValid === false
+      )
+    );
+
+    setExpenseForm((previous) =>
+      previous.category &&
+      !available.some(
+        (item) => item.category === previous.category
+      )
+        ? { ...previous, category: "" }
+        : previous
+    );
+
+    return available;
   } catch (error) {
+    if (requestId !== expenseCategoryRequestId.current) {
+      return null;
+    }
+
     console.error("Error loading expense categories:", error);
+
+    setExpenseCategories([]);
+    setExpenseCategoryIssues([]);
+
+    setExpenseForm((previous) => ({
+      ...previous,
+      category: "",
+    }));
+
+    if (error?.response?.status === 403) {
+      setCanManageExpenseCategories(false);
+    }
+
+    setExpenseCategoryError(
+      error?.response?.data?.message ||
+        error.message ||
+        "Could not load your expense categories."
+    );
+
+    return null;
+  } finally {
+    if (requestId === expenseCategoryRequestId.current) {
+      setExpenseCategoriesLoading(false);
+    }
   }
+};
+
+const handleExpenseCategorySaved = async (
+  createdCategory
+) => {
+  const available = await fetchExpenseCategories();
+
+  if (!available) return false;
+
+  if (createdCategory) {
+    const selected = available.find(
+      (item) => item._id === createdCategory._id
+    );
+
+    if (!selected) return false;
+
+    setExpenseForm((previous) => ({
+      ...previous,
+      category: selected.category,
+    }));
+  }
+
+  return true;
 };
 
 const getSummaryQuery = () => {
@@ -1361,6 +1467,27 @@ const fetchStaticFinanceData = async () => {
         alert("Please complete all expense fields.");
         return;
       }
+
+      if (
+  expenseCategoriesLoading ||
+  expenseCategoryError
+) {
+  alert(
+    "Load your expense categories successfully before saving."
+  );
+  return;
+}
+
+const selectedCategory = expenseCategories.find(
+  (item) =>
+    item.category === expenseForm.category &&
+    item.availableForExpenses === true
+);
+
+if (!selectedCategory) {
+  alert("Select one of your available saved categories.");
+  return;
+}
 
       const payload = new FormData();
       payload.append("date", expenseForm.date);
@@ -2077,6 +2204,50 @@ const totalAvailableCredit = creditCardAccounts.reduce(
         <>
           <div style={{ ...cardStyle, marginBottom: "24px" }}>
             <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>Add Expense</h2>
+            {canManageExpenseCategories && (
+  <ExpenseCategoryManager
+    onSaved={handleExpenseCategorySaved}
+  />
+)}
+
+{expenseCategoriesLoading && (
+  <p role="status">Loading your expense categories…</p>
+)}
+
+{expenseCategoryError && (
+  <div role="alert" style={{ color: "#b91c1c" }}>
+    <p>{expenseCategoryError}</p>
+    <button
+      type="button"
+      onClick={() => fetchExpenseCategories()}
+    >
+      Retry Category Loading
+    </button>
+  </div>
+)}
+
+{expenseCategoryIssues.length > 0 && (
+  <div style={{ color: "#92400e", marginBottom: 12 }}>
+    <strong>Categories requiring mapping review:</strong>
+    <ul>
+      {expenseCategoryIssues.map((item) => (
+        <li key={item._id}>
+          {item.category}: {item.mappingIssue}
+        </li>
+      ))}
+    </ul>
+  </div>
+)}
+
+{!expenseCategoriesLoading &&
+  !expenseCategoryError &&
+  expenseCategories.length === 0 && (
+    <p>
+      {canManageExpenseCategories
+        ? "No usable categories are available. Create your own category above or correct its ledger mapping."
+        : "No usable categories are available. Ask Admin to create or review them."}
+    </p>
+  )}
             <div
               style={{
                 display: "grid",
@@ -2093,35 +2264,27 @@ const totalAvailableCredit = creditCardAccounts.reduce(
               />
 
                             <select
-                name="category"
-                value={expenseForm.category}
-                onChange={handleExpenseChange}
-                style={{ padding: "10px" }}
-              >
-                <option value="">Select Category</option>
-                <optgroup label="Cost of Goods Sold">
-                                    {expenseCategories
-                    .filter(
-                      (item) => item.classification === "Cost of Goods Sold"
-                    )
-                    .map((item) => (
-                      <option key={item.category} value={item.category}>
-                        {item.category}
-                      </option>
-                    ))}
-                </optgroup>
-                <optgroup label="Operating Expenses">
-                                    {expenseCategories
-                    .filter(
-                      (item) => item.classification === "Operating Expense"
-                    )
-                    .map((item) => (
-                      <option key={item.category} value={item.category}>
-                        {item.category}
-                      </option>
-                    ))}
-                </optgroup>
-              </select>
+  name="category"
+  value={expenseForm.category}
+  onChange={handleExpenseChange}
+  disabled={
+    expenseCategoriesLoading ||
+    expenseCategories.length === 0
+  }
+  style={{ padding: "10px" }}
+>
+  <option value="">
+    {expenseCategoriesLoading
+      ? "Loading Your Categories…"
+      : "Select Your Expense Category"}
+  </option>
+
+  {expenseCategories.map((item) => (
+    <option key={item._id} value={item.category}>
+      {item.category}
+    </option>
+  ))}
+</select>
 
                             {expenseForm.category && (
                 <div
@@ -2202,6 +2365,11 @@ const totalAvailableCredit = creditCardAccounts.reduce(
 
             <button
               onClick={addExpense}
+              disabled={
+  expenseCategoriesLoading ||
+  Boolean(expenseCategoryError) ||
+  expenseCategories.length === 0
+}
               style={{
                 marginTop: "20px",
                 backgroundColor: ROYAL_BLUE,
