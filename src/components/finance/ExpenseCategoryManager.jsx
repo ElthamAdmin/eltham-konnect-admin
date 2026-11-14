@@ -32,6 +32,9 @@ const buttonStyle = {
   border: "1px solid #cbd5e1",
   borderRadius: 7,
   background: "#fff",
+  color: "#0f172a",
+  fontFamily: "inherit",
+  fontWeight: 600,
   cursor: "pointer",
 };
 
