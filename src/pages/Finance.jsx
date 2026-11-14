@@ -13,6 +13,8 @@ import FinanceDashboard from "../components/finance/FinanceDashboard";
 import FinanceReportView from "../components/finance/FinanceReportView";
 import ExpenseCategoryManager from "../components/finance/ExpenseCategoryManager";
 import FinancialPositionReviewPanel from "../components/finance/FinancialPositionReviewPanel";
+import FinancialAdjustmentWorkflow from "../components/finance/FinancialAdjustmentWorkflow";
+
 function Finance() {
   const [activeTab, setActiveTab] = useState("dashboard");
   const [invoices, setInvoices] = useState([]);
@@ -2957,7 +2959,10 @@ const totalAvailableCredit = creditCardAccounts.reduce(
       )}
 
       {activeTab === "positionAdjustments" && (
-  <FinancialPositionReviewPanel cardStyle={cardStyle} />
+  <div style={{ display: "grid", gap: 20 }}>
+    <FinancialPositionReviewPanel cardStyle={cardStyle} />
+    <FinancialAdjustmentWorkflow cardStyle={cardStyle} />
+  </div>
 )}
 
       {activeTab === "transactions" && (
