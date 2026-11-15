@@ -1,570 +1,1070 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import api from "../api";
 
+const blue = "#0B3D91";
+
+const panel = {
+  background: "white",
+  border: "1px solid #dbe3ef",
+  borderRadius: 12,
+  padding: 18,
+  marginBottom: 18,
+};
+
+const grid = {
+  display: "grid",
+  gridTemplateColumns:
+    "repeat(auto-fit,minmax(210px,1fr))",
+  gap: 12,
+};
+
+const control = {
+  width: "100%",
+  padding: 9,
+  boxSizing: "border-box",
+  border: "1px solid #cbd5e1",
+  borderRadius: 6,
+};
+
+const button = {
+  padding: "9px 12px",
+  background: blue,
+  color: "white",
+  border: 0,
+  borderRadius: 6,
+  cursor: "pointer",
+  margin: "8px 8px 0 0",
+};
+
+const cell = {
+  padding: 9,
+  border: "1px solid #dbe3ef",
+  textAlign: "left",
+};
+
+const types = [
+  "Loan",
+  "Credit Card",
+  "Vehicle Loan",
+  "Equipment Financing",
+  "Business Expansion",
+  "Other",
+];
+
+const editable = [
+  "debtName",
+  "debtType",
+  "lenderName",
+  "startingBalance",
+  "currentBalance",
+  "monthlyPayment",
+  "interestRate",
+  "dueDay",
+  "startDate",
+  "targetPayoffDate",
+  "notes",
+  "status",
+  "currency",
+  "entityCode",
+  "liabilityAccountCode",
+  "interestAccountCode",
+];
+
+const blankDebt = () =>
+  Object.fromEntries(
+    editable.map((key) => [
+      key,
+      key === "debtType"
+        ? "Loan"
+        : key === "status"
+          ? "Active"
+          : "",
+    ])
+  );
+
+const today = () => {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Jamaica",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+
+  return ["year", "month", "day"]
+    .map((key) => parts.find((part) => part.type === key).value)
+    .join("-");
+};
+
+const money = (value, currency = "JMD") =>
+  value === null ||
+  value === undefined ||
+  value === "" ||
+  !Number.isFinite(Number(value))
+    ? "Not available"
+    : `${currency} ${Number(value).toLocaleString(
+        undefined,
+        {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        }
+      )}`;
+
+const labels = {
+  debtName: "Debt name",
+  lenderName: "Lender",
+  startingBalance: "Starting recorded principal",
+  currentBalance:
+    "Current recorded principal (blank uses starting)",
+  monthlyPayment: "Planned monthly payment",
+  interestRate: "Annual interest rate % (reference only)",
+  dueDay: "Due day (1–31)",
+  startDate: "Start date",
+  targetPayoffDate: "Target payoff date",
+};
+
 function DebtManager() {
-  const [debts, setDebts] = useState([]);
-  const [payments, setPayments] = useState([]);
-  const [summary, setSummary] = useState({});
-  const [showForm, setShowForm] = useState(false);
-  const [editingDebt, setEditingDebt] = useState(null);
-  const [searchTerm, setSearchTerm] = useState("");
+  const [data, setData] = useState(null);
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [form, setForm] = useState(null);
+  const [editing, setEditing] = useState(null);
+  const [repayment, setRepayment] = useState(null);
+  const [search, setSearch] = useState("");
 
-  const [formData, setFormData] = useState({
-    debtName: "",
-    debtType: "Loan",
-    lenderName: "",
-    startingBalance: "",
-    currentBalance: "",
-    monthlyPayment: "",
-    interestRate: "",
-    dueDay: "",
-    startDate: "",
-    targetPayoffDate: "",
-    notes: "",
-  });
+  const lock = useRef(false);
+  const creationId = useRef("");
 
-  const ROYAL_BLUE = "#0B3D91";
-  const GOLD = "#D4AF37";
-  const WHITE = "#ffffff";
-  const BORDER = "#dbe3ef";
-  const MUTED = "#64748b";
+  const load = async () => {
+    setLoading(true);
 
-  const fetchDebtData = async () => {
     try {
-      const res = await api.get("/api/debt-manager");
-      setDebts(res.data?.data?.debts || []);
-      setPayments(res.data?.data?.payments || []);
-      setSummary(res.data?.data?.summary || {});
-    } catch (error) {
-      console.error("Error loading debt manager:", error);
-      alert(error?.response?.data?.message || "Could not load debt manager.");
+      const response = await api.get("/api/debt-manager");
+      setData(response.data.data);
+    } catch (failure) {
+      setData(null);
+
+      setError(
+        failure?.response?.data?.message ||
+          "Could not load Debt Manager."
+      );
+    } finally {
+      setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchDebtData();
+    load();
   }, []);
 
-  const resetForm = () => {
-    setFormData({
-      debtName: "",
-      debtType: "Loan",
-      lenderName: "",
-      startingBalance: "",
-      currentBalance: "",
-      monthlyPayment: "",
-      interestRate: "",
-      dueDay: "",
-      startDate: "",
-      targetPayoffDate: "",
-      notes: "",
-    });
-    setEditingDebt(null);
-    setShowForm(false);
-  };
+  const mutate = async (operation) => {
+    if (lock.current) return;
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
+    lock.current = true;
+    setBusy(true);
+    setError("");
+    setNotice("");
 
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
-  };
-
-  const saveDebt = async () => {
     try {
-      if (!formData.debtName) {
-        alert("Debt name is required.");
-        return;
-      }
+      await operation();
+    } catch (failure) {
+      setError(
+        failure?.response?.data?.message ||
+          "Completion could not be confirmed. Refresh and inspect history before retrying with the same reference."
+      );
+    } finally {
+      lock.current = false;
+      setBusy(false);
+    }
+  };
 
-      if (editingDebt) {
-        await api.put(`/api/debt-manager/${editingDebt.debtNumber}`, formData);
-        alert("Debt account updated successfully.");
+  const openDebt = (debt = null) => {
+    setRepayment(null);
+    setEditing(debt);
+    creationId.current = crypto.randomUUID();
+
+    setForm(
+      debt
+        ? Object.fromEntries(
+            editable.map((key) => [
+              key,
+              debt[key] ?? "",
+            ])
+          )
+        : blankDebt()
+    );
+  };
+
+  const saveDebt = (event) => {
+    event.preventDefault();
+
+    mutate(async () => {
+      const payload = {
+        ...form,
+        ...(
+          !editing
+            ? { requestId: creationId.current }
+            : {}
+        ),
+      };
+
+      if (editing) {
+        await api.put(
+          `/api/debt-manager/${encodeURIComponent(
+            editing.debtNumber
+          )}`,
+          payload
+        );
       } else {
-        await api.post("/api/debt-manager", formData);
-        alert("Debt account created successfully.");
+        await api.post("/api/debt-manager", payload);
       }
 
-      resetForm();
-      await fetchDebtData();
-    } catch (error) {
-      console.error("Error saving debt:", error);
-      alert(error?.response?.data?.message || "Could not save debt account.");
-    }
-  };
+      setForm(null);
+      setEditing(null);
 
-  const editDebt = (debt) => {
-    setEditingDebt(debt);
-    setFormData({
-      debtName: debt.debtName || "",
-      debtType: debt.debtType || "Loan",
-      lenderName: debt.lenderName || "",
-      startingBalance: debt.startingBalance || "",
-      currentBalance: debt.currentBalance || "",
-      monthlyPayment: debt.monthlyPayment || "",
-      interestRate: debt.interestRate || "",
-      dueDay: debt.dueDay || "",
-      startDate: debt.startDate || "",
-      targetPayoffDate: debt.targetPayoffDate || "",
-      notes: debt.notes || "",
-      status: debt.status || "Active",
+      setNotice(
+        "Debt details saved. No opening accounting journal was created."
+      );
+
+      await load();
     });
-    setShowForm(true);
   };
 
-  const recordPayment = async (debt) => {
-    const amountPaid = prompt(`Enter payment amount for ${debt.debtName}:`, "");
+  const openPayment = (debt, mode) => {
+    setForm(null);
 
-    if (!amountPaid) return;
-
-    const paymentDate = prompt("Enter payment date YYYY-MM-DD, or leave blank for today:", "");
-    const paidFrom = prompt("Paid from which source/account?", "Business Account");
-    const notes = prompt("Payment notes, optional:", "");
-
-    try {
-      await api.post(`/api/debt-manager/${debt.debtNumber}/payments`, {
-        amountPaid: Number(amountPaid),
-        paymentDate,
-        paidFrom,
-        notes,
-      });
-
-      alert("Debt payment recorded successfully.");
-      await fetchDebtData();
-    } catch (error) {
-      console.error("Error recording debt payment:", error);
-      alert(error?.response?.data?.message || "Could not record payment.");
-    }
+    setRepayment({
+      debtNumber: debt.debtNumber,
+      debtName: debt.debtName,
+      mode,
+      principalAmount: "",
+      interestAmount: "0",
+      paymentDate: today(),
+      accountNumber: "",
+      paymentReference: "",
+      journalEntryNumber: "",
+      notes: "",
+      confirmNewPosting: false,
+      confirmNotAlreadyTracked: false,
+    });
   };
 
-  const money = (value) => `JMD ${Number(value || 0).toLocaleString()}`;
+  const savePayment = (event) => {
+    event.preventDefault();
 
-  const formatDate = (value) => {
-    if (!value) return "—";
-    try {
-      return String(value).slice(0, 10);
-    } catch {
-      return value;
-    }
+    mutate(async () => {
+      const response = await api.post(
+        `/api/debt-manager/${encodeURIComponent(
+          repayment.debtNumber
+        )}/payments`,
+        repayment
+      );
+
+      setNotice(
+        `${response.data.message} Journal: ` +
+          response.data.data.payment.journalEntryNumber
+      );
+
+      setRepayment(null);
+      await load();
+    });
   };
 
-  const filteredDebts = useMemo(() => {
-    return debts.filter((debt) =>
-      `${debt.debtNumber} ${debt.debtName} ${debt.debtType} ${debt.lenderName} ${debt.status}`
-        .toLowerCase()
-        .includes(searchTerm.toLowerCase())
+  const updateForm = (event) =>
+    setForm((previous) => ({
+      ...previous,
+      [event.target.name]: event.target.value,
+    }));
+
+  const updatePayment = (event) =>
+    setRepayment((previous) => ({
+      ...previous,
+      [event.target.name]:
+        event.target.type === "checkbox"
+          ? event.target.checked
+          : event.target.value,
+    }));
+
+  const matches = (record) =>
+    [
+      record.debtNumber,
+      record.debtName,
+      record.lenderName,
+      record.paymentReference,
+      record.journalEntryNumber,
+    ]
+      .join(" ")
+      .toLowerCase()
+      .includes(search.toLowerCase());
+
+  const debts = data?.debts || [];
+  const payments = data?.payments || [];
+
+  const lockedBalances =
+    editing &&
+    payments.some(
+      (payment) =>
+        payment.debtNumber === editing.debtNumber
     );
-  }, [debts, searchTerm]);
 
-  const filteredPayments = useMemo(() => {
-    return payments.filter((payment) =>
-      `${payment.paymentNumber} ${payment.debtNumber} ${payment.debtName} ${payment.amountPaid} ${payment.paymentDate} ${payment.paidFrom}`
-        .toLowerCase()
-        .includes(searchTerm.toLowerCase())
+  const lockedMapping =
+    editing &&
+    payments.some(
+      (payment) =>
+        payment.debtNumber === editing.debtNumber &&
+        payment.journalEntryNumber
     );
-  }, [payments, searchTerm]);
-
-  const progressWidth = Math.min(100, Math.max(0, Number(summary.payoffProgress || 0)));
-
-  const statusBadge = (status) => {
-    const color =
-      status === "Paid Off"
-        ? "#16a34a"
-        : status === "Paused"
-        ? "#f59e0b"
-        : "#0B3D91";
-
-    return (
-      <span
-        style={{
-          backgroundColor: color,
-          color: WHITE,
-          padding: "5px 10px",
-          borderRadius: "999px",
-          fontWeight: "bold",
-          fontSize: "12px",
-          whiteSpace: "nowrap",
-        }}
-      >
-        {status}
-      </span>
-    );
-  };
-
-  const cardStyle = {
-    backgroundColor: WHITE,
-    border: `1px solid ${BORDER}`,
-    borderRadius: "12px",
-    padding: "18px",
-    boxShadow: "0 2px 8px rgba(15,23,42,0.04)",
-  };
-
-  const buttonStyle = {
-    border: "none",
-    padding: "8px 12px",
-    borderRadius: "8px",
-    cursor: "pointer",
-    fontWeight: "bold",
-  };
 
   return (
     <div>
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          gap: "12px",
-          flexWrap: "wrap",
-          marginBottom: "20px",
-        }}
-      >
-        <div>
-          <h1 style={{ margin: 0 }}>Debt Manager</h1>
-          <p style={{ margin: "6px 0 0", color: MUTED }}>
-            Standalone debt repayment tracker for loans, credit cards, and future business financing.
-          </p>
-        </div>
+      <h1>Debt Manager</h1>
 
-        <button
-          onClick={() => {
-            if (showForm && !editingDebt) {
-              setShowForm(false);
-            } else {
-              setEditingDebt(null);
-              setShowForm(!showForm);
-            }
-          }}
-          style={{
-            ...buttonStyle,
-            backgroundColor: ROYAL_BLUE,
-            color: WHITE,
-            padding: "10px 16px",
-          }}
-        >
-          {showForm ? "Close Form" : "+ Add Debt"}
-        </button>
-      </div>
+      <p>
+        Plan business repayments and record or link their
+        accounting entries. Only principal reduces the
+        tracked debt balance.
+      </p>
 
       <div
         style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))",
-          gap: "14px",
-          marginBottom: "18px",
+          ...panel,
+          background: "#fffbeb",
         }}
       >
-        <div style={cardStyle}>
-          <h2 style={{ margin: 0, color: ROYAL_BLUE }}>
-            {money(summary.totalCurrentDebt)}
-          </h2>
-          <p style={{ marginBottom: 0, fontWeight: "bold" }}>Current Debt</p>
-        </div>
-
-        <div style={cardStyle}>
-          <h2 style={{ margin: 0, color: "#dc2626" }}>
-            {money(summary.totalStartingDebt)}
-          </h2>
-          <p style={{ marginBottom: 0, fontWeight: "bold" }}>Starting Debt</p>
-        </div>
-
-        <div style={cardStyle}>
-          <h2 style={{ margin: 0, color: "#16a34a" }}>
-            {money(summary.totalPaid)}
-          </h2>
-          <p style={{ marginBottom: 0, fontWeight: "bold" }}>Total Paid</p>
-        </div>
-
-        <div style={cardStyle}>
-          <h2 style={{ margin: 0, color: GOLD }}>
-            {money(summary.monthlyRequired)}
-          </h2>
-          <p style={{ marginBottom: 0, fontWeight: "bold" }}>Monthly Required</p>
-        </div>
+        Creating a debt registers its reviewed balance;
+        it does not record a loan receipt or create an
+        opening liability journal. Historical payments
+        are retained as recorded. Confirm old balances
+        and currency before using either repayment
+        action. Interest rates and due days are planning
+        information; interest and arrears are not
+        calculated automatically.
       </div>
 
-      <div style={{ ...cardStyle, marginBottom: "18px" }}>
-        <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>Payoff Progress</h2>
-
+      {error && (
         <div
-          style={{
-            height: "22px",
-            backgroundColor: "#e5e7eb",
-            borderRadius: "999px",
-            overflow: "hidden",
-          }}
+          role="alert"
+          style={{ ...panel, color: "#b91c1c" }}
         >
-          <div
-            style={{
-              height: "100%",
-              width: `${progressWidth}%`,
-              backgroundColor: "#16a34a",
-              borderRadius: "999px",
-              transition: "width 0.3s ease",
-            }}
-          />
-        </div>
-
-        <p style={{ fontWeight: "bold", marginBottom: 0 }}>
-          {progressWidth}% paid down
-        </p>
-      </div>
-
-      {showForm && (
-        <div style={{ ...cardStyle, marginBottom: "20px" }}>
-          <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>
-            {editingDebt ? "Edit Debt Account" : "New Debt Account"}
-          </h2>
-
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))",
-              gap: "14px",
-            }}
-          >
-            <input name="debtName" placeholder="Debt Name" value={formData.debtName} onChange={handleChange} style={inputStyle(BORDER)} />
-
-            <select name="debtType" value={formData.debtType} onChange={handleChange} style={inputStyle(BORDER)}>
-              <option value="Loan">Loan</option>
-              <option value="Credit Card">Credit Card</option>
-              <option value="Vehicle Loan">Vehicle Loan</option>
-              <option value="Equipment Financing">Equipment Financing</option>
-              <option value="Business Expansion">Business Expansion</option>
-              <option value="Other">Other</option>
-            </select>
-
-            <input name="lenderName" placeholder="Lender / Bank Name" value={formData.lenderName} onChange={handleChange} style={inputStyle(BORDER)} />
-            <input type="number" name="startingBalance" placeholder="Starting Balance" value={formData.startingBalance} onChange={handleChange} style={inputStyle(BORDER)} />
-            <input type="number" name="currentBalance" placeholder="Current Balance, optional" value={formData.currentBalance} onChange={handleChange} style={inputStyle(BORDER)} />
-            <input type="number" name="monthlyPayment" placeholder="Monthly Payment" value={formData.monthlyPayment} onChange={handleChange} style={inputStyle(BORDER)} />
-            <input type="number" name="interestRate" placeholder="Interest Rate %" value={formData.interestRate} onChange={handleChange} style={inputStyle(BORDER)} />
-            <input type="number" name="dueDay" placeholder="Due Day e.g. 15" value={formData.dueDay} onChange={handleChange} style={inputStyle(BORDER)} />
-            <input type="date" name="startDate" value={formData.startDate} onChange={handleChange} style={inputStyle(BORDER)} />
-            <input type="date" name="targetPayoffDate" value={formData.targetPayoffDate} onChange={handleChange} style={inputStyle(BORDER)} />
-
-            {editingDebt && (
-              <select name="status" value={formData.status || "Active"} onChange={handleChange} style={inputStyle(BORDER)}>
-                <option value="Active">Active</option>
-                <option value="Paid Off">Paid Off</option>
-                <option value="Paused">Paused</option>
-              </select>
-            )}
-
-            <textarea
-              name="notes"
-              placeholder="Notes"
-              value={formData.notes}
-              onChange={handleChange}
-              style={{
-                ...inputStyle(BORDER),
-                minHeight: "90px",
-                gridColumn: "1 / -1",
-              }}
-            />
-          </div>
-
-          <div style={{ display: "flex", gap: "10px", marginTop: "16px", flexWrap: "wrap" }}>
-            <button onClick={saveDebt} style={{ ...buttonStyle, backgroundColor: "#16a34a", color: WHITE }}>
-              {editingDebt ? "Update Debt" : "Save Debt"}
-            </button>
-
-            <button onClick={resetForm} style={{ ...buttonStyle, backgroundColor: "#64748b", color: WHITE }}>
-              Cancel
-            </button>
-          </div>
+          {error}
         </div>
       )}
 
-      <div style={{ ...cardStyle, marginBottom: "18px" }}>
-        <input
-          type="text"
-          placeholder="Search debts or payments"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          style={{ width: "100%", ...inputStyle(BORDER) }}
-        />
-      </div>
+      {notice && (
+        <div role="status" style={panel}>
+          {notice}
+        </div>
+      )}
 
-      <div style={{ ...cardStyle, marginBottom: "20px" }}>
-        <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>Debt Accounts</h2>
+      <button
+        disabled={busy || loading}
+        style={button}
+        onClick={() => openDebt()}
+      >
+        Add Debt
+      </button>
 
-        <div
-          style={{
-            overflowX: "auto",
-            overflowY: "auto",
-            maxHeight: "70vh",
-            border: `1px solid ${BORDER}`,
-            borderRadius: "12px",
-          }}
-        >
-          <table
-            border="1"
-            cellPadding="10"
-            style={{
-              minWidth: "1500px",
-              width: "100%",
-              borderCollapse: "collapse",
-              borderColor: BORDER,
-            }}
-          >
-            <thead
-              style={{
-                backgroundColor: "#eef4ff",
-                position: "sticky",
-                top: 0,
-                zIndex: 5,
-              }}
-            >
-              <tr>
-                <th>Debt No.</th>
-                <th>Name</th>
-                <th>Type</th>
-                <th>Lender</th>
-                <th>Starting Balance</th>
-                <th>Current Balance</th>
-                <th>Monthly Payment</th>
-                <th>Interest</th>
-                <th>Due Day</th>
-                <th>Target Payoff</th>
-                <th>Status</th>
-                <th
-                  style={{
-                    position: "sticky",
-                    right: 0,
-                    backgroundColor: "#eef4ff",
-                    zIndex: 6,
-                    minWidth: "180px",
-                  }}
-                >
-                  Actions
-                </th>
-              </tr>
-            </thead>
+      <button
+        disabled={busy || loading}
+        style={button}
+        onClick={() => {
+          setError("");
+          load();
+        }}
+      >
+        Refresh
+      </button>
 
-            <tbody>
-              {filteredDebts.length > 0 ? (
-                filteredDebts.map((debt) => (
-                  <tr key={debt._id}>
-                    <td>{debt.debtNumber}</td>
-                    <td>{debt.debtName}</td>
-                    <td>{debt.debtType}</td>
-                    <td>{debt.lenderName || "—"}</td>
-                    <td>{money(debt.startingBalance)}</td>
-                    <td>{money(debt.currentBalance)}</td>
-                    <td>{money(debt.monthlyPayment)}</td>
-                    <td>{Number(debt.interestRate || 0)}%</td>
-                    <td>{debt.dueDay || "—"}</td>
-                    <td>{formatDate(debt.targetPayoffDate)}</td>
-                    <td>{statusBadge(debt.status)}</td>
-                    <td
-                      style={{
-                        position: "sticky",
-                        right: 0,
-                        backgroundColor: WHITE,
-                        zIndex: 4,
-                        minWidth: "180px",
-                        boxShadow: "-4px 0 8px rgba(15,23,42,0.08)",
-                      }}
+      {loading && (
+        <p role="status">Loading debt records…</p>
+      )}
+
+      {data && (
+        <>
+          <div style={{ ...grid, marginTop: 18 }}>
+            {[
+              [
+                "Recorded current principal",
+                data.summary.totalCurrentDebt,
+              ],
+              [
+                "Recorded starting principal",
+                data.summary.totalStartingDebt,
+              ],
+              [
+                "Accounting-linked payments",
+                data.summary.totalPaid,
+              ],
+              [
+                "Planned monthly payments",
+                data.summary.monthlyRequired,
+              ],
+            ].map(([label, value]) => (
+              <div style={panel} key={label}>
+                <strong>{label}</strong>
+                <h2 style={{ color: blue }}>
+                  {money(value)}
+                </h2>
+              </div>
+            ))}
+          </div>
+
+          {!!data.summary.unconfirmedDebtCount && (
+            <p>
+              {data.summary.unconfirmedDebtCount} debt(s)
+              have unconfirmed currency. Combined debt
+              totals are unavailable until reviewed.
+            </p>
+          )}
+
+          {!!data.summary.legacyPaymentCount && (
+            <p>
+              {data.summary.legacyPaymentCount} historical
+              payment(s) have no recorded journal link.
+              They are excluded from accounting-linked
+              payment totals. Do not link them again if
+              already included in the tracker balance.
+            </p>
+          )}
+
+          {form && (
+            <form style={panel} onSubmit={saveDebt}>
+              <h2>
+                {editing ? "Edit Debt" : "Add Debt"}
+              </h2>
+
+              <div style={grid}>
+                {Object.entries(labels).map(
+                  ([key, label]) => (
+                    <label key={key}>
+                      {label}
+
+                      <input
+                        style={control}
+                        name={key}
+                        value={form[key]}
+                        onChange={updateForm}
+                        required={
+                          key === "debtName" ||
+                          key === "startingBalance"
+                        }
+                        readOnly={
+                          lockedBalances &&
+                          [
+                            "startingBalance",
+                            "currentBalance",
+                          ].includes(key)
+                        }
+                        type={
+                          key.endsWith("Date")
+                            ? "date"
+                            : [
+                                "startingBalance",
+                                "currentBalance",
+                                "monthlyPayment",
+                                "interestRate",
+                                "dueDay",
+                              ].includes(key)
+                              ? "number"
+                              : "text"
+                        }
+                        min={
+                          [
+                            "startingBalance",
+                            "currentBalance",
+                            "monthlyPayment",
+                            "interestRate",
+                          ].includes(key)
+                            ? "0"
+                            : key === "dueDay"
+                              ? "1"
+                              : undefined
+                        }
+                        max={
+                          key === "dueDay"
+                            ? "31"
+                            : undefined
+                        }
+                        step={
+                          key === "dueDay"
+                            ? "1"
+                            : "any"
+                        }
+                      />
+                    </label>
+                  )
+                )}
+
+                <label>
+                  Debt type
+
+                  <select
+                    style={control}
+                    name="debtType"
+                    value={form.debtType}
+                    onChange={updateForm}
+                  >
+                    {types.map((type) => (
+                      <option key={type}>
+                        {type}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label>
+                  Confirmed debt currency
+
+                  <select
+                    required
+                    disabled={lockedMapping}
+                    style={control}
+                    name="currency"
+                    value={form.currency}
+                    onChange={updateForm}
+                  >
+                    <option value="">
+                      Confirm currency
+                    </option>
+                    <option value="JMD">JMD</option>
+                  </select>
+                </label>
+
+                <label>
+                  Business responsible
+
+                  <select
+                    required
+                    disabled={lockedMapping}
+                    style={control}
+                    name="entityCode"
+                    value={form.entityCode}
+                    onChange={updateForm}
+                  >
+                    <option value="">
+                      Select business
+                    </option>
+
+                    {data.entities.map((entity) => (
+                      <option
+                        key={entity.entityCode}
+                        value={entity.entityCode}
+                      >
+                        {entity.entityCode} —{" "}
+                        {entity.legalName}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                {[
+                  "liabilityAccountCode",
+                  "interestAccountCode",
+                ].map((key) => (
+                  <label key={key}>
+                    {key === "liabilityAccountCode"
+                      ? "Liability ledger account"
+                      : "Interest expense account (needed when interest is paid)"}
+
+                    <select
+                      required={
+                        key === "liabilityAccountCode"
+                      }
+                      disabled={lockedMapping}
+                      style={control}
+                      name={key}
+                      value={form[key]}
+                      onChange={updateForm}
                     >
-                      <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                        <button onClick={() => recordPayment(debt)} style={{ ...buttonStyle, backgroundColor: "#16a34a", color: WHITE }}>
-                          Record Payment
-                        </button>
-                        <button onClick={() => editDebt(debt)} style={{ ...buttonStyle, backgroundColor: ROYAL_BLUE, color: WHITE }}>
-                          Edit
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan="12" style={{ textAlign: "center", color: MUTED }}>
-                    No debt accounts found.
-                  </td>
-                </tr>
+                      <option value="">
+                        Select account
+                      </option>
+
+                      {data.chartAccounts
+                        .filter((account) =>
+                          key === "liabilityAccountCode"
+                            ? account.accountCategory ===
+                                "Liability" &&
+                              account.normalBalance ===
+                                "Credit"
+                            : account.accountCategory ===
+                                "Expense" &&
+                              account.normalBalance ===
+                                "Debit"
+                        )
+                        .map((account) => (
+                          <option
+                            key={account.accountCode}
+                            value={account.accountCode}
+                          >
+                            {account.accountCode} —{" "}
+                            {account.accountName}
+                          </option>
+                        ))}
+                    </select>
+                  </label>
+                ))}
+
+                <label>
+                  Status
+
+                  <select
+                    style={control}
+                    name="status"
+                    value={form.status}
+                    onChange={updateForm}
+                  >
+                    {[
+                      "Active",
+                      "Paused",
+                      "Paid Off",
+                    ].map((status) => (
+                      <option key={status}>
+                        {status}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label>
+                  Notes
+
+                  <textarea
+                    style={control}
+                    name="notes"
+                    value={form.notes}
+                    onChange={updateForm}
+                  />
+                </label>
+              </div>
+
+              <p>
+                Review the recorded principal against
+                the lender and liability ledger.
+                Balances are locked after any
+                repayment; accounting mappings are
+                locked after an accounting-linked
+                repayment.
+              </p>
+
+              <button style={button} disabled={busy}>
+                Save Debt
+              </button>
+
+              <button
+                style={button}
+                type="button"
+                disabled={busy}
+                onClick={() => setForm(null)}
+              >
+                Cancel
+              </button>
+            </form>
+          )}
+
+          {repayment && (
+            <form style={panel} onSubmit={savePayment}>
+              <h2>
+                {repayment.mode === "New"
+                  ? "Record New Repayment"
+                  : "Link Posted Repayment"}
+                {" — "}
+                {repayment.debtName}
+              </h2>
+
+              <p>
+                {repayment.mode === "New"
+                  ? "Use only after the real payment was made and only if it has not been posted elsewhere. This creates the journal and cashbook withdrawal."
+                  : "This verifies the existing journal and ledger. It creates no new withdrawal or journal."}
+              </p>
+
+              <p>
+                For linking, the journal reference
+                must be exactly{" "}
+                <strong>
+                  {repayment.debtNumber}
+                </strong>
+                , with the same business and payment
+                date.
+              </p>
+
+              <div style={grid}>
+                {[
+                  [
+                    "principalAmount",
+                    "Principal paid",
+                    "number",
+                  ],
+                  [
+                    "interestAmount",
+                    "Interest paid",
+                    "number",
+                  ],
+                  [
+                    "paymentDate",
+                    "Payment date",
+                    "date",
+                  ],
+                  [
+                    "paymentReference",
+                    "Unique bank/cash payment reference",
+                    "text",
+                  ],
+                ].map(([name, label, type]) => (
+                  <label key={name}>
+                    {label}
+
+                    <input
+                      style={control}
+                      required
+                      name={name}
+                      type={type}
+                      min={
+                        type === "number"
+                          ? "0"
+                          : undefined
+                      }
+                      step={
+                        type === "number"
+                          ? "0.01"
+                          : undefined
+                      }
+                      value={repayment[name]}
+                      onChange={updatePayment}
+                    />
+                  </label>
+                ))}
+
+                <label>
+                  Paying JMD bank/cash account
+
+                  <select
+                    required
+                    style={control}
+                    name="accountNumber"
+                    value={repayment.accountNumber}
+                    onChange={updatePayment}
+                  >
+                    <option value="">
+                      Select paying account
+                    </option>
+
+                    {data.financialAccounts
+                      .filter(
+                        (account) =>
+                          account.currency === "JMD" &&
+                          account.linkedChartAccountCode
+                      )
+                      .map((account) => (
+                        <option
+                          key={account.accountNumber}
+                          value={account.accountNumber}
+                        >
+                          {account.accountName} —{" "}
+                          {account.accountNumber}
+                        </option>
+                      ))}
+                  </select>
+                </label>
+
+                {repayment.mode === "Link" && (
+                  <label>
+                    Posted journal number
+
+                    <input
+                      required
+                      style={control}
+                      name="journalEntryNumber"
+                      value={
+                        repayment.journalEntryNumber
+                      }
+                      onChange={updatePayment}
+                    />
+                  </label>
+                )}
+
+                <label>
+                  Notes
+
+                  <textarea
+                    style={control}
+                    name="notes"
+                    value={repayment.notes}
+                    onChange={updatePayment}
+                  />
+                </label>
+              </div>
+
+              <p>
+                Total repayment:{" "}
+                <strong>
+                  {money(
+                    Number(
+                      repayment.principalAmount || 0
+                    ) +
+                      Number(
+                        repayment.interestAmount || 0
+                      )
+                  )}
+                </strong>
+              </p>
+
+              <p>
+                <label>
+                  <input
+                    required
+                    type="checkbox"
+                    name="confirmNotAlreadyTracked"
+                    checked={
+                      repayment.confirmNotAlreadyTracked
+                    }
+                    onChange={updatePayment}
+                  />{" "}
+                  I reviewed the current principal and
+                  history. This payment has not
+                  already reduced this tracker balance.
+                </label>
+              </p>
+
+              {repayment.mode === "New" && (
+                <p>
+                  <label>
+                    <input
+                      required
+                      type="checkbox"
+                      name="confirmNewPosting"
+                      checked={
+                        repayment.confirmNewPosting
+                      }
+                      onChange={updatePayment}
+                    />{" "}
+                    This payment has not already been
+                    posted in accounting.
+                  </label>
+                </p>
               )}
-            </tbody>
-          </table>
-        </div>
-      </div>
 
-      <div style={cardStyle}>
-        <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>Payment History</h2>
+              <button style={button} disabled={busy}>
+                {busy
+                  ? "Processing…"
+                  : repayment.mode === "New"
+                    ? "Post Repayment & Update Debt"
+                    : "Verify Journal & Link Repayment"}
+              </button>
 
-        <div
-          style={{
-            overflowX: "auto",
-            overflowY: "auto",
-            maxHeight: "55vh",
-            border: `1px solid ${BORDER}`,
-            borderRadius: "12px",
-          }}
-        >
-          <table
-            border="1"
-            cellPadding="10"
+              <button
+                type="button"
+                style={button}
+                disabled={busy}
+                onClick={() => setRepayment(null)}
+              >
+                Cancel
+              </button>
+
+              <p>
+                If completion is uncertain, refresh
+                and inspect history. Retrying unchanged
+                details with the same reference will
+                not create another repayment.
+              </p>
+            </form>
+          )}
+
+          <input
             style={{
-              minWidth: "1000px",
-              width: "100%",
-              borderCollapse: "collapse",
-              borderColor: BORDER,
+              ...control,
+              marginBottom: 18,
             }}
-          >
-            <thead
-              style={{
-                backgroundColor: "#eef4ff",
-                position: "sticky",
-                top: 0,
-                zIndex: 5,
-              }}
-            >
-              <tr>
-                <th>Payment No.</th>
-                <th>Debt</th>
-                <th>Amount Paid</th>
-                <th>Payment Date</th>
-                <th>Paid From</th>
-                <th>Notes</th>
-              </tr>
-            </thead>
+            placeholder="Search debt, lender, reference or journal"
+            value={search}
+            onChange={(event) =>
+              setSearch(event.target.value)
+            }
+          />
 
-            <tbody>
-              {filteredPayments.length > 0 ? (
-                filteredPayments.map((payment) => (
-                  <tr key={payment._id}>
-                    <td>{payment.paymentNumber}</td>
-                    <td>{payment.debtName}</td>
-                    <td>{money(payment.amountPaid)}</td>
-                    <td>{formatDate(payment.paymentDate)}</td>
-                    <td>{payment.paidFrom || "—"}</td>
-                    <td>{payment.notes || "—"}</td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan="6" style={{ textAlign: "center", color: MUTED }}>
-                    No debt payments found.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+          <Table
+            title="Debt accounts"
+            headings={[
+              "Debt",
+              "Business / currency",
+              "Recorded principal",
+              "Monthly plan / due day",
+              "Status",
+              "Actions",
+            ]}
+            rows={debts.filter(matches).map((debt) => [
+              <span>
+                {debt.debtName}
+                <br />
+                {debt.debtNumber}
+                <br />
+                {debt.lenderName}
+              </span>,
+
+              `${debt.entityCode || "Not recorded"} / ${
+                debt.currency || "Not confirmed"
+              }`,
+
+              money(
+                debt.currentBalance,
+                debt.currency ||
+                  "Currency unconfirmed:"
+              ),
+
+              `${money(
+                debt.monthlyPayment,
+                debt.currency ||
+                  "Currency unconfirmed:"
+              )} / ${debt.dueDay || "—"}`,
+
+              debt.status,
+
+              <>
+                <button
+                  disabled={busy || loading}
+                  style={button}
+                  onClick={() => openDebt(debt)}
+                >
+                  Edit
+                </button>
+
+                {debt.status === "Active" &&
+                  debt.currency === "JMD" && (
+                    <>
+                      <button
+                        disabled={busy || loading}
+                        style={button}
+                        onClick={() =>
+                          openPayment(debt, "New")
+                        }
+                      >
+                        Record New Repayment
+                      </button>
+
+                      <button
+                        disabled={busy || loading}
+                        style={button}
+                        onClick={() =>
+                          openPayment(debt, "Link")
+                        }
+                      >
+                        Link Posted Repayment
+                      </button>
+                    </>
+                  )}
+              </>,
+            ])}
+          />
+
+          <Table
+            title="Repayment history"
+            headings={[
+              "Debt / date",
+              "Total",
+              "Principal",
+              "Interest",
+              "Workflow / journal",
+              "Payment reference / source",
+            ]}
+            rows={payments
+              .filter(matches)
+              .map((payment) => [
+                `${payment.debtName} / ${
+                  payment.paymentDate
+                }`,
+
+                money(
+                  payment.amountPaid,
+                  payment.currency ||
+                    "Currency unrecorded:"
+                ),
+
+                money(
+                  payment.principalAmount,
+                  payment.currency ||
+                    "Currency unrecorded:"
+                ),
+
+                money(
+                  payment.interestAmount,
+                  payment.currency ||
+                    "Currency unrecorded:"
+                ),
+
+                `${
+                  payment.mode ||
+                  "Historical tracker record"
+                } / ${
+                  payment.journalEntryNumber ||
+                  "No journal link recorded"
+                }`,
+
+                `${
+                  payment.paymentReference || "—"
+                } / ${payment.paidFrom || "—"}`,
+              ])}
+          />
+        </>
+      )}
     </div>
   );
 }
 
-function inputStyle(border) {
-  return {
-    padding: "10px",
-    borderRadius: "8px",
-    border: `1px solid ${border}`,
-  };
+function Table({ title, headings, rows }) {
+  return (
+    <div style={panel}>
+      <h2 style={{ color: blue }}>{title}</h2>
+
+      <div
+        style={{
+          overflowX: "auto",
+          maxHeight: 500,
+        }}
+      >
+        <table
+          style={{
+            borderCollapse: "collapse",
+            width: "100%",
+            minWidth: 900,
+          }}
+        >
+          <thead>
+            <tr>
+              {headings.map((heading) => (
+                <th key={heading} style={cell}>
+                  {heading}
+                </th>
+              ))}
+            </tr>
+          </thead>
+
+          <tbody>
+            {rows.length ? (
+              rows.map((row, index) => (
+                <tr key={index}>
+                  {row.map((value, column) => (
+                    <td key={column} style={cell}>
+                      {value}
+                    </td>
+                  ))}
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td
+                  style={cell}
+                  colSpan={headings.length}
+                >
+                  No records found.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
 }
 
 export default DebtManager;
