@@ -7,6 +7,8 @@ function AccountsReceivable() {
   const [reminderQueue, setReminderQueue] = useState(null);
   const [performance, setPerformance] = useState(null);
   const [writeOffs, setWriteOffs] = useState(null);
+    const canApproveWriteOff =
+    writeOffs?.permissions?.canApproveWriteOff === true;
   const [aging, setAging] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCustomerId, setSelectedCustomerId] = useState("");
@@ -207,7 +209,7 @@ const sendReminder = async (item) => {
       }
     );
 
-    alert("Reminder logged successfully.");
+        alert("Reminder activity logged. No message was sent.");
     await loadReceivables();
 
     if (selectedCustomerId) {
@@ -334,9 +336,21 @@ const recordRecovery = async (invoiceNumber) => {
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))", gap: "14px", margin: "18px 0" }}>
         <Card><h2 style={{ color: ROYAL_BLUE, margin: 0 }}>{money(dashboard?.kpis?.totalOutstanding)}</h2><p><b>Total Outstanding</b></p></Card>
         <Card><h2 style={{ color: "#16a34a", margin: 0 }}>{money(dashboard?.kpis?.currentAmount)}</h2><p><b>Current</b></p></Card>
+                <Card>
+          <h2 style={{ color: "#d97706", margin: 0 }}>
+            {money(dashboard?.agingBuckets?.["1-30"])}
+          </h2>
+          <p><b>1–30 Days</b></p>
+        </Card>
         <Card><h2 style={{ color: "#f59e0b", margin: 0 }}>{money(dashboard?.agingBuckets?.["31-60"])}</h2><p><b>31-60 Days</b></p></Card>
         <Card><h2 style={{ color: "#ea580c", margin: 0 }}>{money(dashboard?.agingBuckets?.["61-90"])}</h2><p><b>61-90 Days</b></p></Card>
         <Card><h2 style={{ color: "#dc2626", margin: 0 }}>{money(dashboard?.agingBuckets?.["90+"])}</h2><p><b>90+ Days</b></p></Card>
+                <Card>
+          <h2 style={{ color: MUTED, margin: 0 }}>
+            {money(dashboard?.agingBuckets?.Unknown)}
+          </h2>
+          <p><b>Unknown Due Date</b></p>
+        </Card>
         <Card><h2 style={{ color: "#7c3aed", margin: 0 }}>{dashboard?.kpis?.overdueCustomers || 0}</h2><p><b>Overdue Customers</b></p></Card>
         <Card><h2 style={{ color: "#0f766e", margin: 0 }}>{dashboard?.kpis?.diagnosticHealthScore?.score || 0}</h2><p><b>AR Health Score</b></p></Card>
         <Card><h2 style={{ color: dashboard?.kpis?.reconciliationDifference === 0 ? "#16a34a" : "#dc2626", margin: 0 }}>{money(dashboard?.kpis?.reconciliationDifference)}</h2><p><b>GL Difference</b></p></Card>
@@ -529,6 +543,11 @@ const recordRecovery = async (invoiceNumber) => {
 </Section>
 
 <Section title="Bad Debt / Write-Off Management">
+  <p style={{ color: MUTED }}>
+    Finance staff can request a write-off. Only Owner/Admin can
+    approve or reject it. Approval posts the write-off journal;
+    it is not a cash payment.
+  </p>
   <p>
     Recovery linking verifies a receipt journal already posted in accounting.
     It does not receive money or create a second bank transaction.
@@ -577,11 +596,12 @@ const recordRecovery = async (invoiceNumber) => {
               <td>{item.writeOffJournalEntryNumber || "Pending"}</td>
               <td>{item.recoveryJournalEntryNumber || "—"}</td>
               <td>
-                {item.writeOffStatus === "Pending Approval" && (
+                                {canApproveWriteOff &&
+                  item.writeOffStatus === "Pending Approval" && (
                   <>
                     <button type="button" onClick={() => runAction(() => approveWriteOff(item.invoiceNumber))}
 disabled={actionBusy} style={{ marginRight: "6px", padding: "6px 10px", border: "none", borderRadius: "8px", backgroundColor: "#16a34a", color: "white", fontWeight: "bold", cursor: "pointer" }}>
-                      Approve
+                                            Approve &amp; Post Write-Off
                     </button>
 
                     <button type="button" onClick={() => runAction(() => rejectWriteOff(item.invoiceNumber))}
@@ -660,7 +680,12 @@ disabled={actionBusy} style={{ marginTop: "10px", padding: "10px 14px", border: 
   </div>
 </Section>
 
-      <Section title="Automated Reminder Engine">
+            <Section title="Reminder Queue and Activity Log">
+        <p style={{ color: MUTED }}>
+          This queue recommends follow-up. Log Reminder records
+          activity only; it does not send an email, SMS or
+          WhatsApp message.
+        </p>
   <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "12px", marginBottom: "16px" }}>
     <Card><h3>{reminderQueue?.summary?.totalReminders || 0}</h3><p><b>Total Reminders</b></p></Card>
     <Card><h3>{reminderQueue?.summary?.friendlyReminders || 0}</h3><p><b>Friendly</b></p></Card>
