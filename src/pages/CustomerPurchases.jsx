@@ -601,19 +601,16 @@ function CustomerPurchases() {
   };
 
     const prepareRecovery = async (purchase) => {
-    if (purchase.status !== "At Warehouse") {
-      alert(
-        "Recovery charges can only be prepared after the package reaches the warehouse."
-      );
-      return;
-    }
-
-    if (
-      Number(purchase.weight || 0) <= 0 ||
-      Number(purchase.chargeableWeight || 0) <= 0
+        if (
+      ![
+        "At Warehouse",
+        "Recovery Calculated",
+        "Ready to Invoice",
+      ].includes(purchase.status) ||
+      purchase.invoiceNumber
     ) {
       alert(
-        "Warehouse weight must be recorded before preparing recovery charges."
+        "Recovery charges can only be prepared or revised for an uninvoiced purchase received at the warehouse."
       );
       return;
     }
@@ -621,8 +618,8 @@ function CustomerPurchases() {
     const itemRecoveryAmount = prompt(
       "Recoverable item cost in JMD:",
       String(
-        purchase.itemRecoveryAmount ||
-          purchase.baseCurrencyAmount ||
+                purchase.itemRecoveryAmount ??
+          purchase.baseCurrencyAmount ??
           0
       )
     );
@@ -670,6 +667,32 @@ function CustomerPurchases() {
     );
 
     if (otherCharges === null) return;
+
+        const enteredCharges = {
+      itemRecoveryAmount,
+      shoppingAssistanceFee,
+      weightCharge,
+      shippingCharge,
+      customsDuty,
+      deliveryFee,
+      otherCharges,
+    };
+
+    for (const [name, value] of Object.entries(enteredCharges)) {
+      const number = Number(value);
+
+      if (
+        String(value).trim() === "" ||
+        !Number.isFinite(number) ||
+        number < 0 ||
+        !Number.isSafeInteger(Math.round(number * 100))
+      ) {
+        alert(
+          `${name} requires a valid amount of zero or greater.`
+        );
+        return;
+      }
+    }
 
     try {
       const response = await api.patch(
@@ -1381,7 +1404,7 @@ function CustomerPurchases() {
         )}
 
         {metricCard(
-          "Recovered",
+          "Recovered / Refunded",
           dashboard?.recovered || 0,
           "#16a34a"
         )}
@@ -1393,7 +1416,7 @@ function CustomerPurchases() {
         )}
 
         {metricCard(
-          "Credit Card Exposure",
+          "Purchases Funded by Card",
           formatMoney(dashboard?.totalCreditCardExposure || 0),
           GOLD
         )}
@@ -1506,9 +1529,6 @@ function CustomerPurchases() {
             >
               <option value="USD">USD</option>
               <option value="JMD">JMD</option>
-              <option value="GBP">GBP</option>
-              <option value="CAD">CAD</option>
-              <option value="EUR">EUR</option>
             </select>
 
             <input
@@ -2204,8 +2224,11 @@ function CustomerPurchases() {
                         )}
 
                       {!purchase.invoiceNumber &&
-                        purchase.status ===
-                          "At Warehouse" && (
+  [
+    "At Warehouse",
+    "Recovery Calculated",
+    "Ready to Invoice",
+  ].includes(purchase.status) && (
                           <button
                             onClick={() =>
                               prepareRecovery(purchase)
@@ -2214,7 +2237,9 @@ function CustomerPurchases() {
                               "#ea580c"
                             )}
                           >
-                            Prepare Recovery
+                            {purchase.status === "At Warehouse"
+  ? "Prepare Recovery"
+  : "Review Recovery"}
                           </button>
                         )}
 
