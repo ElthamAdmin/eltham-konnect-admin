@@ -1,524 +1,1001 @@
-import { useEffect, useState } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+} from "react";
+
 import api from "../api";
-import TaxDocumentUploadForm from "./TaxDocumentUploadForm";
-import TaxDocumentLinkForm from "./TaxDocumentLinkForm";
+
+const DOCUMENT_TYPES = [
+  "Registration Certificate",
+  "Tax Return",
+  "Filing Confirmation",
+  "Payment Receipt",
+  "Payment Confirmation",
+  "Assessment",
+  "Notice",
+  "Correspondence",
+  "Supporting Schedule",
+  "Supplier Tax Invoice",
+  "Customer Tax Invoice",
+  "Other",
+];
+
+const TAX_TYPES = [
+  "GCT",
+  "PAYE",
+  "NIS",
+  "NHT",
+  "Education Tax",
+  "HEART",
+  "Pension",
+  "Income Tax",
+  "Company Tax",
+  "Other",
+];
+
+const LINK_TYPES = [
+  ["taxNumber", "Tax obligation"],
+  ["estimateNumber", "Income-tax estimate"],
+  ["filingNumber", "GCT filing"],
+  ["transactionNumber", "Tax payment transaction"],
+];
+
+const dateToday = () => {
+  const parts = new Intl.DateTimeFormat(
+    "en-CA",
+    {
+      timeZone: "America/Jamaica",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }
+  ).formatToParts(new Date());
+
+  return ["year", "month", "day"]
+    .map(
+      (key) =>
+        parts.find(
+          (part) => part.type === key
+        ).value
+    )
+    .join("-");
+};
+
+const newUpload = (periodKey) => ({
+  taxType: "Other",
+  documentType: "Supporting Schedule",
+  title: "",
+  documentDate: dateToday(),
+  periodKey,
+  externalReference: "",
+  receiptNumber: "",
+  description: "",
+  notes: "",
+});
 
 function TaxDocumentsPanel({
   entityCode,
   periodKey,
 }) {
-  const [documents, setDocuments] = useState([]);
-  const [selectedPeriodOnly, setSelectedPeriodOnly] =
+  const [documents, setDocuments] =
+    useState([]);
+
+  const [allPeriods, setAllPeriods] =
     useState(false);
 
-  const [loading, setLoading] = useState(false);
-  const [openingDocument, setOpeningDocument] =
+  const [search, setSearch] = useState("");
+  const [appliedSearch, setAppliedSearch] =
     useState("");
 
+  const [revision, setRevision] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
 
-  const loadDocuments = async () => {
+  const [uploadOpen, setUploadOpen] =
+    useState(false);
+
+  const [upload, setUpload] = useState(
+    () => newUpload(periodKey)
+  );
+
+  const [file, setFile] = useState(null);
+  const fileInput = useRef(null);
+
+  const [action, setAction] = useState(null);
+  const [actionNotes, setActionNotes] =
+    useState("");
+
+  const [linkType, setLinkType] =
+    useState("taxNumber");
+
+  const [targetReference, setTargetReference] =
+    useState("");
+
+  const [relatedTaxNumber, setRelatedTaxNumber] =
+    useState("");
+
+  useEffect(() => {
+    let active = true;
+
+    setDocuments([]);
+    setError("");
+
     if (!entityCode) {
-      setDocuments([]);
+      setLoading(false);
       return;
     }
 
-    try {
-      setLoading(true);
-      setError("");
+    setLoading(true);
 
-      const params = {
-        entityCode,
-      };
+    const params = {
+      entityCode,
+      ...(allPeriods ? {} : { periodKey }),
+      ...(appliedSearch
+        ? { search: appliedSearch }
+        : {}),
+    };
 
-      if (
-        selectedPeriodOnly &&
-        periodKey
-      ) {
-        params.periodKey = periodKey;
-      }
-
-      const response = await api.get(
+    api
+      .get(
         "/api/tax-center/documents",
-        {
-          params,
+        { params }
+      )
+      .then((response) => {
+        if (active) {
+          setDocuments(
+            response.data.data || []
+          );
         }
-      );
+      })
+      .catch((requestError) => {
+        if (active) {
+          setError(
+            requestError.response?.data?.message ||
+              "Could not load documents."
+          );
+        }
+      })
+      .finally(() => {
+        if (active) {
+          setLoading(false);
+        }
+      });
 
-      setDocuments(
-        response.data.data || []
-      );
-    } catch (requestError) {
-      console.error(
-        "Tax document retrieval error:",
-        requestError
-      );
-
-      setDocuments([]);
-
-      setError(
-        requestError?.response?.data?.message ||
-          "Could not load tax documents."
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    loadDocuments();
+    return () => {
+      active = false;
+    };
   }, [
     entityCode,
     periodKey,
-    selectedPeriodOnly,
+    allPeriods,
+    appliedSearch,
+    revision,
   ]);
 
-  const openDocument = async (documentNumber) => {
-    const newWindow = window.open(
+  const documentEndpoint = (document, suffix) =>
+    `/api/tax-center/documents/${encodeURIComponent(
+      document.documentNumber
+    )}${suffix}`;
+
+  const perform = async (work) => {
+    setBusy(true);
+    setError("");
+    setMessage("");
+
+    try {
+      const response = await work();
+
+      setMessage(
+        response.data.message ||
+          "Document action completed."
+      );
+
+      setAction(null);
+      setRevision((value) => value + 1);
+    } catch (requestError) {
+      setError(
+        requestError.response?.data?.message ||
+          "Could not complete the document action."
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const uploadDocument = async (event) => {
+    event.preventDefault();
+
+    if (!file) {
+      setError(
+        "Select one document to upload."
+      );
+      return;
+    }
+
+    if (
+      file.size === 0 ||
+      file.size > 10 * 1024 * 1024
+    ) {
+      setError(
+        "Choose a nonempty file no larger than 10 MB."
+      );
+      return;
+    }
+
+    await perform(async () => {
+      const data = new FormData();
+
+      data.append("document", file);
+      data.append("entityCode", entityCode);
+      data.append("confidential", "true");
+
+      for (const [key, value] of
+        Object.entries(upload)) {
+        data.append(key, value);
+      }
+
+      const response = await api.post(
+        "/api/tax-center/documents/upload",
+        data
+      );
+
+      setUpload(newUpload(periodKey));
+      setFile(null);
+      setUploadOpen(false);
+
+      if (fileInput.current) {
+        fileInput.current.value = "";
+      }
+
+      return response;
+    });
+  };
+
+  const openDocument = async (document) => {
+    const tab = window.open(
       "about:blank",
       "_blank"
     );
 
-    if (newWindow) {
-      newWindow.opener = null;
-
-      newWindow.document.write(
-        "<p style='font-family:Arial;padding:20px'>Preparing secure document...</p>"
-      );
+    if (tab) {
+      tab.opener = null;
     }
 
-    try {
-      setOpeningDocument(documentNumber);
-      setError("");
+    setBusy(true);
+    setError("");
 
+    try {
       const response = await api.get(
-        `/api/tax-center/documents/${encodeURIComponent(
-          documentNumber
-        )}/access`
+        documentEndpoint(
+          document,
+          "/access"
+        )
       );
 
       const accessUrl =
-        response.data?.data?.accessUrl;
+        response.data.data?.accessUrl;
 
-      if (!accessUrl) {
+      if (
+        !accessUrl ||
+        new URL(accessUrl).protocol !==
+          "https:"
+      ) {
         throw new Error(
-          "The server did not return a secure document link."
+          "A secure access link was not returned."
         );
       }
 
-      if (newWindow) {
-        newWindow.location.href = accessUrl;
-      } else {
-        window.location.href = accessUrl;
-      }
-    } catch (requestError) {
-      if (newWindow) {
-        newWindow.close();
+      if (!tab || tab.closed) {
+        setError(
+          "Your browser blocked the document tab. Allow pop-ups for this site and try Open again."
+        );
+        return;
       }
 
-      console.error(
-        "Tax document access error:",
-        requestError
-      );
+      tab.location.replace(accessUrl);
+    } catch (requestError) {
+      tab?.close();
 
       setError(
-        requestError?.response?.data?.message ||
+        requestError.response?.data?.message ||
           requestError.message ||
-          "Could not open the tax document."
+          "Could not open the document."
       );
     } finally {
-      setOpeningDocument("");
+      setBusy(false);
     }
   };
 
+  const startAction = (
+    document,
+    kind,
+    verificationAction = ""
+  ) => {
+    setAction({
+      document,
+      kind,
+      verificationAction,
+    });
+
+    setActionNotes("");
+    setLinkType("taxNumber");
+    setTargetReference("");
+    setRelatedTaxNumber(
+      document.taxNumber || ""
+    );
+
+    setError("");
+    setMessage("");
+  };
+
+  const saveAction = async (event) => {
+    event.preventDefault();
+
+    await perform(() => {
+      if (action.kind === "verification") {
+        return api.post(
+          documentEndpoint(
+            action.document,
+            "/verification"
+          ),
+          {
+            action:
+              action.verificationAction,
+
+            notes:
+              actionNotes.trim(),
+          }
+        );
+      }
+
+      const payload = {
+        [linkType]:
+          targetReference.trim(),
+
+        notes:
+          actionNotes.trim(),
+      };
+
+      if (
+        linkType === "transactionNumber"
+      ) {
+        payload.taxNumber =
+          relatedTaxNumber.trim();
+      }
+
+      return api.post(
+        documentEndpoint(
+          action.document,
+          "/link"
+        ),
+        payload
+      );
+    });
+  };
+
+  const changeUpload = (field, value) =>
+    setUpload((previous) => ({
+      ...previous,
+      [field]: value,
+    }));
+
   return (
-    <section style={panelStyle}>
-      <div style={headerStyle}>
-        <div>
-          <h2 style={titleStyle}>
-            Tax Documents
-          </h2>
+    <section style={panel}>
+      <h2 style={{ marginTop: 0 }}>
+        Preserved tax documents
+      </h2>
 
-          <p style={subtitleStyle}>
-            Returns, receipts, assessments,
-            correspondence and supporting
-            schedules stored for the selected
-            business entity.
-          </p>
-        </div>
+      <p>
+        Business: <strong>{entityCode}</strong>.
+        Uploads use authenticated Cloudinary
+        storage. Open generates a temporary
+        access link.
+      </p>
 
-        <div style={controlsStyle}>
-          <label style={checkboxLabel}>
-            <input
-              type="checkbox"
-              checked={selectedPeriodOnly}
-              onChange={(event) =>
-                setSelectedPeriodOnly(
-                  event.target.checked
-                )
-              }
-            />
+      <div style={row}>
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() =>
+            setUploadOpen(
+              (previous) => !previous
+            )
+          }
+        >
+          {uploadOpen
+            ? "Close upload form"
+            : "+ Upload document"}
+        </button>
 
-            Selected period only
-          </label>
+        <button
+          type="button"
+          disabled={busy || loading}
+          onClick={() =>
+            setRevision(
+              (value) => value + 1
+            )
+          }
+        >
+          Refresh documents
+        </button>
 
-          <button
-            type="button"
-            onClick={loadDocuments}
-            disabled={loading || !entityCode}
-            style={refreshButton}
-          >
-            {loading ? "Loading..." : "Refresh"}
-          </button>
-                </div>
+        <label
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+          }}
+        >
+          <input
+            type="checkbox"
+            style={{ width: "auto" }}
+            checked={allPeriods}
+            disabled={busy}
+            onChange={(event) =>
+              setAllPeriods(
+                event.target.checked
+              )
+            }
+          />
+          Show all periods for this business
+        </label>
       </div>
 
-      <TaxDocumentUploadForm
-        entityCode={entityCode}
-        periodKey={periodKey}
-        onUploaded={loadDocuments}
-      />
+      <form
+        style={row}
+        onSubmit={(event) => {
+          event.preventDefault();
+          setAppliedSearch(search.trim());
+        }}
+      >
+        <label style={{ flex: 1 }}>
+          Search reference or title
+          <input
+            value={search}
+            maxLength={120}
+            disabled={busy}
+            onChange={(event) =>
+              setSearch(event.target.value)
+            }
+          />
+        </label>
+
+        <button
+          type="submit"
+          disabled={busy}
+        >
+          Search
+        </button>
+      </form>
 
       {error && (
-        <div style={errorStyle}>
+        <p role="alert" style={errorStyle}>
           {error}
-        </div>
+        </p>
       )}
 
-      {!entityCode ? (
-        <div style={emptyStyle}>
-          Select a business entity to view its
-          tax documents.
-        </div>
-      ) : loading ? (
-        <div style={emptyStyle}>
-          Loading tax documents...
-        </div>
-      ) : documents.length === 0 ? (
-        <div style={emptyStyle}>
-          No tax documents were found for{" "}
-          {selectedPeriodOnly
-            ? `${entityCode}, period ${periodKey}.`
-            : `${entityCode}.`}
-        </div>
+      {message && (
+        <p role="status" style={successStyle}>
+          {message}
+        </p>
+      )}
+
+      {uploadOpen && (
+        <form
+          onSubmit={uploadDocument}
+          style={subPanel}
+        >
+          <h3>Upload supporting document</h3>
+
+          <fieldset disabled={busy}>
+            <div style={grid}>
+              <label>
+                Tax type
+                <select
+                  value={upload.taxType}
+                  onChange={(event) =>
+                    changeUpload(
+                      "taxType",
+                      event.target.value
+                    )
+                  }
+                >
+                  {TAX_TYPES.map((type) => (
+                    <option key={type}>
+                      {type}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label>
+                Document type
+                <select
+                  value={
+                    upload.documentType
+                  }
+                  onChange={(event) =>
+                    changeUpload(
+                      "documentType",
+                      event.target.value
+                    )
+                  }
+                >
+                  {DOCUMENT_TYPES.map(
+                    (type) => (
+                      <option key={type}>
+                        {type}
+                      </option>
+                    )
+                  )}
+                </select>
+              </label>
+
+              <label>
+                Title
+                <input
+                  required
+                  value={upload.title}
+                  onChange={(event) =>
+                    changeUpload(
+                      "title",
+                      event.target.value
+                    )
+                  }
+                />
+              </label>
+
+              <label>
+                Document date
+                <input
+                  type="date"
+                  required
+                  value={
+                    upload.documentDate
+                  }
+                  onChange={(event) =>
+                    changeUpload(
+                      "documentDate",
+                      event.target.value
+                    )
+                  }
+                />
+              </label>
+
+              <label>
+                Reporting period
+                <input
+                  placeholder="YYYY-MM or YYYY"
+                  value={upload.periodKey}
+                  onChange={(event) =>
+                    changeUpload(
+                      "periodKey",
+                      event.target.value
+                    )
+                  }
+                />
+              </label>
+
+              <label>
+                External reference / supplier invoice
+                <input
+                  value={
+                    upload.externalReference
+                  }
+                  onChange={(event) =>
+                    changeUpload(
+                      "externalReference",
+                      event.target.value
+                    )
+                  }
+                />
+              </label>
+
+              <label>
+                Receipt number
+                <input
+                  value={
+                    upload.receiptNumber
+                  }
+                  onChange={(event) =>
+                    changeUpload(
+                      "receiptNumber",
+                      event.target.value
+                    )
+                  }
+                />
+              </label>
+
+              <label>
+                File — maximum 10 MB
+                <input
+                  ref={fileInput}
+                  type="file"
+                  required
+                  accept=".pdf,.jpg,.jpeg,.png,.webp,.xlsx,.xls,.csv"
+                  onChange={(event) =>
+                    setFile(
+                      event.target.files?.[0] ||
+                        null
+                    )
+                  }
+                />
+              </label>
+            </div>
+
+            <label>
+              Description
+              <textarea
+                value={upload.description}
+                onChange={(event) =>
+                  changeUpload(
+                    "description",
+                    event.target.value
+                  )
+                }
+              />
+            </label>
+
+            <label style={{ marginTop: 10 }}>
+              Notes
+              <textarea
+                value={upload.notes}
+                onChange={(event) =>
+                  changeUpload(
+                    "notes",
+                    event.target.value
+                  )
+                }
+              />
+            </label>
+
+            <p>
+              Leave the reporting period blank
+              for general registration evidence.
+              Supplier tax invoices must use the
+              supplier invoice number as their
+              External reference.
+            </p>
+
+            <button type="submit">
+              {busy
+                ? "Uploading…"
+                : "Upload to Cloudinary"}
+            </button>
+          </fieldset>
+        </form>
+      )}
+
+      {loading ? (
+        <p role="status">
+          Loading documents…
+        </p>
       ) : (
-        <div style={tableContainer}>
-          <table style={tableStyle}>
+        <div style={{ overflowX: "auto" }}>
+          <table>
             <thead>
               <tr>
-                <HeaderCell>
-                  Document
-                </HeaderCell>
-
-                <HeaderCell>
-                  Classification
-                </HeaderCell>
-
-                <HeaderCell>
-                  Period
-                </HeaderCell>
-
-                <HeaderCell>
-                  Document Date
-                </HeaderCell>
-
-                <HeaderCell>
-                  Verification
-                </HeaderCell>
-
-                <HeaderCell>
-                  Linked Reference
-                </HeaderCell>
-
-                <HeaderCell>
-                  Access
-                </HeaderCell>
+                <th>Document</th>
+                <th>Type / period</th>
+                <th>Verification</th>
+                <th>Linked references</th>
+                <th>Actions</th>
               </tr>
             </thead>
 
             <tbody>
-              {documents.map((document) => {
-                                return (
-                  <tr key={document.documentNumber}>
-                    <BodyCell>
-                      <div style={documentTitle}>
-                        {document.title}
-                      </div>
+              {documents.map((document) => (
+                <tr
+                  key={
+                    document.documentNumber
+                  }
+                >
+                  <td>
+                    <strong>
+                      {document.title}
+                    </strong>
+                    <br />
+                    {document.documentNumber}
+                    <br />
+                    {document.fileName}
+                  </td>
 
-                      <div style={documentNumber}>
-                        {document.documentNumber}
-                      </div>
+                  <td>
+                    {document.taxType}
+                    <br />
+                    {document.documentType}
+                    <br />
+                    {document.periodKey ||
+                      "General evidence"}
+                  </td>
 
-                      <div style={fileName}>
-                        {document.fileName}
-                      </div>
-                    </BodyCell>
+                  <td>
+                    {document.verificationStatus}
+                    <br />
+                    {document.verifiedBy || ""}
+                  </td>
 
-                    <BodyCell>
-                      <div>
-                        {document.documentType}
-                      </div>
+                  <td>
+                    {[
+                      document.taxNumber,
+                      document.estimateNumber,
+                      document.filingNumber,
+                      document.transactionNumber,
+                    ]
+                      .filter(Boolean)
+                      .map((reference) => (
+                        <div key={reference}>
+                          {reference}
+                        </div>
+                      ))}
+                  </td>
 
-                      <div style={taxType}>
-                        {document.taxType}
-                      </div>
-                    </BodyCell>
-
-                    <BodyCell>
-                      {document.periodKey || "—"}
-                    </BodyCell>
-
-                    <BodyCell>
-                      {formatDate(
-                        document.documentDate
-                      )}
-                    </BodyCell>
-
-                    <BodyCell>
-                      <span
-                        style={verificationBadge(
-                          document.verificationStatus
-                        )}
-                      >
-                        {document.verificationStatus ||
-                          "Unverified"}
-                      </span>
-                    </BodyCell>
-
-                                        <BodyCell>
-                      <TaxDocumentLinkForm
-                        document={document}
-                        onLinked={loadDocuments}
-                      />
-                    </BodyCell>
-
-                    <BodyCell>
+                  <td>
+                    <div style={row}>
                       <button
                         type="button"
+                        disabled={busy}
                         onClick={() =>
                           openDocument(
-                            document.documentNumber
+                            document
                           )
                         }
-                        disabled={
-                          openingDocument ===
-                          document.documentNumber
-                        }
-                        style={openButton}
                       >
-                        {openingDocument ===
-                        document.documentNumber
-                          ? "Opening..."
-                          : "Open Securely"}
+                        Open
                       </button>
-                    </BodyCell>
-                  </tr>
-                );
-              })}
+
+                      {![
+                        "Rejected",
+                        "Superseded",
+                      ].includes(
+                        document.verificationStatus
+                      ) && (
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() =>
+                            startAction(
+                              document,
+                              "link"
+                            )
+                          }
+                        >
+                          Link
+                        </button>
+                      )}
+
+                      {document.verificationStatus !==
+                        "Superseded" && (
+                        <>
+                          <button
+                            type="button"
+                            disabled={
+                              busy ||
+                              document.verificationStatus ===
+                                "Verified"
+                            }
+                            onClick={() =>
+                              startAction(
+                                document,
+                                "verification",
+                                "Verify"
+                              )
+                            }
+                          >
+                            Verify
+                          </button>
+
+                          <button
+                            type="button"
+                            disabled={
+                              busy ||
+                              document.verificationStatus ===
+                                "Rejected"
+                            }
+                            onClick={() =>
+                              startAction(
+                                document,
+                                "verification",
+                                "Reject"
+                              )
+                            }
+                          >
+                            Reject
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+
+              {!documents.length && !error && (
+                <tr>
+                  <td colSpan={5}>
+                    No documents match this selection.
+                    Choose “Show all periods” to
+                    include general registration
+                    evidence.
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
+      )}
+
+      {action && (
+        <form
+          onSubmit={saveAction}
+          style={subPanel}
+        >
+          <h3>
+            {action.kind === "link"
+              ? "Link document"
+              : `${action.verificationAction} document`}
+          </h3>
+
+          <p>
+            {action.document.documentNumber}
+            {" — "}
+            {action.document.title}
+          </p>
+
+          <fieldset disabled={busy}>
+            {action.kind === "link" && (
+              <div style={grid}>
+                <label>
+                  Link to
+                  <select
+                    value={linkType}
+                    onChange={(event) => {
+                      setLinkType(
+                        event.target.value
+                      );
+                      setTargetReference("");
+                    }}
+                  >
+                    {LINK_TYPES.map(
+                      ([value, label]) => (
+                        <option
+                          key={value}
+                          value={value}
+                        >
+                          {label}
+                        </option>
+                      )
+                    )}
+                  </select>
+                </label>
+
+                <label>
+                  Exact target reference
+                  <input
+                    required
+                    value={targetReference}
+                    onChange={(event) =>
+                      setTargetReference(
+                        event.target.value
+                      )
+                    }
+                  />
+                </label>
+
+                {linkType ===
+                  "transactionNumber" && (
+                  <label>
+                    Related tax obligation number
+                    <input
+                      required
+                      value={
+                        relatedTaxNumber
+                      }
+                      onChange={(event) =>
+                        setRelatedTaxNumber(
+                          event.target.value
+                        )
+                      }
+                    />
+                  </label>
+                )}
+              </div>
+            )}
+
+            <label>
+              {action.kind === "link"
+                ? "Linkage notes"
+                : "Verification notes / rejection reason"}
+              <textarea
+                required={
+                  action.verificationAction ===
+                  "Reject"
+                }
+                value={actionNotes}
+                onChange={(event) =>
+                  setActionNotes(
+                    event.target.value
+                  )
+                }
+              />
+            </label>
+
+            <p>
+              {action.kind === "link"
+                ? "The server checks business, period, tax type, and payment evidence. Existing links cannot be replaced here."
+                : "Open and review the preserved document before verifying it. Verification does not replace or delete the file."}
+            </p>
+
+            <div style={row}>
+              <button type="submit">
+                {busy
+                  ? "Saving…"
+                  : action.kind === "link"
+                    ? "Save link"
+                    : `Confirm ${action.verificationAction}`}
+              </button>
+
+              <button
+                type="button"
+                onClick={() =>
+                  setAction(null)
+                }
+              >
+                Cancel
+              </button>
+            </div>
+          </fieldset>
+        </form>
       )}
     </section>
   );
 }
 
-function HeaderCell({ children }) {
-  return (
-    <th style={headerCellStyle}>
-      {children}
-    </th>
-  );
-}
-
-function BodyCell({ children }) {
-  return (
-    <td style={bodyCellStyle}>
-      {children}
-    </td>
-  );
-}
-
-const formatDate = (value) => {
-  if (!value) {
-    return "—";
-  }
-
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return "—";
-  }
-
-  return date.toLocaleDateString(
-    "en-JM",
-    {
-      year: "numeric",
-      month: "short",
-      day: "2-digit",
-    }
-  );
-};
-
-const verificationBadge = (status) => {
-  const verified = status === "Verified";
-  const rejected = status === "Rejected";
-
-  return {
-    display: "inline-block",
-    padding: "5px 9px",
-    borderRadius: "999px",
-    fontSize: "11px",
-    fontWeight: "800",
-
-    backgroundColor: verified
-      ? "#dcfce7"
-      : rejected
-      ? "#fee2e2"
-      : "#fef3c7",
-
-    color: verified
-      ? "#166534"
-      : rejected
-      ? "#991b1b"
-      : "#92400e",
-  };
-};
-
-const panelStyle = {
-  padding: "18px",
-  marginBottom: "18px",
-  backgroundColor: "white",
+const panel = {
+  background: "white",
   border: "1px solid #dbe3ef",
-  borderRadius: "12px",
+  borderRadius: 12,
+  padding: 18,
+  marginBottom: 16,
 };
 
-const headerStyle = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "start",
-  gap: "14px",
-  flexWrap: "wrap",
-  marginBottom: "14px",
-};
-
-const titleStyle = {
-  margin: 0,
-  color: "#0B3D91",
-};
-
-const subtitleStyle = {
-  margin: "6px 0 0",
-  color: "#64748b",
-  fontSize: "13px",
-};
-
-const controlsStyle = {
-  display: "flex",
-  alignItems: "center",
-  gap: "12px",
-  flexWrap: "wrap",
-};
-
-const checkboxLabel = {
-  display: "flex",
-  alignItems: "center",
-  gap: "7px",
-  color: "#475569",
-  fontSize: "13px",
-  fontWeight: "700",
-};
-
-const refreshButton = {
-  padding: "8px 12px",
-  color: "white",
-  backgroundColor: "#0B3D91",
-  border: "none",
-  borderRadius: "8px",
-  cursor: "pointer",
-  fontWeight: "700",
-};
-
-const tableContainer = {
-  overflowX: "auto",
+const subPanel = {
+  margin: "18px 0",
+  padding: 16,
   border: "1px solid #dbe3ef",
-  borderRadius: "10px",
+  borderRadius: 10,
+  background: "#f8fafc",
 };
 
-const tableStyle = {
-  width: "100%",
-  minWidth: "1050px",
-  borderCollapse: "collapse",
+const grid = {
+  display: "grid",
+  gridTemplateColumns:
+    "repeat(auto-fit, minmax(220px, 1fr))",
+  gap: 12,
+  marginBottom: 14,
 };
 
-const headerCellStyle = {
-  padding: "11px",
-  textAlign: "left",
-  color: "#1e293b",
-  backgroundColor: "#eef4ff",
-  borderBottom: "1px solid #dbe3ef",
-  fontSize: "12px",
-};
-
-const bodyCellStyle = {
-  padding: "11px",
-  color: "#1e293b",
-  borderBottom: "1px solid #e2e8f0",
-  fontSize: "13px",
-  verticalAlign: "top",
-};
-
-const documentTitle = {
-  fontWeight: "800",
-};
-
-const documentNumber = {
-  marginTop: "4px",
-  color: "#0B3D91",
-  fontSize: "11px",
-  fontWeight: "700",
-};
-
-const fileName = {
-  marginTop: "3px",
-  color: "#64748b",
-  fontSize: "11px",
-};
-
-const taxType = {
-  marginTop: "4px",
-  color: "#64748b",
-  fontSize: "11px",
-};
-
-const openButton = {
-  padding: "7px 10px",
-  color: "white",
-  backgroundColor: "#16a34a",
-  border: "none",
-  borderRadius: "7px",
-  cursor: "pointer",
-  fontWeight: "700",
-  whiteSpace: "nowrap",
-};
-
-const emptyStyle = {
-  padding: "24px",
-  textAlign: "center",
-  color: "#64748b",
-  backgroundColor: "#f8fafc",
-  border: "1px dashed #cbd5e1",
-  borderRadius: "10px",
+const row = {
+  display: "flex",
+  gap: 8,
+  flexWrap: "wrap",
+  alignItems: "end",
+  margin: "12px 0",
 };
 
 const errorStyle = {
-  marginBottom: "12px",
-  padding: "11px 13px",
+  padding: 12,
+  background: "#fef2f2",
   color: "#991b1b",
-  backgroundColor: "#fee2e2",
-  border: "1px solid #fecaca",
-  borderRadius: "9px",
-  fontSize: "13px",
+  borderRadius: 8,
+};
+
+const successStyle = {
+  padding: 12,
+  background: "#f0fdf4",
+  color: "#166534",
+  borderRadius: 8,
 };
 
 export default TaxDocumentsPanel;

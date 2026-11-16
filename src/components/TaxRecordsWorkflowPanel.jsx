@@ -1,811 +1,897 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import api from "../api";
 
-const BORDER = "#dbe3ef";
-const ROYAL_BLUE = "#0B3D91";
-const MUTED = "#64748b";
+const today = () => {
+  const parts = new Intl.DateTimeFormat(
+    "en-CA",
+    {
+      timeZone: "America/Jamaica",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }
+  ).formatToParts(new Date());
 
-const jamaicaToday = () =>
-  new Intl.DateTimeFormat("en-CA", {
-    timeZone: "America/Jamaica",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(new Date());
+  return ["year", "month", "day"]
+    .map(
+      (key) =>
+        parts.find(
+          (part) => part.type === key
+        ).value
+    )
+    .join("-");
+};
 
 const money = (value) =>
-  `JMD ${Number(value || 0).toLocaleString(undefined, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
-
-const getAvailableAction = (record) => {
-  if (record.status === "Calculated") return "Review";
-  if (record.status === "Reviewed") return "Approve";
-  if (record.status === "Approved") return "Submit";
-
-  if (
-    ["Submitted", "Partially Paid", "Overdue"].includes(record.status) &&
-    Number(record.balanceDue || 0) > 0
-  ) {
-    return "Pay";
-  }
-
-  if (
-    record.status === "Paid" ||
-    (record.status === "Submitted" &&
-      Number(record.balanceDue || 0) === 0)
-  ) {
-    return "Reconcile";
-  }
-
-  return "";
-};
-
-const actionColor = (action) => {
-  if (action === "Review") return "#2563eb";
-  if (action === "Approve") return "#16a34a";
-  if (action === "Submit") return "#7c3aed";
-  if (action === "Pay") return "#d97706";
-  if (action === "Reconcile") return "#0f766e";
-  return "#64748b";
-};
+  value === null ||
+  value === undefined ||
+  !Number.isFinite(Number(value))
+    ? "Not available"
+    : `JMD ${Number(value).toLocaleString(
+        "en-JM",
+        {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        }
+      )}`;
 
 function TaxRecordsWorkflowPanel({
+  entityCode,
+  periodKey,
   records = [],
   summary = {},
   onChanged,
 }) {
   const [accounts, setAccounts] = useState([]);
-  const [selectedRecord, setSelectedRecord] = useState(null);
-  const [selectedAction, setSelectedAction] = useState("");
-  const [processing, setProcessing] = useState(false);
-  const [loadingAccounts, setLoadingAccounts] = useState(false);
+  const [accountError, setAccountError] =
+    useState("");
 
-  const [workflowForm, setWorkflowForm] = useState({
-    notes: "",
-    filingReference: "",
-    filingMethod: "TAJ Online",
-    filedDate: jamaicaToday(),
-  });
+  const [action, setAction] = useState(null);
+  const [form, setForm] = useState({});
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
 
-  const [paymentForm, setPaymentForm] = useState({
-    amount: "",
-    paymentAccountNumber: "",
-    paymentDate: jamaicaToday(),
-    paymentMethod: "Online Transfer",
-    paymentReference: "",
-    receiptUrl: "",
-    notes: "",
-  });
-
-  const activePaymentAccounts = useMemo(
-    () =>
-      accounts.filter(
-        (account) =>
-          account.status === "Active" &&
-          String(account.linkedChartAccountCode || "").trim()
-      ),
-    [accounts]
-  );
+  const pending = useRef(false);
 
   useEffect(() => {
-    const loadAccounts = async () => {
-      try {
-        setLoadingAccounts(true);
-
-        const response = await api.get("/api/financial-accounts");
-        setAccounts(response.data?.data || []);
-      } catch (error) {
-        console.error("Financial account loading error:", error);
-        setAccounts([]);
-      } finally {
-        setLoadingAccounts(false);
-      }
-    };
-
-    loadAccounts();
-  }, []);
-
-  const closeActionPanel = () => {
-    setSelectedRecord(null);
-    setSelectedAction("");
-
-    setWorkflowForm({
-      notes: "",
-      filingReference: "",
-      filingMethod: "TAJ Online",
-      filedDate: jamaicaToday(),
-    });
-
-    setPaymentForm({
-      amount: "",
-      paymentAccountNumber: "",
-      paymentDate: jamaicaToday(),
-      paymentMethod: "Online Transfer",
-      paymentReference: "",
-      receiptUrl: "",
-      notes: "",
-    });
-  };
-
-  const openActionPanel = (record) => {
-    const action = getAvailableAction(record);
-
-    if (!action) return;
-
-    setSelectedRecord(record);
-    setSelectedAction(action);
-
-    setWorkflowForm({
-      notes: "",
-      filingReference: record.filingReference || "",
-      filingMethod: record.filingMethod || "TAJ Online",
-      filedDate: record.filedDate || jamaicaToday(),
-    });
-
-    setPaymentForm({
-      amount: Number(record.balanceDue || 0).toFixed(2),
-      paymentAccountNumber: "",
-      paymentDate: jamaicaToday(),
-      paymentMethod: "Online Transfer",
-      paymentReference: "",
-      receiptUrl: "",
-      notes: "",
-    });
-  };
-
-  const runWorkflowAction = async () => {
-    if (!selectedRecord || !selectedAction) return;
-
-    if (
-      selectedAction === "Submit" &&
-      !workflowForm.filingReference.trim()
-    ) {
-      alert("A real filing or submission reference is required.");
+    if (action?.kind !== "Payment") {
       return;
     }
 
-    const confirmationMessages = {
-      Review: `Mark ${selectedRecord.taxNumber} as Reviewed?`,
-      Approve: `Approve ${selectedRecord.taxNumber}?`,
-      Submit:
-        `Mark ${selectedRecord.taxNumber} as Submitted using filing reference ` +
-        `${workflowForm.filingReference}?`,
-      Reconcile:
-        `Reconcile ${selectedRecord.taxNumber}? This will only succeed if ` +
-        "the Tax Center and General Ledger balances agree.",
-    };
+    let active = true;
 
-    if (!window.confirm(confirmationMessages[selectedAction])) {
+    setAccounts([]);
+    setAccountError("");
+
+    api
+      .get("/api/financial-accounts")
+      .then((response) => {
+        if (!active) {
+          return;
+        }
+
+        const rows = Array.isArray(
+          response.data.data
+        )
+          ? response.data.data
+          : [];
+
+        const eligible = rows.filter(
+          (account) =>
+            account.status === "Active" &&
+            ["Bank", "Cash"].includes(
+              account.accountType
+            ) &&
+            account.currency === "JMD" &&
+            account.baseCurrency === "JMD" &&
+            account.linkedChartAccountCode &&
+            rows.filter(
+              (other) =>
+                other.linkedChartAccountCode ===
+                account.linkedChartAccountCode
+            ).length === 1
+        );
+
+        setAccounts(eligible);
+      })
+      .catch((requestError) => {
+        if (active) {
+          setAccountError(
+            requestError.response?.data?.message ||
+              "Could not load payment accounts."
+          );
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [action]);
+
+  const startAction = (record, kind) => {
+    setAction({ record, kind });
+    setError("");
+    setMessage("");
+
+    setForm(
+      kind === "Payment"
+        ? {
+            amount:
+              String(record.balanceDue),
+            paymentDate: today(),
+            paymentAccountNumber: "",
+            paymentMethod: "",
+            paymentReference: "",
+            notes: "",
+          }
+        : {
+            filingReference: "",
+            filingMethod: "",
+            filedDate: today(),
+            notes: "",
+          }
+    );
+  };
+
+  const change = (field, value) =>
+    setForm((previous) => ({
+      ...previous,
+      [field]: value,
+    }));
+
+  const complete = async (work) => {
+    if (pending.current) {
       return;
     }
+
+    pending.current = true;
+    setBusy(true);
+    setError("");
+    setMessage("");
 
     try {
-      setProcessing(true);
+      const response = await work();
 
-      const payload = {
-        action: selectedAction,
-        taxNumbers: [selectedRecord.taxNumber],
-        notes: workflowForm.notes.trim(),
-      };
+      const result = response.data.data;
 
-      if (selectedAction === "Submit") {
-        payload.filingReference =
-          workflowForm.filingReference.trim();
-        payload.filingMethod =
-          workflowForm.filingMethod.trim() || "TAJ Online";
-        payload.filedDate = workflowForm.filedDate;
+      const paymentDetails =
+        result?.transactionNumber
+          ? ` Transaction: ${result.transactionNumber}. Journal: ${result.journalEntryNumber}.`
+          : "";
+
+      setMessage(
+        (
+          response.data.message ||
+          "Action completed successfully."
+        ) + paymentDetails
+      );
+
+      setAction(null);
+
+      try {
+        await onChanged?.();
+      } catch {
+        setMessage(
+          "The action succeeded. Refresh Tax Center to reload the records." +
+            paymentDetails
+        );
+      }
+    } catch (requestError) {
+      setError(
+        requestError.response?.data?.message ||
+          "The operation could not be confirmed. Refresh and check the record before retrying."
+      );
+    } finally {
+      pending.current = false;
+      setBusy(false);
+    }
+  };
+
+  const submitAction = async (event) => {
+    event.preventDefault();
+
+    if (!action || pending.current) {
+      return;
+    }
+
+    const { record, kind } = action;
+
+    if (kind === "Payment") {
+      const amount = Number(form.amount);
+
+      if (
+        !Number.isFinite(amount) ||
+        amount <= 0 ||
+        amount >
+          Number(record.balanceDue)
+      ) {
+        setError(
+          "Enter a positive amount no greater than the outstanding balance."
+        );
+        return;
       }
 
-      const response = await api.post(
+      if (
+        !form.paymentAccountNumber ||
+        !form.paymentReference.trim()
+      ) {
+        setError(
+          "Select a payment account and enter the actual payment reference."
+        );
+        return;
+      }
+
+      await complete(() =>
+        api.post(
+          `/api/tax-center/records/${encodeURIComponent(
+            record.taxNumber
+          )}/pay`,
+
+          {
+            amount,
+            paymentDate:
+              form.paymentDate,
+            paymentAccountNumber:
+              form.paymentAccountNumber,
+            paymentMethod:
+              form.paymentMethod.trim(),
+            paymentReference:
+              form.paymentReference.trim(),
+            notes:
+              form.notes.trim(),
+          }
+        )
+      );
+
+      return;
+    }
+
+    const payload = {
+      action: kind,
+      taxNumbers: [record.taxNumber],
+      notes: form.notes.trim(),
+    };
+
+    if (kind === "Submit") {
+      payload.filingReference =
+        form.filingReference.trim();
+
+      payload.filingMethod =
+        form.filingMethod;
+
+      payload.filedDate =
+        form.filedDate;
+    }
+
+    await complete(() =>
+      api.post(
         "/api/tax-center/records/workflow",
         payload
-      );
-
-      alert(
-        response.data?.message ||
-          `${selectedAction} completed successfully.`
-      );
-
-      closeActionPanel();
-
-      if (onChanged) {
-        await onChanged();
-      }
-    } catch (error) {
-      console.error("Tax workflow action error:", error);
-
-      alert(
-        error?.response?.data?.message ||
-          `Could not complete ${selectedAction}.`
-      );
-    } finally {
-      setProcessing(false);
-    }
+      )
+    );
   };
 
-  const recordPayment = async () => {
-    if (!selectedRecord) return;
-
-    const amount = Number(paymentForm.amount || 0);
-
-    if (amount <= 0) {
-      alert("Payment amount must be greater than zero.");
-      return;
-    }
-
-    if (amount > Number(selectedRecord.balanceDue || 0)) {
-      alert("Payment cannot exceed the outstanding balance.");
-      return;
-    }
-
-    if (!paymentForm.paymentAccountNumber) {
-      alert("Select the real financial account used for payment.");
-      return;
-    }
-
-    if (!paymentForm.paymentReference.trim()) {
-      alert("A real payment confirmation or reference is required.");
-      return;
-    }
-
-    const selectedAccount = activePaymentAccounts.find(
-      (account) =>
-        account.accountNumber ===
-        paymentForm.paymentAccountNumber
-    );
-
-    const confirmed = window.confirm(
-      `Record a tax payment of ${money(amount)} from ` +
-        `${selectedAccount?.accountName || "the selected account"} ` +
-        `for ${selectedRecord.taxNumber}?`
-    );
-
-    if (!confirmed) return;
-
-    try {
-      setProcessing(true);
-
-      const response = await api.post(
-        `/api/tax-center/records/${encodeURIComponent(
-          selectedRecord.taxNumber
-        )}/pay`,
+  const applyDeadlines = () =>
+    complete(() =>
+      api.post(
+        "/api/tax-center/deadlines/apply",
         {
-          amount,
-          paymentAccountNumber:
-            paymentForm.paymentAccountNumber,
-          paymentDate: paymentForm.paymentDate,
-          paymentMethod: paymentForm.paymentMethod.trim(),
-          paymentReference:
-            paymentForm.paymentReference.trim(),
-          receiptUrl: paymentForm.receiptUrl.trim(),
-          notes: paymentForm.notes.trim(),
+          entityCode,
+          periodKey,
         }
-      );
-
-      alert(
-        response.data?.message ||
-          "Tax payment recorded successfully."
-      );
-
-      closeActionPanel();
-
-      if (onChanged) {
-        await onChanged();
-      }
-    } catch (error) {
-      console.error("Tax payment error:", error);
-
-      alert(
-        error?.response?.data?.message ||
-          "Could not record the tax payment."
-      );
-    } finally {
-      setProcessing(false);
-    }
-  };
+      )
+    );
 
   return (
-    <div style={panel}>
-      <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>
-        Tax Records
+    <section style={panel}>
+      <h2 style={{ marginTop: 0 }}>
+        Tax obligations and payments
       </h2>
 
-      {selectedRecord && (
-        <div style={actionPanel}>
-          <div style={actionHeader}>
-            <div>
-              <strong>
-                {selectedAction}: {selectedRecord.taxNumber}
-              </strong>
+      <p>
+        {summary.basis ||
+          "Review obligations before approval and submission. Recorded payments require matching accounting evidence."}
+      </p>
 
-              <div style={helpText}>
-                {selectedRecord.taxType} ·{" "}
-                {selectedRecord.periodKey ||
-                  `${selectedRecord.periodStart} to ${selectedRecord.periodEnd}`}
-                {" · "}
-                Balance {money(selectedRecord.balanceDue)}
-              </div>
-            </div>
-
-            <button
-              type="button"
-              onClick={closeActionPanel}
-              disabled={processing}
-              style={secondaryButton}
-            >
-              Close
-            </button>
+      <div style={grid}>
+        {[
+          ["Reviewed tax due", summary.totalTaxDue],
+          ["Recorded payments", summary.totalPaid],
+          ["Outstanding balance", summary.totalBalance],
+        ].map(([label, value]) => (
+          <div key={label}>
+            {label}
+            <strong style={amountStyle}>
+              {money(value)}
+            </strong>
           </div>
+        ))}
+      </div>
 
-          {selectedAction === "Pay" ? (
-            <div style={formGrid}>
-              <label style={fieldLabel}>
-                Payment amount
-                <input
-                  type="number"
-                  min="0.01"
-                  step="0.01"
-                  max={selectedRecord.balanceDue}
-                  value={paymentForm.amount}
-                  onChange={(event) =>
-                    setPaymentForm({
-                      ...paymentForm,
-                      amount: event.target.value,
-                    })
-                  }
-                  style={input}
-                />
-              </label>
+      <button
+        type="button"
+        disabled={
+          busy ||
+          !entityCode ||
+          !periodKey ||
+          !records.length
+        }
+        onClick={applyDeadlines}
+      >
+        Apply verified deadline rules
+      </button>
 
-              <label style={fieldLabel}>
-                Payment account
-                <select
-                  value={paymentForm.paymentAccountNumber}
-                  onChange={(event) =>
-                    setPaymentForm({
-                      ...paymentForm,
-                      paymentAccountNumber:
-                        event.target.value,
-                    })
-                  }
-                  style={input}
-                >
-                  <option value="">
-                    {loadingAccounts
-                      ? "Loading accounts..."
-                      : "Select payment account"}
-                  </option>
-
-                  {activePaymentAccounts.map((account) => (
-                    <option
-                      key={account.accountNumber}
-                      value={account.accountNumber}
-                    >
-                      {account.accountName} (
-                      {account.accountNumber}) —{" "}
-                      {money(account.currentBalance)}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <label style={fieldLabel}>
-                Payment date
-                <input
-                  type="date"
-                  value={paymentForm.paymentDate}
-                  onChange={(event) =>
-                    setPaymentForm({
-                      ...paymentForm,
-                      paymentDate: event.target.value,
-                    })
-                  }
-                  style={input}
-                />
-              </label>
-
-              <label style={fieldLabel}>
-                Payment method
-                <select
-                  value={paymentForm.paymentMethod}
-                  onChange={(event) =>
-                    setPaymentForm({
-                      ...paymentForm,
-                      paymentMethod: event.target.value,
-                    })
-                  }
-                  style={input}
-                >
-                  <option>Online Transfer</option>
-                  <option>Bank Transfer</option>
-                  <option>Debit Card</option>
-                  <option>Credit Card</option>
-                  <option>Cheque</option>
-                  <option>Cash</option>
-                  <option>Other</option>
-                </select>
-              </label>
-
-              <label style={fieldLabel}>
-                Payment confirmation/reference
-                <input
-                  value={paymentForm.paymentReference}
-                  onChange={(event) =>
-                    setPaymentForm({
-                      ...paymentForm,
-                      paymentReference:
-                        event.target.value,
-                    })
-                  }
-                  placeholder="Required real reference"
-                  style={input}
-                />
-              </label>
-
-              <label style={fieldLabel}>
-                Receipt URL
-                <input
-                  value={paymentForm.receiptUrl}
-                  onChange={(event) =>
-                    setPaymentForm({
-                      ...paymentForm,
-                      receiptUrl: event.target.value,
-                    })
-                  }
-                  placeholder="Optional receipt link"
-                  style={input}
-                />
-              </label>
-
-              <label
-                style={{
-                  ...fieldLabel,
-                  gridColumn: "1 / -1",
-                }}
-              >
-                Payment notes
-                <textarea
-                  value={paymentForm.notes}
-                  onChange={(event) =>
-                    setPaymentForm({
-                      ...paymentForm,
-                      notes: event.target.value,
-                    })
-                  }
-                  style={{ ...input, minHeight: "70px" }}
-                />
-              </label>
-
-              <button
-                type="button"
-                onClick={recordPayment}
-                disabled={processing}
-                style={primaryButton("#d97706")}
-              >
-                {processing
-                  ? "Recording Payment..."
-                  : `Record ${money(paymentForm.amount)} Payment`}
-              </button>
-            </div>
-          ) : (
-            <div style={formGrid}>
-              {selectedAction === "Submit" && (
-                <>
-                  <label style={fieldLabel}>
-                    Filing/submission reference
-                    <input
-                      value={workflowForm.filingReference}
-                      onChange={(event) =>
-                        setWorkflowForm({
-                          ...workflowForm,
-                          filingReference:
-                            event.target.value,
-                        })
-                      }
-                      placeholder="Required real reference"
-                      style={input}
-                    />
-                  </label>
-
-                  <label style={fieldLabel}>
-                    Filing method
-                    <select
-                      value={workflowForm.filingMethod}
-                      onChange={(event) =>
-                        setWorkflowForm({
-                          ...workflowForm,
-                          filingMethod: event.target.value,
-                        })
-                      }
-                      style={input}
-                    >
-                      <option>TAJ Online</option>
-                      <option>In Person</option>
-                      <option>Email</option>
-                      <option>Other</option>
-                    </select>
-                  </label>
-
-                  <label style={fieldLabel}>
-                    Filed/submitted date
-                    <input
-                      type="date"
-                      value={workflowForm.filedDate}
-                      onChange={(event) =>
-                        setWorkflowForm({
-                          ...workflowForm,
-                          filedDate: event.target.value,
-                        })
-                      }
-                      style={input}
-                    />
-                  </label>
-                </>
-              )}
-
-              <label
-                style={{
-                  ...fieldLabel,
-                  gridColumn: "1 / -1",
-                }}
-              >
-                Notes
-                <textarea
-                  value={workflowForm.notes}
-                  onChange={(event) =>
-                    setWorkflowForm({
-                      ...workflowForm,
-                      notes: event.target.value,
-                    })
-                  }
-                  style={{ ...input, minHeight: "70px" }}
-                />
-              </label>
-
-              <button
-                type="button"
-                onClick={runWorkflowAction}
-                disabled={processing}
-                style={primaryButton(
-                  actionColor(selectedAction)
-                )}
-              >
-                {processing
-                  ? `Processing ${selectedAction}...`
-                  : `Confirm ${selectedAction}`}
-              </button>
-            </div>
-          )}
-        </div>
+      {error && (
+        <p role="alert" style={errorStyle}>
+          {error}
+        </p>
       )}
 
-      <div style={tableContainer}>
-        <table style={table}>
-          <thead style={tableHead}>
+      {message && (
+        <p role="status" style={successStyle}>
+          {message}
+        </p>
+      )}
+
+      <div
+        style={{
+          overflowX: "auto",
+          marginTop: 16,
+        }}
+      >
+        <table>
+          <thead>
             <tr>
-              <th style={cell}>Tax No.</th>
-              <th style={cell}>Type</th>
-              <th style={cell}>Period</th>
-              <th style={cell}>Tax Due</th>
-              <th style={cell}>Paid</th>
-              <th style={cell}>Balance</th>
-              <th style={cell}>Due Date</th>
-              <th style={cell}>Status</th>
-              <th style={cell}>Action</th>
+              <th>Obligation / period</th>
+              <th>Tax / source</th>
+              <th>Status / deadline</th>
+              <th>Due / paid / balance</th>
+              <th>Actions and evidence</th>
             </tr>
           </thead>
 
           <tbody>
-            {records.length > 0 ? (
-              records.map((record) => {
-                const availableAction =
-                  getAvailableAction(record);
+            {records.map((record) => {
+              const sourceFiling = [
+                "GCT Return",
+                "Income Tax Estimate",
+              ].includes(
+                record.sourceType
+              );
 
-                return (
-                  <tr key={record._id || record.taxNumber}>
-                    <td style={{ ...cell, fontWeight: "bold" }}>
+              const nextAction = {
+                Calculated: "Review",
+                Reviewed: "Approve",
+                Approved: "Submit",
+              }[record.status];
+
+              const canPay =
+                [
+                  "Submitted",
+                  "Partially Paid",
+                  "Overdue",
+                ].includes(record.status) &&
+                Boolean(
+                  record.filingReference &&
+                    record.submittedAt
+                ) &&
+                Number(
+                  record.balanceDue
+                ) > 0;
+
+              const canReconcile =
+                record.status === "Paid" ||
+                (
+                  record.status ===
+                    "Submitted" &&
+                  Number(
+                    record.balanceDue
+                  ) === 0
+                );
+
+              return (
+                <tr key={record.taxNumber}>
+                  <td>
+                    <strong>
                       {record.taxNumber}
-                    </td>
-                    <td style={cell}>{record.taxType}</td>
-                    <td style={cell}>
-                      {record.periodKey ||
-                        `${record.periodStart} to ${record.periodEnd}`}
-                    </td>
-                    <td style={cell}>{money(record.taxDue)}</td>
-                    <td style={cell}>
-                      {money(record.amountPaid)}
-                    </td>
-                    <td style={{ ...cell, fontWeight: "bold" }}>
+                    </strong>
+                    <br />
+                    {record.entityCode ||
+                      "Business attribution required"}
+                    <br />
+                    {record.periodKey}
+                  </td>
+
+                  <td>
+                    {record.taxType}
+                    <br />
+                    {record.sourceType}
+                    <br />
+                    {record.sourceReference || ""}
+                  </td>
+
+                  <td>
+                    {record.status}
+                    <br />
+                    Due:{" "}
+                    {record.dueDate ||
+                      "Not configured"}
+                  </td>
+
+                  <td>
+                    Due: {money(record.taxDue)}
+                    <br />
+                    Paid:{" "}
+                    {money(record.amountPaid)}
+                    <br />
+                    <strong>
+                      Balance:{" "}
                       {money(record.balanceDue)}
-                    </td>
-                    <td style={cell}>
-                      {record.dueDate || "—"}
-                    </td>
-                    <td style={cell}>
-                      <span style={statusBadge}>
-                        {record.status}
-                      </span>
-                    </td>
-                    <td style={cell}>
-                      {availableAction ? (
+                    </strong>
+                  </td>
+
+                  <td>
+                    <div style={row}>
+                      {nextAction &&
+                        !(
+                          nextAction ===
+                            "Submit" &&
+                          sourceFiling
+                        ) && (
+                          <button
+                            type="button"
+                            disabled={busy}
+                            onClick={() =>
+                              startAction(
+                                record,
+                                nextAction
+                              )
+                            }
+                          >
+                            {nextAction}
+                          </button>
+                        )}
+
+                      {canPay && (
                         <button
                           type="button"
+                          disabled={busy}
                           onClick={() =>
-                            openActionPanel(record)
+                            startAction(
+                              record,
+                              "Payment"
+                            )
                           }
-                          style={primaryButton(
-                            actionColor(availableAction)
-                          )}
                         >
-                          {availableAction}
+                          Record payment
                         </button>
-                      ) : (
-                        <span style={{ color: MUTED }}>
-                          No action
-                        </span>
                       )}
-                    </td>
-                  </tr>
-                );
-              })
-            ) : (
+
+                      {canReconcile && (
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() =>
+                            startAction(
+                              record,
+                              "Reconcile"
+                            )
+                          }
+                        >
+                          Reconcile
+                        </button>
+                      )}
+                    </div>
+
+                    {sourceFiling &&
+                      record.status ===
+                        "Approved" && (
+                        <p>
+                          Submit through its
+                          source filing.
+                        </p>
+                      )}
+
+                    <details>
+                      <summary>
+                        Filing and payment evidence
+                      </summary>
+
+                      <p>
+                        Filing reference:{" "}
+                        {record.filingReference ||
+                          "Not recorded"}
+                      </p>
+
+                      <p>
+                        Source journal:{" "}
+                        {record.journalEntryNumber ||
+                          "Not recorded"}
+                      </p>
+
+                      {(
+                        record.remittances || []
+                      ).map((payment) => (
+                        <div
+                          key={
+                            payment.remittanceNumber ||
+                            `${payment.paymentReference}-${payment.journalEntryNumber}`
+                          }
+                          style={evidenceStyle}
+                        >
+                          <strong>
+                            {payment.remittanceNumber}
+                          </strong>
+                          <div>
+                            {payment.paymentDate}
+                            {" — "}
+                            {money(payment.amount)}
+                          </div>
+
+                          <div>
+                            Reference:{" "}
+                            {payment.paymentReference}
+                          </div>
+
+                          <div>
+                            Account:{" "}
+                            {payment.paymentAccountName}
+                          </div>
+
+                          <div>
+                            Journal:{" "}
+                            {payment.journalEntryNumber}
+                          </div>
+                        </div>
+                      ))}
+
+                      {!record.remittances
+                        ?.length && (
+                        <p>
+                          No recorded remittances.
+                        </p>
+                      )}
+                    </details>
+                  </td>
+                </tr>
+              );
+            })}
+
+            {!records.length && (
               <tr>
-                <td
-                  colSpan="9"
-                  style={{
-                    ...cell,
-                    textAlign: "center",
-                    color: MUTED,
-                  }}
-                >
-                  No tax records found for the selected scope.
+                <td colSpan={5}>
+                  No tax obligations for this
+                  business and reporting month.
                 </td>
               </tr>
             )}
           </tbody>
-
-          <tfoot style={tableFoot}>
-            <tr>
-              <td colSpan="3" style={cell}>
-                TOTALS
-              </td>
-              <td style={cell}>
-                {money(summary.totalTaxDue)}
-              </td>
-              <td style={cell}>
-                {money(summary.totalPaid)}
-              </td>
-              <td style={cell}>
-                {money(summary.totalBalance)}
-              </td>
-              <td colSpan="3" style={cell} />
-            </tr>
-          </tfoot>
         </table>
       </div>
-    </div>
+
+      {action && (
+        <form
+          onSubmit={submitAction}
+          style={formPanel}
+        >
+          <h3>
+            {action.kind}:{" "}
+            {action.record.taxNumber}
+          </h3>
+
+          <fieldset disabled={busy}>
+            {action.kind === "Payment" && (
+              <>
+                <p>
+                  Record a payment already made
+                  using its actual confirmation
+                  reference. If a request has an
+                  uncertain outcome, check the
+                  obligation before retrying;
+                  keep the same payment reference.
+                </p>
+
+                {accountError && (
+                  <p
+                    role="alert"
+                    style={errorStyle}
+                  >
+                    {accountError}
+                  </p>
+                )}
+
+                <div style={grid}>
+                  <label>
+                    Payment amount
+                    <input
+                      type="number"
+                      min="0.01"
+                      step="0.01"
+                      max={
+                        action.record.balanceDue
+                      }
+                      required
+                      value={form.amount}
+                      onChange={(event) =>
+                        change(
+                          "amount",
+                          event.target.value
+                        )
+                      }
+                    />
+                  </label>
+
+                  <label>
+                    Actual payment date
+                    <input
+                      type="date"
+                      required
+                      max={today()}
+                      value={form.paymentDate}
+                      onChange={(event) =>
+                        change(
+                          "paymentDate",
+                          event.target.value
+                        )
+                      }
+                    />
+                  </label>
+
+                  <label>
+                    JMD Bank / Cash account
+                    <select
+                      required
+                      value={
+                        form.paymentAccountNumber
+                      }
+                      onChange={(event) =>
+                        change(
+                          "paymentAccountNumber",
+                          event.target.value
+                        )
+                      }
+                    >
+                      <option value="">
+                        Select account
+                      </option>
+
+                      {accounts.map(
+                        (account) => (
+                          <option
+                            key={
+                              account.accountNumber
+                            }
+                            value={
+                              account.accountNumber
+                            }
+                          >
+                            {account.accountName}
+                            {" — "}
+                            {money(
+                              account.currentBalance
+                            )}
+                          </option>
+                        )
+                      )}
+                    </select>
+                  </label>
+
+                  <label>
+                    Payment method
+                    <input
+                      required
+                      placeholder="For example: bank transfer"
+                      value={
+                        form.paymentMethod
+                      }
+                      onChange={(event) =>
+                        change(
+                          "paymentMethod",
+                          event.target.value
+                        )
+                      }
+                    />
+                  </label>
+
+                  <label>
+                    Actual confirmation reference
+                    <input
+                      required
+                      autoComplete="off"
+                      value={
+                        form.paymentReference
+                      }
+                      onChange={(event) =>
+                        change(
+                          "paymentReference",
+                          event.target.value
+                        )
+                      }
+                    />
+                  </label>
+                </div>
+
+                <p>
+                  Only eligible JMD Bank or Cash
+                  accounts are listed. The server
+                  also checks account links,
+                  recorded funds, and tax-to-ledger
+                  evidence before saving.
+                </p>
+              </>
+            )}
+
+            {action.kind === "Submit" && (
+              <div style={grid}>
+                <label>
+                  Official filing reference
+                  <input
+                    required
+                    value={
+                      form.filingReference
+                    }
+                    onChange={(event) =>
+                      change(
+                        "filingReference",
+                        event.target.value
+                      )
+                    }
+                  />
+                </label>
+
+                <label>
+                  Filing method
+                  <select
+                    required
+                    value={form.filingMethod}
+                    onChange={(event) =>
+                      change(
+                        "filingMethod",
+                        event.target.value
+                      )
+                    }
+                  >
+                    <option value="">
+                      Select method
+                    </option>
+
+                    {[
+                      "TAJ Online",
+                      "Manual Submission",
+                      "Tax Agent",
+                      "Other",
+                    ].map((method) => (
+                      <option key={method}>
+                        {method}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label>
+                  Actual filed date
+                  <input
+                    type="date"
+                    required
+                    max={today()}
+                    value={form.filedDate}
+                    onChange={(event) =>
+                      change(
+                        "filedDate",
+                        event.target.value
+                      )
+                    }
+                  />
+                </label>
+              </div>
+            )}
+
+            {action.kind === "Reconcile" && (
+              <p>
+                The obligation must have a zero
+                outstanding balance and matching
+                filing, remittance, and ledger
+                evidence. This does not perform
+                bank reconciliation.
+              </p>
+            )}
+
+            <label>
+              Review / action notes
+              <textarea
+                value={form.notes}
+                onChange={(event) =>
+                  change(
+                    "notes",
+                    event.target.value
+                  )
+                }
+              />
+            </label>
+
+            <div style={row}>
+              <button type="submit">
+                {busy
+                  ? "Saving…"
+                  : action.kind === "Payment"
+                    ? "Save recorded payment"
+                    : `Confirm ${action.kind}`}
+              </button>
+
+              <button
+                type="button"
+                onClick={() =>
+                  setAction(null)
+                }
+              >
+                Cancel
+              </button>
+            </div>
+          </fieldset>
+        </form>
+      )}
+    </section>
   );
 }
 
 const panel = {
-  backgroundColor: "white",
-  border: `1px solid ${BORDER}`,
-  borderRadius: "12px",
-  padding: "18px",
-  marginBottom: "18px",
+  background: "white",
+  border: "1px solid #dbe3ef",
+  borderRadius: 12,
+  padding: 18,
+  marginBottom: 16,
 };
 
-const actionPanel = {
-  border: "1px solid #bfdbfe",
-  backgroundColor: "#f8fbff",
-  borderRadius: "12px",
-  padding: "16px",
-  marginBottom: "16px",
-};
-
-const actionHeader = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "flex-start",
-  gap: "12px",
-  marginBottom: "14px",
-};
-
-const helpText = {
-  color: MUTED,
-  fontSize: "13px",
-  marginTop: "5px",
-};
-
-const formGrid = {
+const grid = {
   display: "grid",
   gridTemplateColumns:
     "repeat(auto-fit, minmax(220px, 1fr))",
-  gap: "12px",
+  gap: 12,
+  marginBottom: 14,
 };
 
-const fieldLabel = {
+const row = {
   display: "flex",
-  flexDirection: "column",
-  gap: "6px",
-  fontSize: "13px",
-  fontWeight: "600",
-  color: "#334155",
+  gap: 8,
+  flexWrap: "wrap",
+  margin: "12px 0",
 };
 
-const input = {
-  width: "100%",
-  boxSizing: "border-box",
-  border: `1px solid ${BORDER}`,
-  borderRadius: "8px",
-  padding: "10px",
-  backgroundColor: "white",
+const formPanel = {
+  marginTop: 18,
+  padding: 16,
+  border: "1px solid #bfdbfe",
+  borderRadius: 10,
+  background: "#f8fafc",
 };
 
-const tableContainer = {
-  overflowX: "auto",
-  overflowY: "auto",
-  maxHeight: "70vh",
-  border: `1px solid ${BORDER}`,
-  borderRadius: "12px",
+const evidenceStyle = {
+  margin: "10px 0",
+  padding: 10,
+  border: "1px solid #dbe3ef",
+  borderRadius: 8,
 };
 
-const table = {
-  minWidth: "1250px",
-  width: "100%",
-  borderCollapse: "collapse",
+const amountStyle = {
+  display: "block",
+  marginTop: 5,
+  fontSize: 20,
+  color: "#0b3d91",
 };
 
-const tableHead = {
-  backgroundColor: "#eef4ff",
-  position: "sticky",
-  top: 0,
-  zIndex: 1,
+const errorStyle = {
+  padding: 12,
+  color: "#991b1b",
+  background: "#fef2f2",
+  borderRadius: 8,
 };
 
-const tableFoot = {
-  backgroundColor: "#f8fafc",
-  fontWeight: "bold",
+const successStyle = {
+  padding: 12,
+  color: "#166534",
+  background: "#f0fdf4",
+  borderRadius: 8,
 };
-
-const cell = {
-  border: `1px solid ${BORDER}`,
-  padding: "10px",
-  textAlign: "left",
-  verticalAlign: "top",
-};
-
-const statusBadge = {
-  display: "inline-block",
-  padding: "5px 9px",
-  borderRadius: "999px",
-  backgroundColor: "#e2e8f0",
-  fontSize: "12px",
-  fontWeight: "700",
-  whiteSpace: "nowrap",
-};
-
-const secondaryButton = {
-  border: `1px solid ${BORDER}`,
-  backgroundColor: "white",
-  color: "#334155",
-  borderRadius: "8px",
-  padding: "8px 12px",
-  cursor: "pointer",
-  fontWeight: "700",
-};
-
-const primaryButton = (color) => ({
-  border: "none",
-  backgroundColor: color,
-  color: "white",
-  borderRadius: "8px",
-  padding: "9px 13px",
-  cursor: "pointer",
-  fontWeight: "700",
-  whiteSpace: "nowrap",
-});
 
 export default TaxRecordsWorkflowPanel;
