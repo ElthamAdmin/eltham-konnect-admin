@@ -1,548 +1,403 @@
 import { useEffect, useState } from "react";
 import api from "../api";
 
+const BLUE = "#0B3D91";
+
+const panel = {
+  background: "white",
+  border: "1px solid #dbe3ef",
+  borderRadius: 12,
+  padding: 18,
+  marginTop: 18,
+};
+
+const input = {
+  display: "block",
+  boxSizing: "border-box",
+  width: "100%",
+  padding: 10,
+  marginTop: 6,
+  border: "1px solid #cbd5e1",
+  borderRadius: 6,
+};
+
+const button = {
+  background: BLUE,
+  color: "white",
+  border: 0,
+  borderRadius: 6,
+  padding: "9px 12px",
+  cursor: "pointer",
+};
+
+const currentYear = () =>
+  Number(
+    new Intl.DateTimeFormat("en-US", {
+      year: "numeric",
+      timeZone: "America/Jamaica",
+    }).format(new Date())
+  );
+
 function FiscalYears() {
   const [years, setYears] = useState([]);
   const [formOpen, setFormOpen] = useState(false);
-  const [selectedValidation, setSelectedValidation] = useState(null);
-
-  const [formData, setFormData] = useState({
-    fiscalYear: new Date().getFullYear(),
-    startDate: `${new Date().getFullYear()}-01-01`,
-    endDate: `${new Date().getFullYear()}-12-31`,
-    totalPeriods: 12,
-    notes: "",
-  });
-
-  const ROYAL_BLUE = "#0B3D91";
-  const MUTED = "#64748b";
+  const [yearValue, setYearValue] = useState(currentYear);
+  const [notes, setNotes] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
+  const [validation, setValidation] = useState(null);
 
   const loadYears = async () => {
-    try {
-      const res = await api.get("/api/fiscal-years");
-      setYears(res.data.data || []);
-    } catch (error) {
-      alert(error?.response?.data?.message || "Could not load fiscal years.");
-    }
+    const response = await api.get("/api/fiscal-years");
+    setYears(response.data.data || []);
   };
 
   useEffect(() => {
-    loadYears();
+    loadYears()
+      .catch((failure) =>
+        setError(
+          failure?.response?.data?.message ||
+            "Could not load fiscal years."
+        )
+      )
+      .finally(() => setLoading(false));
   }, []);
 
-  const saveYear = async () => {
+  const run = async (operation) => {
+    if (busy) return;
+
+    setBusy(true);
+    setError("");
+    setMessage("");
+
     try {
-      await api.post("/api/fiscal-years", formData);
-      alert("Fiscal year created successfully.");
+      await operation();
+    } catch (failure) {
+      setError(
+        failure?.response?.data?.message ||
+          "Could not complete this action."
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const createYear = () =>
+    run(async () => {
+      const response = await api.post("/api/fiscal-years", {
+        fiscalYear: yearValue,
+        notes,
+      });
+
+      setMessage(response.data.message);
       setFormOpen(false);
+      setValidation(null);
       await loadYears();
-    } catch (error) {
-      alert(error?.response?.data?.message || "Could not create fiscal year.");
-    }
-  };
+    });
 
-  const validateYear = async (fiscalYear) => {
-    try {
-      const res = await api.get(`/api/fiscal-years/${fiscalYear}/validate?mode=progress`);
-      setSelectedValidation(res.data.data || null);
-      alert(res.data.message || "Fiscal year validation completed.");
-      await loadYears();
-    } catch (error) {
-      alert(error?.response?.data?.message || "Could not validate fiscal year.");
-    }
-  };
-
-  const closeYear = async (fiscalYear) => {
-    if (!window.confirm("Close this fiscal year? All accounting periods must already be closed.")) return;
-
-    try {
-      await api.put(`/api/fiscal-years/${fiscalYear}/close`);
-      alert("Fiscal year closed successfully.");
-      setSelectedValidation(null);
-      await loadYears();
-    } catch (error) {
-      alert(error?.response?.data?.message || "Could not close fiscal year.");
-    }
-  };
-
-  const lockYear = async (fiscalYear) => {
-    if (!window.confirm("Lock this fiscal year? Locked years should not be changed.")) return;
-
-    try {
-      await api.put(`/api/fiscal-years/${fiscalYear}/lock`);
-      alert("Fiscal year locked successfully.");
-      await loadYears();
-    } catch (error) {
-      alert(error?.response?.data?.message || "Could not lock fiscal year.");
-    }
-  };
-
-    const createNextYear = async (fiscalYear) => {
-    if (!window.confirm(`Create the next fiscal year after ${fiscalYear}?`)) return;
-
-    try {
-      await api.post(`/api/fiscal-years/${fiscalYear}/create-next`);
-      alert("Next fiscal year created successfully.");
-      await loadYears();
-    } catch (error) {
-      alert(error?.response?.data?.message || "Could not create next fiscal year.");
-    }
-  };
-
-  const executeYearEndClose = async (fiscalYear) => {
-    if (!window.confirm(`Execute year-end close for FY ${fiscalYear}? This will generate opening balances and close the year.`)) return;
-
-    try {
-      await api.post(`/api/fiscal-years/${fiscalYear}/year-end-close`);
-      alert("Year-end close completed successfully.");
-      setSelectedValidation(null);
-      await loadYears();
-    } catch (error) {
-      alert(error?.response?.data?.message || "Could not execute year-end close.");
-    }
-  };
-
-    const generateOpeningBalances = async (fiscalYear) => {
-    if (!window.confirm(`Generate opening balances from FY ${fiscalYear}?`)) return;
-
-    try {
-      await api.post(`/api/fiscal-years/${fiscalYear}/opening-balances`);
-      alert("Opening balances generated successfully.");
-      await loadYears();
-    } catch (error) {
-      alert(error?.response?.data?.message || "Could not generate opening balances.");
-    }
-  };
-
-  const runEnterpriseYearEnd = async (fiscalYear) => {
-    if (
-      !window.confirm(
-        `Run full enterprise year-end automation for FY ${fiscalYear}? This will validate, close, create next year, generate opening balances, switch current year, and lock the old fiscal year.`
-      )
-    ) {
-      return;
-    }
-
-    try {
-      const res = await api.post(`/api/fiscal-years/${fiscalYear}/run-enterprise-year-end`);
-      const steps = res.data?.data?.completedSteps || [];
-
-      alert(
-        `Enterprise year-end completed successfully.\n\n${steps
-          .map((step) => `✓ ${step}`)
-          .join("\n")}`
+  const checkYear = (year, mode) =>
+    run(async () => {
+      const response = await api.get(
+        `/api/fiscal-years/${year}/validate`,
+        { params: { mode } }
       );
 
-      setSelectedValidation(null);
+      setValidation(response.data.data);
+      setMessage(response.data.message);
+    });
+
+  const changeYear = (year, action) => {
+    const prompts = {
+      close:
+        `Close annual posting for FY ${year} across ALL businesses and branches? ` +
+        "All 12 months must be Closed or Locked. Confirm that missing records, " +
+        "reconciliation, and applicable depreciation have been reviewed. " +
+        "No opening or income-transfer journals will be created.",
+      lock:
+        `Lock the Closed FY ${year}? There is no fiscal-year reopening action ` +
+        "on this page. Lock only after final review.",
+      "create-next":
+        `Prepare FY ${year + 1} and any missing monthly periods? ` +
+        "Existing periods retain their settings. This does not close the old " +
+        "year, repost balances, activate the LLC, or change the calendar year.",
+    };
+
+    if (!window.confirm(prompts[action])) return;
+
+    run(async () => {
+      const path = `/api/fiscal-years/${year}/${action}`;
+
+      const response =
+        action === "create-next"
+          ? await api.post(path)
+          : await api.put(path);
+
+      setMessage(response.data.message);
+      setValidation(null);
       await loadYears();
-    } catch (error) {
-      alert(error?.response?.data?.message || "Could not run enterprise year-end automation.");
-    }
-  };
-
-  const statusColor = (status) => {
-    if (status === "Open") return "#16a34a";
-    if (status === "Closing") return "#f59e0b";
-    if (status === "Closed") return "#7c3aed";
-    if (status === "Locked") return "#dc2626";
-    return MUTED;
-  };
-
-  const validationColor = (status) => {
-    if (status === "Passed") return "#16a34a";
-    if (status === "Failed") return "#dc2626";
-    return "#f59e0b";
+    });
   };
 
   return (
     <div>
-      <div style={{ marginBottom: "20px" }}>
-        <h1 style={{ margin: 0 }}>Fiscal Year-End Close</h1>
-        <p style={{ marginTop: "6px", color: MUTED }}>
-          Manage fiscal years, validation, close status, next-year creation, and locked corporate accounting years.
+      <h1 style={{ margin: 0, color: BLUE }}>Fiscal Years</h1>
+
+      <p style={{ color: "#475569" }}>
+        Annual posting controls for all businesses and branches.
+        Each year covers January 1 to December 31 with 12 monthly periods.
+        Changes require an Admin.
+      </p>
+
+      <section style={{ ...panel, background: "#fff7ed" }}>
+        <strong>Preparing a year does not move money or activate a business.</strong>
+        <p style={{ marginBottom: 0 }}>
+          Ledger balances continue automatically across years.
+          Closing blocks annual posting without reposting opening balances.
+          Missing records, bank reconciliation, tax filings, and accountant
+          review remain separate checks.
         </p>
-      </div>
+      </section>
 
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-          gap: "14px",
-          marginBottom: "18px",
-        }}
+      {error && (
+        <p role="alert" style={{ color: "#991b1b" }}>{error}</p>
+      )}
+
+      {message && (
+        <p role="status" style={{ color: "#166534" }}>{message}</p>
+      )}
+
+      <button
+        type="button"
+        disabled={busy || loading}
+        onClick={() => setFormOpen((open) => !open)}
+        style={{ ...button, marginTop: 18 }}
       >
-        <Card title="Fiscal Years" value={years.length} color={ROYAL_BLUE} />
-        <Card title="Open Years" value={years.filter((year) => year.status === "Open").length} color="#16a34a" />
-        <Card title="Closed Years" value={years.filter((year) => year.status === "Closed").length} color="#7c3aed" />
-        <Card title="Locked Years" value={years.filter((year) => year.status === "Locked").length} color="#dc2626" />
-      </div>
-
-      <button onClick={() => setFormOpen((prev) => !prev)} style={button(ROYAL_BLUE)}>
-        {formOpen ? "Close Form" : "+ Add Fiscal Year"}
+        {formOpen ? "Close Form" : "+ Prepare Fiscal Year"}
       </button>
 
       {formOpen && (
-        <div style={panel}>
-          <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>New Fiscal Year</h2>
+        <section style={panel}>
+          <h2 style={{ marginTop: 0, color: BLUE }}>
+            Prepare Fiscal Year
+          </h2>
 
-          <div style={grid}>
-            <input
-              type="number"
-              placeholder="Fiscal Year"
-              value={formData.fiscalYear}
-              onChange={(e) =>
-                setFormData({
-                  ...formData,
-                  fiscalYear: Number(e.target.value),
-                })
-              }
-              style={input}
-            />
+          <fieldset
+            disabled={busy}
+            style={{ border: 0, padding: 0, margin: 0 }}
+          >
+            <label>
+              Fiscal year
+              <input
+                type="number"
+                min="2000"
+                max="2100"
+                step="1"
+                value={yearValue}
+                onChange={(event) => setYearValue(event.target.value)}
+                style={{ ...input, maxWidth: 240 }}
+              />
+            </label>
 
-            <input
-              type="date"
-              value={formData.startDate}
-              onChange={(e) =>
-                setFormData({
-                  ...formData,
-                  startDate: e.target.value,
-                })
-              }
-              style={input}
-            />
+            <p>
+              Dates: {yearValue}-01-01 to {yearValue}-12-31.
+              Missing monthly periods will be created.
+              Existing monthly periods will be preserved.
+            </p>
 
-            <input
-              type="date"
-              value={formData.endDate}
-              onChange={(e) =>
-                setFormData({
-                  ...formData,
-                  endDate: e.target.value,
-                })
-              }
-              style={input}
-            />
+            <label>
+              Notes
+              <textarea
+                value={notes}
+                maxLength={2000}
+                onChange={(event) => setNotes(event.target.value)}
+                style={input}
+              />
+            </label>
 
-            <input
-              type="number"
-              placeholder="Total Periods"
-              value={formData.totalPeriods}
-              onChange={(e) =>
-                setFormData({
-                  ...formData,
-                  totalPeriods: Number(e.target.value || 12),
-                })
-              }
-              style={input}
-            />
-
-            <textarea
-              placeholder="Notes"
-              value={formData.notes}
-              onChange={(e) =>
-                setFormData({
-                  ...formData,
-                  notes: e.target.value,
-                })
-              }
-              style={{ ...input, gridColumn: "1 / -1" }}
-            />
-          </div>
-
-          <button onClick={saveYear} style={{ ...button("#16a34a"), marginTop: "14px" }}>
-            Save Fiscal Year
-          </button>
-        </div>
-      )}
-
-      {selectedValidation && (
-        <div style={panel}>
-          <div style={{ display: "flex", justifyContent: "space-between", gap: "12px", flexWrap: "wrap" }}>
-            <div>
-              <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>
-                Year-End Validation — {selectedValidation?.year?.yearName}
-              </h2>
-
-              <p style={{ color: MUTED }}>
-                Ready for Year-End Close:{" "}
-                <b style={{ color: selectedValidation?.readyForYearEndClose ? "#16a34a" : "#dc2626" }}>
-                  {selectedValidation?.readyForYearEndClose ? "Yes" : "No"}
-                </b>
-              </p>
-            </div>
-
-            <button type="button" onClick={() => setSelectedValidation(null)} style={button("#64748b")}>
-              Close Validation
+            <button
+              type="button"
+              onClick={createYear}
+              style={{ ...button, marginTop: 12 }}
+            >
+              {busy ? "Preparing..." : "Prepare Year and Months"}
             </button>
-          </div>
-
-          <div style={grid}>
-            <CheckCard
-              label="All Periods Closed"
-              passed={Number(selectedValidation?.summary?.periodStats?.openPeriods || 0) === 0 &&
-                Number(selectedValidation?.summary?.periodStats?.closingPeriods || 0) === 0}
-            />
-
-            <CheckCard
-              label="Trial Balance Balanced"
-              passed={selectedValidation?.summary?.trialBalance?.isBalanced === true}
-            />
-
-            <CheckCard
-              label="Balance Sheet Balanced"
-              passed={selectedValidation?.summary?.balanceSheet?.isBalanced === true}
-            />
-
-            <CheckCard
-              label="No Unposted Journals"
-              passed={Number(selectedValidation?.summary?.journals?.unpostedCount || 0) === 0}
-            />
-
-            <CheckCard
-              label="Profit & Loss Generated"
-              passed={Boolean(selectedValidation?.summary?.profitAndLoss)}
-            />
-          </div>
-
-          {(selectedValidation?.errors || []).length > 0 && (
-            <div style={{ marginTop: "16px", color: "#dc2626", fontWeight: "bold" }}>
-              <h3>Validation Errors</h3>
-              <ul>
-                {selectedValidation.errors.map((error, index) => (
-                  <li key={index}>{error}</li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          {(selectedValidation?.warnings || []).length > 0 && (
-            <div style={{ marginTop: "16px", color: "#f59e0b", fontWeight: "bold" }}>
-              <h3>Validation Warnings</h3>
-              <ul>
-                {selectedValidation.warnings.map((warning, index) => (
-                  <li key={index}>{warning}</li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </div>
+          </fieldset>
+        </section>
       )}
 
-      <div style={panel}>
-        <h2 style={{ marginTop: 0, color: ROYAL_BLUE }}>Fiscal Years</h2>
+      {validation && (
+        <section style={panel}>
+          <h2 style={{ marginTop: 0, color: BLUE }}>
+            Checks — FY {validation.year.fiscalYear}
+          </h2>
+
+          <p>
+            Mode:{" "}
+            {validation.summary.validationMode === "progress"
+              ? "In-year progress"
+              : "Annual closing readiness"}
+          </p>
+
+          <p>
+            Selected checks: <strong>{validation.passed ? "Passed" : "Review required"}</strong>
+            {" · "}Ready for annual posting closure:{" "}
+            <strong>{validation.readyForYearEndClose ? "Yes" : "No"}</strong>
+          </p>
+
+          <p>
+            Months found: {validation.summary.periodStats.totalPeriodsFound}/12
+            {" · "}Open: {validation.summary.periodStats.openPeriods}
+            {" · "}Closing: {validation.summary.periodStats.closingPeriods}
+            {" · "}Closed: {validation.summary.periodStats.closedPeriods}
+            {" · "}Locked: {validation.summary.periodStats.lockedPeriods}
+          </p>
+
+          <h3>Items requiring correction</h3>
+          {validation.errors.length ? (
+            <ul>
+              {validation.errors.map((item, index) => (
+                <li key={index}>{item}</li>
+              ))}
+            </ul>
+          ) : (
+            <p>No errors in the selected check mode.</p>
+          )}
+
+          <h3>Review notices</h3>
+          <ul>
+            {validation.warnings.map((item, index) => (
+              <li key={index}>{item}</li>
+            ))}
+          </ul>
+
+          <button
+            type="button"
+            onClick={() => setValidation(null)}
+            style={button}
+          >
+            Dismiss Checks
+          </button>
+        </section>
+      )}
+
+      <section style={panel}>
+        <h2 style={{ marginTop: 0, color: BLUE }}>Annual Controls</h2>
+
+        <p style={{ color: "#475569" }}>
+          “Calendar current” follows Jamaica’s date. It does not override
+          posting restrictions or activate the LLC. Annual closure does not
+          mark all year-end accounting work completed.
+        </p>
 
         <div style={{ overflowX: "auto" }}>
           <table
-            border="1"
             cellPadding="10"
+            border="1"
             style={{
-              minWidth: "1500px",
               width: "100%",
+              minWidth: 1100,
               borderCollapse: "collapse",
             }}
           >
-            <thead style={{ backgroundColor: "#eef4ff" }}>
+            <thead style={{ background: "#eef4ff" }}>
               <tr>
-                <th>Fiscal Year</th>
-                <th>Name</th>
-                <th>Start</th>
-                <th>End</th>
+                <th>Year</th>
+                <th>Dates</th>
                 <th>Status</th>
-                <th>Posting</th>
-                <th>Validation</th>
-                <th>Periods</th>
-                <th>Open</th>
-                <th>Closed</th>
-                <th>Locked</th>
-                <th>Current</th>
-                <th>Closed By</th>
-                <th>Locked By</th>
+                <th>Annual posting</th>
+                <th>Months found</th>
+                <th>Open / Closing</th>
+                <th>Closed / Locked</th>
+                <th>Calendar current</th>
                 <th>Actions</th>
               </tr>
             </thead>
 
             <tbody>
-              {years.length > 0 ? (
-                years.map((year) => (
-                  <tr key={year._id}>
-                    <td style={{ fontWeight: "bold" }}>{year.fiscalYear}</td>
-                    <td>{year.yearName}</td>
-                    <td>{year.startDate}</td>
-                    <td>{year.endDate}</td>
-                    <td style={{ color: statusColor(year.status), fontWeight: "bold" }}>
-                      {year.status}
-                    </td>
-                    <td style={{ color: year.allowPosting === false ? "#dc2626" : "#16a34a", fontWeight: "bold" }}>
-                      {year.allowPosting === false ? "Blocked" : "Allowed"}
-                    </td>
-                    <td style={{ color: validationColor(year.validationStatus), fontWeight: "bold" }}>
-                      {year.validationStatus || "Not Validated"}
-                    </td>
-                    <td>{year.totalPeriods}</td>
-                    <td>{year.openPeriods || 0}</td>
-                    <td>{year.closedPeriods || 0}</td>
-                    <td>{year.lockedPeriods || 0}</td>
-                    <td>{year.isCurrentYear ? "Yes" : "No"}</td>
-                    <td>{year.closedBy || "—"}</td>
-                    <td>{year.lockedBy || "—"}</td>
-                    <td>
-                      <button onClick={() => validateYear(year.fiscalYear)} style={smallButton(ROYAL_BLUE)}>
-                        Validate
+              {years.map((year) => (
+                <tr key={year._id}>
+                  <td>{year.fiscalYear}</td>
+                  <td>{year.startDate} to {year.endDate}</td>
+                  <td>{year.status}</td>
+                  <td>
+                    {year.status === "Open" && year.allowPosting === true
+                      ? "Allowed in Open months"
+                      : "Blocked"}
+                  </td>
+                  <td>{year.totalPeriodsFound}/12</td>
+                  <td>{year.openPeriods}</td>
+                  <td>{year.closedPeriods} / {year.lockedPeriods}</td>
+                  <td>{year.isCurrentYear ? "Yes" : "No"}</td>
+                  <td>
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                      <button
+                        type="button"
+                        disabled={busy || loading}
+                        onClick={() => checkYear(year.fiscalYear, "progress")}
+                        style={button}
+                      >
+                        Check Progress
                       </button>
 
                       <button
-                        onClick={() => closeYear(year.fiscalYear)}
-                        disabled={year.status === "Closed" || year.status === "Locked"}
-                        style={{ ...smallButton("#f59e0b"), marginLeft: "8px" }}
+                        type="button"
+                        disabled={busy || loading}
+                        onClick={() => checkYear(year.fiscalYear, "yearEndClose")}
+                        style={button}
                       >
-                        Close
-                      </button>
-
-                                            <button
-                        onClick={() => createNextYear(year.fiscalYear)}
-                        style={{ ...smallButton("#16a34a"), marginLeft: "8px" }}
-                      >
-                        Create Next
+                        Check Closing Readiness
                       </button>
 
                       <button
-                        onClick={() => generateOpeningBalances(year.fiscalYear)}
-                        disabled={Boolean(year.openingJournalEntry)}
-                        style={{
-                          ...smallButton(year.openingJournalEntry ? "#94a3b8" : "#0ea5e9"),
-                          marginLeft: "8px",
-                          cursor: year.openingJournalEntry ? "not-allowed" : "pointer",
-                        }}
+                        type="button"
+                        disabled={busy || loading || year.fiscalYear >= 2100}
+                        onClick={() => changeYear(year.fiscalYear, "create-next")}
+                        style={button}
                       >
-                        Opening Balances
-                      </button>
-
-                                            <button
-                        onClick={() => executeYearEndClose(year.fiscalYear)}
-                        disabled={year.status === "Closed" || year.status === "Locked"}
-                        style={{
-                          ...smallButton(
-                            year.status === "Closed" || year.status === "Locked"
-                              ? "#94a3b8"
-                              : "#7c3aed"
-                          ),
-                          marginLeft: "8px",
-                          cursor:
-                            year.status === "Closed" || year.status === "Locked"
-                              ? "not-allowed"
-                              : "pointer",
-                        }}
-                      >
-                        Year-End Close
+                        Prepare Next Year
                       </button>
 
                       <button
-                        onClick={() => runEnterpriseYearEnd(year.fiscalYear)}
-                        disabled={year.status === "Locked"}
-                        style={{
-                          ...smallButton(year.status === "Locked" ? "#94a3b8" : "#111827"),
-                          marginLeft: "8px",
-                          cursor: year.status === "Locked" ? "not-allowed" : "pointer",
-                        }}
+                        type="button"
+                        disabled={
+                          busy ||
+                          loading ||
+                          !["Open", "Closing"].includes(year.status)
+                        }
+                        onClick={() => changeYear(year.fiscalYear, "close")}
+                        style={{ ...button, background: "#92400e" }}
                       >
-                        Run Enterprise Year-End
+                        Close Annual Posting
                       </button>
 
                       <button
-                        onClick={() => lockYear(year.fiscalYear)}
-                        disabled={year.status === "Locked"}
-                        style={{ ...smallButton("#dc2626"), marginLeft: "8px" }}
+                        type="button"
+                        disabled={busy || loading || year.status !== "Closed"}
+                        onClick={() => changeYear(year.fiscalYear, "lock")}
+                        style={{ ...button, background: "#991b1b" }}
                       >
-                        Lock
+                        Lock Closed Year
                       </button>
-                    </td>
-                  </tr>
-                ))
-              ) : (
+                    </div>
+                  </td>
+                </tr>
+              ))}
+
+              {!years.length && (
                 <tr>
-                  <td colSpan="15" style={{ textAlign: "center", color: MUTED }}>
-                    No fiscal years found.
+                  <td colSpan={9}>
+                    {loading ? "Loading..." : "No fiscal years found."}
                   </td>
                 </tr>
               )}
             </tbody>
           </table>
         </div>
-      </div>
+      </section>
     </div>
   );
-}
-
-function Card({ title, value, color }) {
-  return (
-    <div style={panel}>
-      <h2 style={{ margin: 0, color }}>{value}</h2>
-      <p style={{ marginBottom: 0, fontWeight: "bold" }}>{title}</p>
-    </div>
-  );
-}
-
-function CheckCard({ label, passed }) {
-  return (
-    <div
-      style={{
-        border: "1px solid #dbe3ef",
-        borderRadius: "10px",
-        padding: "12px",
-        backgroundColor: passed ? "#f0fdf4" : "#fef2f2",
-      }}
-    >
-      <div style={{ fontWeight: "bold", color: passed ? "#16a34a" : "#dc2626" }}>
-        {passed ? "✓ Passed" : "✕ Required"}
-      </div>
-      <div style={{ marginTop: "6px" }}>{label}</div>
-    </div>
-  );
-}
-
-const grid = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))",
-  gap: "12px",
-};
-
-const panel = {
-  backgroundColor: "white",
-  border: "1px solid #dbe3ef",
-  borderRadius: "12px",
-  padding: "18px",
-  marginTop: "18px",
-};
-
-const input = {
-  padding: "10px",
-  borderRadius: "8px",
-  border: "1px solid #dbe3ef",
-};
-
-function button(color) {
-  return {
-    backgroundColor: color,
-    color: "white",
-    border: "none",
-    padding: "10px 16px",
-    borderRadius: "8px",
-    cursor: "pointer",
-    fontWeight: "bold",
-    marginTop: "18px",
-  };
-}
-
-function smallButton(color) {
-  return {
-    backgroundColor: color,
-    color: "white",
-    border: "none",
-    padding: "7px 10px",
-    borderRadius: "6px",
-    cursor: "pointer",
-    fontWeight: "bold",
-  };
 }
 
 export default FiscalYears;
