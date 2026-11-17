@@ -6,6 +6,7 @@ function AccountingPeriods() {
   const [currentPeriod, setCurrentPeriod] = useState(null);
   const [formOpen, setFormOpen] = useState(false);
   const [selectedChecklist, setSelectedChecklist] = useState(null);
+  const [busy, setBusy] = useState(false);
 
   const [formData, setFormData] = useState({
     fiscalYear: new Date().getFullYear(),
@@ -37,15 +38,29 @@ function AccountingPeriods() {
   }, []);
 
   const savePeriod = async () => {
-    try {
-      await api.post("/api/accounting-periods", formData);
-      alert("Accounting period created successfully.");
-      setFormOpen(false);
-      await loadPeriods();
-    } catch (error) {
-      alert(error?.response?.data?.message || "Could not create accounting period.");
-    }
-  };
+  if (busy) return;
+
+  setBusy(true);
+
+  try {
+    await api.post("/api/accounting-periods", {
+      fiscalYear: formData.fiscalYear,
+      periodMonth: formData.periodMonth,
+      notes: formData.notes,
+    });
+
+    alert("Accounting period created successfully.");
+    setFormOpen(false);
+    await loadPeriods();
+  } catch (error) {
+    alert(
+      error?.response?.data?.message ||
+        "Could not create accounting period."
+    );
+  } finally {
+    setBusy(false);
+  }
+};
 
   const validatePeriod = async (periodNumber) => {
     try {
@@ -68,49 +83,108 @@ function AccountingPeriods() {
 };
 
 const closePeriod = async (periodNumber) => {
-  if (!window.confirm("Close this accounting period after checklist review?")) return;
+  if (busy) return;
+
+  const confirmed = window.confirm(
+    "Close this month for ALL businesses and branches? " +
+    "Confirm that you have reviewed missing activity, bank reconciliation, " +
+    "and depreciation where applicable. " +
+    "The system checks recorded balances but does not verify completeness. " +
+    "Closing blocks posting and creates no income-transfer journals."
+  );
+
+  if (!confirmed) return;
+
+  setBusy(true);
 
   try {
-    await api.put(`/api/accounting-periods/${periodNumber}/close`, {
-      notes: "Closed from EKOS close checklist workflow",
-    });
-    alert("Accounting period closed successfully.");
+    await api.put(
+      `/api/accounting-periods/${encodeURIComponent(periodNumber)}/close`,
+      {
+        notes:
+          "Admin confirmed period review and requested monthly posting closure.",
+      }
+    );
+
+    alert("Accounting period closed. Posting is blocked.");
     setSelectedChecklist(null);
     await loadPeriods();
   } catch (error) {
-    alert(error?.response?.data?.message || "Could not close accounting period.");
+    alert(
+      error?.response?.data?.message ||
+        "Could not close accounting period."
+    );
+  } finally {
+    setBusy(false);
   }
 };
 
 const lockPeriod = async (periodNumber) => {
-    if (!window.confirm("Lock this accounting period? Posting will no longer be allowed.")) return;
+  if (busy) return;
 
-    try {
-      await api.put(`/api/accounting-periods/${periodNumber}/lock`, {
-        notes: "Locked from EKOS Accounting Periods screen",
-      });
-      alert("Accounting period locked successfully.");
-      await loadPeriods();
-    } catch (error) {
-      alert(error?.response?.data?.message || "Could not lock accounting period.");
-    }
-  };
+  if (
+    !window.confirm(
+      "Lock this Closed period for all businesses and branches?"
+    )
+  ) {
+    return;
+  }
+
+  setBusy(true);
+
+  try {
+    await api.put(
+      `/api/accounting-periods/${encodeURIComponent(periodNumber)}/lock`,
+      {
+        notes: "Locked by Admin from Accounting Periods.",
+      }
+    );
+
+    alert("Accounting period locked.");
+    setSelectedChecklist(null);
+    await loadPeriods();
+  } catch (error) {
+    alert(
+      error?.response?.data?.message ||
+        "Could not lock accounting period."
+    );
+  } finally {
+    setBusy(false);
+  }
+};
 
   const reopenPeriod = async (periodNumber) => {
-    const reason = window.prompt("Enter reason for reopening this period:");
+  if (busy) return;
 
-    if (!reason) return;
+  const reason = window
+    .prompt(
+      "Why must this period reopen? Posting will be allowed again " +
+      "for all businesses and branches."
+    )
+    ?.trim();
 
-    try {
-      await api.put(`/api/accounting-periods/${periodNumber}/reopen`, {
-        reason,
-      });
-      alert("Accounting period reopened successfully.");
-      await loadPeriods();
-    } catch (error) {
-      alert(error?.response?.data?.message || "Could not reopen accounting period.");
-    }
-  };
+  if (!reason) return;
+
+  setBusy(true);
+
+  try {
+    await api.put(
+      `/api/accounting-periods/${encodeURIComponent(periodNumber)}/reopen`,
+      { reason }
+    );
+
+    alert("Accounting period reopened. Recheck it after corrections.");
+    setSelectedChecklist(null);
+    await loadPeriods();
+  } catch (error) {
+    alert(
+      error?.response?.data?.message ||
+        "Could not reopen accounting period."
+    );
+  } finally {
+    setBusy(false);
+  }
+};
 
   const statusColor = (status) => {
     if (status === "Open") return "#16a34a";
@@ -129,10 +203,13 @@ const lockPeriod = async (periodNumber) => {
   return (
     <div>
       <div style={{ marginBottom: "20px" }}>
-        <h1 style={{ margin: 0 }}>Fiscal Year & Period Closing</h1>
+        <h1 style={{ margin: 0 }}>Accounting Periods</h1>
         <p style={{ marginTop: "6px", color: MUTED }}>
-          Manage accounting periods, validation, closing, locking, and reopening controls.
-        </p>
+  System-wide monthly posting controls for all businesses and branches.
+  Monthly closing protects recorded figures without creating income-transfer
+  journals. Complete missing records and reconciliation before closing.
+  Creating, closing, locking, and reopening require an Admin.
+</p>
       </div>
 
       <div
@@ -178,19 +255,10 @@ const lockPeriod = async (periodNumber) => {
         ))}
       </select>
 
-      <input
-        type="date"
-        value={formData.startDate}
-        onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
-        style={input}
-      />
-
-      <input
-        type="date"
-        value={formData.endDate}
-        onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
-        style={input}
-      />
+      <p style={{ color: MUTED, gridColumn: "1 / -1" }}>
+  The period automatically covers the first through last day of the
+  selected calendar month.
+</p>
 
       <textarea
         placeholder="Notes"
@@ -202,6 +270,7 @@ const lockPeriod = async (periodNumber) => {
 
     <button onClick={savePeriod} style={{ ...button("#16a34a"), marginTop: "14px" }}>
       Save Accounting Period
+      disabled={busy}
     </button>
   </div>
 )}
@@ -231,24 +300,39 @@ const lockPeriod = async (periodNumber) => {
     </div>
 
     <div style={grid}>
-      {Object.entries(selectedChecklist?.checklist || {}).map(([key, value]) => (
-        <div
-          key={key}
-          style={{
-            border: "1px solid #dbe3ef",
-            borderRadius: "10px",
-            padding: "12px",
-            backgroundColor: value ? "#f0fdf4" : "#fef2f2",
-          }}
-        >
-          <div style={{ fontWeight: "bold", color: value ? "#16a34a" : "#dc2626" }}>
-            {value ? "✓ Passed" : "✕ Required"}
-          </div>
-          <div style={{ marginTop: "6px" }}>
-            {formatChecklistLabel(key)}
-          </div>
-        </div>
-      ))}
+      {Object.entries(selectedChecklist?.checklist || {}).map(([key, value]) => {
+  const unknown = value === null;
+  const passed = value === true;
+  const color = unknown ? "#92400e" : passed ? "#166534" : "#991b1b";
+
+  return (
+    <div
+      key={key}
+      style={{
+        border: "1px solid #dbe3ef",
+        borderRadius: 10,
+        padding: 12,
+        backgroundColor: unknown
+          ? "#fff7ed"
+          : passed
+            ? "#f0fdf4"
+            : "#fef2f2",
+      }}
+    >
+      <div style={{ fontWeight: "bold", color }}>
+        {unknown
+          ? "Not automatically verified"
+          : passed
+            ? "Passed"
+            : "Requires review"}
+      </div>
+
+      <div style={{ marginTop: 6 }}>
+        {formatChecklistLabel(key)}
+      </div>
+    </div>
+  );
+})}
     </div>
 
     {(selectedChecklist?.errors || []).length > 0 && (
@@ -277,7 +361,7 @@ const lockPeriod = async (periodNumber) => {
       <button
         type="button"
         onClick={() => closePeriod(selectedChecklist?.period?.periodNumber)}
-        disabled={!selectedChecklist?.readyToClose}
+        disabled={busy || !selectedChecklist?.readyToClose}
         style={{
           ...button(selectedChecklist?.readyToClose ? "#16a34a" : "#94a3b8"),
           cursor: selectedChecklist?.readyToClose ? "pointer" : "not-allowed",
@@ -325,8 +409,8 @@ const lockPeriod = async (periodNumber) => {
                     <td style={{ color: statusColor(period.status), fontWeight: "bold" }}>
                       {period.status}
                     </td>
-                    <td style={{ color: period.allowPosting ? "#16a34a" : "#dc2626", fontWeight: "bold" }}>
-                      {period.allowPosting ? "Allowed" : "Blocked"}
+                    <td style={{ color: period.status === "Open" && period.allowPosting ? "#16a34a" : "#dc2626", fontWeight: "bold" }}>
+                      {period.status === "Open" && period.allowPosting ? "Allowed" : "Blocked"}
                     </td>
                     <td style={{ color: validationColor(period.validationStatus), fontWeight: "bold" }}>
                       {period.validationStatus || "Not Validated"}
@@ -341,7 +425,7 @@ const lockPeriod = async (periodNumber) => {
 
                       <button
                         onClick={() => closePeriod(period.periodNumber)}
-                        disabled={period.status === "Closed" || period.status === "Locked"}
+                        disabled={busy || !["Open", "Closing"].includes(period.status)}
                         style={{ ...smallButton("#f59e0b"), marginLeft: "8px" }}
                       >
                         Close
@@ -349,7 +433,7 @@ const lockPeriod = async (periodNumber) => {
 
                       <button
                         onClick={() => lockPeriod(period.periodNumber)}
-                        disabled={period.status === "Locked"}
+                        disabled={busy || period.status !== "Closed"}
                         style={{ ...smallButton("#dc2626"), marginLeft: "8px" }}
                       >
                         Lock
@@ -357,7 +441,7 @@ const lockPeriod = async (periodNumber) => {
 
                       <button
                         onClick={() => reopenPeriod(period.periodNumber)}
-                        disabled={period.status === "Open"}
+                        disabled={busy || period.status === "Open"}
                         style={{ ...smallButton("#16a34a"), marginLeft: "8px" }}
                       >
                         Reopen
