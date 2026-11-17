@@ -268,10 +268,18 @@ const lockPeriod = async (periodNumber) => {
       />
     </div>
 
-    <button onClick={savePeriod} style={{ ...button("#16a34a"), marginTop: "14px" }}>
-      Save Accounting Period
-      disabled={busy}
-    </button>
+    <button
+  type="button"
+  onClick={savePeriod}
+  disabled={busy}
+  style={{
+    ...button("#16a34a"),
+    marginTop: "14px",
+    opacity: busy ? 0.65 : 1,
+  }}
+>
+  {busy ? "Saving..." : "Save Accounting Period"}
+</button>
   </div>
 )}
 
