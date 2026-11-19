@@ -2,7 +2,9 @@ import { useEffect, useMemo, useState } from "react";
 import { jsPDF } from "jspdf";
 import { autoTable } from "jspdf-autotable";
 import api from "../api";
+import PayrollEmployerOwnership from "../components/PayrollEmployerOwnership";
 import { useAuth } from "../context/AuthContext";
+
 
 const EMPTY_FORM = {
   employeeId: "",
@@ -1256,11 +1258,13 @@ const exportPayrollRegisterCsv = () => {
   return (
     <div style={{ maxWidth: "1500px", margin: "0 auto" }}>
       <div style={{ marginBottom: "20px" }}>
-        <h1 style={{ margin: 0, color: "#0f172a" }}>Payroll</h1>
+                <h1 style={{ margin: 0, color: "#0f172a" }}>Payroll</h1>
         <p style={{ margin: "6px 0 0", color: MUTED }}>
           Manage employee earnings, deductions, payment accounts, and payslips.
         </p>
       </div>
+
+      {user?.role === "Admin" && <PayrollEmployerOwnership />}
 
       {error && (
         <div style={errorStyle}>
