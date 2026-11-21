@@ -519,6 +519,15 @@ const currentInvoiceBalance =
           return;
         }
 
+        if (
+  invoiceType === "Shipping" &&
+  handoverTrackingNumbers.length > 0 &&
+  String(amountTendered).trim() === ""
+) {
+  alert("Enter the amount the customer is paying for this pickup.");
+  return;
+}
+
         const tendered =
           amountTendered === ""
             ? getInvoiceBalance(latestInvoice)
@@ -544,14 +553,6 @@ const currentInvoiceBalance =
             alert(
               "The packages ready for pickup have changed. " +
               "Review the refreshed list before pressing PAY again."
-            );
-            return;
-          }
-
-          if (Math.round(tendered * 100) < Math.round(getInvoiceBalance(latestInvoice) * 100)) {
-            alert(
-              "This payment does not clear the balance. " +
-              "Uncheck the handover packages to record a partial payment."
             );
             return;
           }
