@@ -1,7 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import api from "../api";
 
 export default function SeasonalBrandingManager({ campaigns, onScheduled }) {
+    const fileInputRef = useRef(null);
+  const headingRef = useRef(null);
+  const [editingEvent, setEditingEvent] = useState(null);
   const [eventName, setEventName] = useState("");
   const [file, setFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState("");
@@ -44,71 +47,114 @@ const [message, setMessage] = useState("");
     };
   }, [file]);
 
+    const clearArtworkSelection = () => {
+    setFile(null);
+    setPreviewUrl("");
+    setImageError("");
+    setUploadedIcon(null);
+
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
+  const resetForm = () => {
+    setEditingEvent(null);
+    setEventName("");
+    setStartsOn("");
+    setEndsOn("");
+    clearArtworkSelection();
+  };
+
+  const startEditing = (item) => {
+    const dateInput = (value) =>
+      new Date(value).toISOString().slice(0, 10);
+
+    clearArtworkSelection();
+    setMessage("");
+    setEditingEvent(item);
+    setEventName(item.name);
+    setStartsOn(dateInput(item.startsAt));
+
+    // endsAt is the midnight after the last active day.
+    setEndsOn(dateInput(Date.parse(item.endsAt) - 24 * 60 * 60 * 1000));
+
+    headingRef.current?.scrollIntoView({ block: "start" });
+  };
+
   const scheduleEvent = async () => {
-  if (saving) return;
+    if (saving) return;
 
-  const name = eventName.trim();
-  if (!name || name.length > 120) {
-    setMessage("Enter an event name of up to 120 characters.");
-    return;
-  }
+    const name = eventName.trim();
 
-  if (!file || !previewUrl || imageError) {
-    setMessage("Choose a square image and wait for the preview to appear.");
-    return;
-  }
+    if (!name || name.length > 120) {
+      setMessage("Enter an event name of up to 120 characters.");
+      return;
+    }
 
-  if (file.size > 5 * 1024 * 1024) {
-    setMessage("Choose an image that is 5 MB or smaller.");
-    return;
-  }
+    if ((!editingEvent && !file) || (file && (!previewUrl || imageError))) {
+      setMessage("Choose a square image and wait for the preview to appear.");
+      return;
+    }
 
-  if (!startsOn || !endsOn || endsOn < startsOn) {
-    setMessage("Choose a start date and a last active date in Jamaica time.");
-    return;
-  }
+    if (file && file.size > 5 * 1024 * 1024) {
+      setMessage("Choose an image that is 5 MB or smaller.");
+      return;
+    }
 
-  setSaving(true);
-  setMessage("");
+    if (!startsOn || !endsOn || endsOn < startsOn) {
+      setMessage("Choose a start date and a last active date in Jamaica time.");
+      return;
+    }
 
-  try {
-    let publicId = uploadedIcon?.file === file ? uploadedIcon.publicId : null;
+    setSaving(true);
+    setMessage("");
 
-    if (!publicId) {
-      const body = new FormData();
-      body.append("icon", file);
+    try {
+      const payload = { name, startsOn, endsOn };
 
-      const upload = await api.post("/api/settings/seasonal-branding/icon", body);
-      publicId = upload.data?.data?.publicId;
+      if (file) {
+        let publicId = uploadedIcon?.file === file ? uploadedIcon.publicId : null;
 
-      if (!publicId) {
-        throw new Error("The icon upload could not be confirmed. Please try again.");
+        if (!publicId) {
+          const body = new FormData();
+          body.append("icon", file);
+
+          const upload = await api.post("/api/settings/seasonal-branding/icon", body);
+          publicId = upload.data?.data?.publicId;
+
+          if (!publicId) {
+            throw new Error("The icon upload could not be confirmed. Please try again.");
+          }
+
+          setUploadedIcon({ file, publicId });
+        }
+
+        payload.publicId = publicId;
       }
 
-      setUploadedIcon({ file, publicId });
+      const endpoint = "/api/settings/seasonal-branding/campaigns";
+      const response = editingEvent
+        ? await api.put(`${endpoint}/${encodeURIComponent(editingEvent._id)}`, payload)
+        : await api.post(endpoint, payload);
+
+      if (!Array.isArray(response.data?.data)) {
+        throw new Error("Reload Settings to check whether the event was saved.");
+      }
+
+      onScheduled(response.data.data);
+      resetForm();
+      setMessage(`${name} ${editingEvent ? "updated" : "scheduled"}.`);
+    } catch (error) {
+      setMessage(
+        error.response?.data?.message ||
+          error.message ||
+          "The event could not be saved. Please try again."
+      );
+    } finally {
+      setSaving(false);
     }
-
-    const response = await api.post(
-      "/api/settings/seasonal-branding/campaigns",
-      { name, startsOn, endsOn, publicId }
-    );
-
-    if (!Array.isArray(response.data?.data)) {
-      throw new Error("Reload Settings to check whether the event was saved.");
-    }
-
-    onScheduled(response.data.data);
-    setMessage(`${name} scheduled. You can check the dates under Saved events.`);
-  } catch (error) {
-    setMessage(
-      error.response?.data?.message ||
-      error.message ||
-      "The event could not be saved. Please try again."
-    );
-  } finally {
-    setSaving(false);
-  }
-};
+  };
 
     const savedEvents = [...campaigns].sort(
     (a, b) => new Date(a.startsAt) - new Date(b.startsAt)
@@ -120,10 +166,11 @@ const [message, setMessage] = useState("");
       (item) => Date.parse(item.startsAt) <= now && now < Date.parse(item.endsAt)
     ) || savedEvents.find((item) => Date.parse(item.startsAt) > now);
 
-  const previewImage = file ? previewUrl : previewEvent?.icons?.["192"];
-  const previewLabel = file
+    const artworkEvent = editingEvent || previewEvent;
+  const previewImage = file ? previewUrl : artworkEvent?.icons?.["192"];
+  const previewLabel = file || editingEvent
     ? eventName.trim() || "Selected artwork"
-    : previewEvent?.name || "";
+    : artworkEvent?.name || "";
 
   const jamaicaDate = (value) =>
     new Date(value).toLocaleDateString("en-JM", {
@@ -279,7 +326,9 @@ const [message, setMessage] = useState("");
         }
       `}</style>
 
-      <h2 id="seasonal-branding-title">Seasonal Branding</h2>
+            <h2 ref={headingRef} id="seasonal-branding-title">
+        Seasonal Branding
+      </h2>
       <p className="ek-intro">
         Schedule the icon customers see on their Home Screen and in the customer portal.
       </p>
@@ -300,6 +349,7 @@ const [message, setMessage] = useState("");
           <label>
             Icon artwork
             <input
+            ref={fileInputRef}
               type="file"
               accept="image/png,image/jpeg,image/webp"
               disabled={saving}
@@ -311,6 +361,7 @@ const [message, setMessage] = useState("");
               }}
             />
             <span id="ek-artwork-help" className="ek-help">
+                            {editingEvent && "Leave blank to keep the current artwork. "}
               Square PNG, JPG or WebP · At least 512 × 512 pixels · Up to 5 MB
             </span>
           </label>
@@ -334,10 +385,27 @@ const [message, setMessage] = useState("");
             Dates use Jamaica time. The icon stays active through the last day.
           </p>
 
-          <button type="button" className="ek-schedule"
-            disabled={saving} onClick={scheduleEvent}>
-            {saving ? "Saving event…" : "Schedule event"}
+                    <button
+            type="button"
+            className="ek-schedule"
+            disabled={saving}
+            onClick={scheduleEvent}
+          >
+            {saving ? "Saving event…" : editingEvent ? "Save changes" : "Schedule event"}
           </button>
+
+          {editingEvent && (
+            <button
+              type="button"
+              disabled={saving}
+              onClick={() => {
+                resetForm();
+                setMessage("");
+              }}
+            >
+              Cancel edit
+            </button>
+          )}
 
           {message && <p role="status" className="ek-feedback">{message}</p>}
         </div>
@@ -377,6 +445,14 @@ const [message, setMessage] = useState("");
                     {jamaicaDate(item.startsAt)} – {jamaicaDate(Date.parse(item.endsAt) - 1)}
                   </div>
                 </div>
+                                <button
+                  type="button"
+                  disabled={saving}
+                  aria-label={`Edit ${item.name}`}
+                  onClick={() => startEditing(item)}
+                >
+                  Edit
+                </button>
               </li>
             ))}
           </ul>
