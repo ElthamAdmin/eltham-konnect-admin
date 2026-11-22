@@ -52,6 +52,7 @@ const loadStorageLaunchPreview = async () => {
 
   const [formData, setFormData] = useState({
     trackingNumber: "",
+    itemDescription: "",
     customerEkonId: "",
     customerName: "",
     courier: "",
@@ -183,6 +184,7 @@ const clearWeightAnalysisFilter = async () => {
         setShowForm(false);
         setFormData({
           trackingNumber: "",
+          itemDescription: "",
           customerEkonId: "",
           customerName: "",
           courier: "",
@@ -1100,6 +1102,21 @@ const clearWeightAnalysisFilter = async () => {
               value={formData.trackingNumber}
               onChange={handleChange}
               style={{ padding: "10px", borderRadius: "8px", border: `1px solid ${BORDER}` }}
+            />
+
+                        <input
+              type="text"
+              name="itemDescription"
+              aria-label="Package description (visible to customer)"
+              placeholder="Package description (optional)"
+              maxLength={2000}
+              value={formData.itemDescription}
+              onChange={handleChange}
+              style={{
+                padding: "10px",
+                borderRadius: "8px",
+                border: `1px solid ${BORDER}`,
+              }}
             />
 
             <input

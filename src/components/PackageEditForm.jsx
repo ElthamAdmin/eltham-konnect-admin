@@ -26,7 +26,8 @@ export default function PackageEditForm({
   const [error, setError] = useState("");
 
   const [form, setForm] = useState({
-    trackingNumber: pkg.trackingNumber || "",
+        trackingNumber: pkg.trackingNumber || "",
+    itemDescription: pkg.itemDescription || "",
     weight: String(pkg.weight ?? 0),
     courier: pkg.courier || "",
     warehouseLocation: pkg.warehouseLocation || "",
@@ -91,6 +92,12 @@ export default function PackageEditForm({
         reason: form.reason.trim(),
         editVersion: Number(pkg.editVersion || 0),
       };
+
+            const itemDescription = form.itemDescription.trim();
+
+      if (itemDescription !== (pkg.itemDescription || "")) {
+        payload.itemDescription = itemDescription;
+      }
 
       if (form.dateReceived) {
         payload.dateReceived = form.dateReceived;
@@ -220,6 +227,17 @@ export default function PackageEditForm({
                 onChange={handleChange}
                 maxLength={200}
                 required
+                style={inputStyle}
+              />
+            </label>
+
+                        <label style={labelStyle}>
+              Package description (visible to customer)
+              <input
+                name="itemDescription"
+                value={form.itemDescription}
+                onChange={handleChange}
+                maxLength={2000}
                 style={inputStyle}
               />
             </label>
