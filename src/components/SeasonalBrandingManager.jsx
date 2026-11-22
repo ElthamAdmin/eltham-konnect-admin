@@ -110,122 +110,277 @@ const [message, setMessage] = useState("");
   }
 };
 
+    const savedEvents = [...campaigns].sort(
+    (a, b) => new Date(a.startsAt) - new Date(b.startsAt)
+  );
+
+  const now = Date.now();
+  const previewEvent =
+    savedEvents.find(
+      (item) => Date.parse(item.startsAt) <= now && now < Date.parse(item.endsAt)
+    ) || savedEvents.find((item) => Date.parse(item.startsAt) > now);
+
+  const previewImage = file ? previewUrl : previewEvent?.icons?.["192"];
+  const previewLabel = file
+    ? eventName.trim() || "Selected artwork"
+    : previewEvent?.name || "";
+
+  const jamaicaDate = (value) =>
+    new Date(value).toLocaleDateString("en-JM", {
+      timeZone: "America/Jamaica",
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    });
+
   return (
-    <section
-      aria-labelledby="seasonal-branding-title"
-      style={{
-        background: "white",
-        padding: 20,
-        marginBottom: 20,
-        border: "1px solid #dbe3ef",
-        borderRadius: 12,
-      }}
-    >
+    <section className="ek-seasonal" aria-labelledby="seasonal-branding-title">
+      <style>{`
+        .ek-seasonal {
+          --ek-blue: #0b3d91;
+          --ek-orange: #f15a24;
+          box-sizing: border-box;
+          margin-bottom: 20px;
+          padding: clamp(16px, 2vw, 26px);
+          background: #fff;
+          color: #172a44;
+          border: 1px solid #d5e1f0;
+          border-radius: 12px;
+        }
+        .ek-seasonal *, .ek-seasonal *::before, .ek-seasonal *::after {
+          box-sizing: border-box;
+        }
+        .ek-seasonal h2, .ek-seasonal h3, .ek-seasonal p,
+        .ek-seasonal figure { margin: 0; }
+        .ek-seasonal h2 { color: #10294f; font-size: 23px; }
+        .ek-seasonal h3 { color: #10294f; font-size: 16px; }
+        .ek-seasonal .ek-intro {
+          margin: 6px 0 20px;
+          color: #475b76;
+          line-height: 1.5;
+        }
+        .ek-seasonal .ek-columns {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+          gap: 24px;
+          align-items: start;
+        }
+        .ek-seasonal .ek-fields { display: grid; gap: 16px; min-width: 0; }
+        .ek-seasonal label {
+          display: grid;
+          gap: 6px;
+          color: #172a44;
+          font-size: 14px;
+          font-weight: 650;
+        }
+        .ek-seasonal input {
+          display: block;
+          width: 100%;
+          min-width: 0;
+          min-height: 42px;
+          padding: 9px 11px;
+          background: #fff;
+          color: #172a44;
+          border: 1px solid #b4c5db;
+          border-radius: 7px;
+          font: inherit;
+          font-weight: 400;
+        }
+        .ek-seasonal input[type=file] { padding: 5px; }
+        .ek-seasonal input::file-selector-button {
+          margin-right: 10px;
+          padding: 7px 10px;
+          border: 1px solid #b4c5db;
+          border-radius: 4px;
+          background: #edf3fc;
+          color: var(--ek-blue);
+          font-weight: 650;
+          cursor: pointer;
+        }
+        .ek-seasonal .ek-dates {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(min(100%, 155px), 1fr));
+          gap: 12px;
+        }
+        .ek-seasonal .ek-help { color: #475b76; font-size: 13px; }
+        .ek-seasonal .ek-error { color: #9b2525; }
+        .ek-seasonal button.ek-schedule {
+          justify-self: start;
+          min-height: 44px;
+          padding: 10px 22px;
+          background: var(--ek-blue);
+          color: #fff;
+          border: 1px solid var(--ek-blue);
+          border-radius: 7px;
+          font: inherit;
+          font-weight: 700;
+          cursor: pointer;
+          opacity: 1;
+        }
+        .ek-seasonal button.ek-schedule:hover { background: #082f72; }
+        .ek-seasonal button.ek-schedule:disabled {
+          background: #425674;
+          color: #fff;
+          cursor: wait;
+        }
+        .ek-seasonal :is(input, button):focus-visible {
+          outline: 3px solid #ce521e;
+          outline-offset: 2px;
+        }
+        .ek-seasonal .ek-preview {
+          margin-top: 9px;
+          min-height: 245px;
+          display: grid;
+          place-content: center;
+          justify-items: center;
+          gap: 10px;
+          padding: 28px;
+          border-radius: 12px;
+          border-bottom: 4px solid var(--ek-orange);
+          background: linear-gradient(145deg, #082653, #0b3d91 65%, #1554ab);
+          color: #fff;
+          text-align: center;
+        }
+        .ek-seasonal .ek-preview img {
+          display: block;
+          width: 72px;
+          height: 72px;
+          object-fit: contain;
+          background: white;
+          border-radius: 16px;
+          box-shadow: 0 4px 12px #00193766;
+        }
+        .ek-seasonal figcaption { margin-top: 9px; color: #475b76; font-size: 13px; }
+        .ek-seasonal .ek-feedback {
+          padding: 10px 12px;
+          border-left: 3px solid var(--ek-blue);
+          background: #edf3fc;
+          color: #173962;
+        }
+        .ek-seasonal .ek-saved {
+          margin-top: 22px;
+          padding-top: 18px;
+          border-top: 1px solid #d5e1f0;
+        }
+        .ek-seasonal .ek-saved ul { margin: 8px 0 0; padding: 0; list-style: none; }
+        .ek-seasonal .ek-saved li {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          padding: 10px 0;
+          border-bottom: 1px solid #e5ecf5;
+        }
+        .ek-seasonal .ek-saved img {
+          width: 42px;
+          height: 42px;
+          object-fit: contain;
+          border: 1px solid #d5e1f0;
+          border-radius: 9px;
+        }
+      `}</style>
+
       <h2 id="seasonal-branding-title">Seasonal Branding</h2>
-      <p>Preview a seasonal Home Screen icon for the Eltham Konnect customer portal.</p>
+      <p className="ek-intro">
+        Schedule the icon customers see on their Home Screen and in the customer portal.
+      </p>
 
-      <div style={{ display: "grid", gap: 14, maxWidth: 460 }}>
-        <label>
-          Event name
-          <input
-            type="text"
-            value={eventName}
-            onChange={(event) => setEventName(event.target.value)}
-            placeholder="Black Friday"
-            style={{ display: "block", width: "100%" }}
-          />
-        </label>
-
-        <label>
-          Square icon artwork
-          <input
-            type="file"
-            accept="image/png,image/jpeg,image/webp"
-            onChange={(event) => setFile(event.target.files?.[0] || null)}
-            style={{ display: "block" }}
-          />
-        </label>
-
-        {imageError && <p role="alert">{imageError}</p>}
-
-        {previewUrl && (
-          <figure style={{ margin: 0 }}>
-            <img
-              src={previewUrl}
-              alt={`${eventName.trim() || "Seasonal"} Home Screen icon preview`}
-              width="64"
-              height="64"
-              style={{ display: "block", borderRadius: 14 }}
+      <div className="ek-columns">
+        <div className="ek-fields">
+          <label>
+            Event name
+            <input
+              value={eventName}
+              maxLength={120}
+              placeholder="Enter an event name"
+              disabled={saving}
+              onChange={(e) => setEventName(e.target.value)}
             />
-            <figcaption>Eltham Konnect</figcaption>
-          </figure>
+          </label>
+
+          <label>
+            Icon artwork
+            <input
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              disabled={saving}
+              aria-describedby="ek-artwork-help"
+              onChange={(e) => {
+                setPreviewUrl("");
+                setMessage("");
+                setFile(e.target.files?.[0] || null);
+              }}
+            />
+            <span id="ek-artwork-help" className="ek-help">
+              Square PNG, JPG or WebP · At least 512 × 512 pixels · Up to 5 MB
+            </span>
+          </label>
+
+          {imageError && <p role="alert" className="ek-error">{imageError}</p>}
+
+          <div className="ek-dates">
+            <label>
+              Start date
+              <input type="date" value={startsOn} disabled={saving}
+                onChange={(e) => setStartsOn(e.target.value)} />
+            </label>
+            <label>
+              Last active date
+              <input type="date" value={endsOn} min={startsOn || undefined}
+                disabled={saving} onChange={(e) => setEndsOn(e.target.value)} />
+            </label>
+          </div>
+
+          <p className="ek-help">
+            Dates use Jamaica time. The icon stays active through the last day.
+          </p>
+
+          <button type="button" className="ek-schedule"
+            disabled={saving} onClick={scheduleEvent}>
+            {saving ? "Saving event…" : "Schedule event"}
+          </button>
+
+          {message && <p role="status" className="ek-feedback">{message}</p>}
+        </div>
+
+        <figure>
+          <h3>Home Screen preview</h3>
+          <div className="ek-preview">
+            {previewImage ? (
+              <>
+                <img src={previewImage} alt={`${previewLabel} app icon`} />
+                <strong>Eltham Konnect</strong>
+              </>
+            ) : (
+              <span>Choose square artwork to preview the app icon.</span>
+            )}
+          </div>
+          {previewImage && (
+            <figcaption>
+              {file ? "Selected artwork" : "Saved event"} · {previewLabel}
+            </figcaption>
+          )}
+        </figure>
+      </div>
+
+      <div className="ek-saved">
+        <h3>Saved events</h3>
+        {savedEvents.length === 0 ? (
+          <p className="ek-help">No seasonal events scheduled yet.</p>
+        ) : (
+          <ul>
+            {savedEvents.map((item) => (
+              <li key={item._id}>
+                {item.icons?.["192"] && <img src={item.icons["192"]} alt="" />}
+                <div>
+                  <strong>{item.name}</strong>
+                  <div className="ek-help">
+                    {jamaicaDate(item.startsAt)} – {jamaicaDate(Date.parse(item.endsAt) - 1)}
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ul>
         )}
-
-        <label>
-          Start date (Jamaica)
-          <input
-            type="date"
-            value={startsOn}
-            onChange={(event) => setStartsOn(event.target.value)}
-            style={{ display: "block" }}
-          />
-        </label>
-
-        <label>
-          Last active date (Jamaica)
-          <input
-            type="date"
-            value={endsOn}
-            min={startsOn || undefined}
-            onChange={(event) => setEndsOn(event.target.value)}
-            style={{ display: "block" }}
-          />
-        </label>
-
-        {startsOn && endsOn && endsOn < startsOn && (
-          <p role="alert">The last active date must be on or after the start date.</p>
-        )}
-
-        <button
-  type="button"
-  onClick={scheduleEvent}
-  disabled={saving || !previewUrl || !eventName.trim() || !startsOn || !endsOn || endsOn < startsOn}
->
-  {saving ? "Saving event…" : "Schedule event"}
-</button>
-
-<p role="status" style={{ margin: 0 }}>{message}</p>
-
-<h3 style={{ marginBottom: 0 }}>Saved events</h3>
-
-{campaigns.length === 0 ? (
-  <p style={{ margin: 0 }}>No seasonal events scheduled yet.</p>
-) : (
-  <ul>
-    {[...campaigns]
-      .sort((a, b) => new Date(a.startsAt) - new Date(b.startsAt))
-      .map((campaign) => {
-        const dateFormat = {
-          timeZone: "America/Jamaica",
-          year: "numeric",
-          month: "short",
-          day: "numeric",
-        };
-
-        const start = new Date(campaign.startsAt).toLocaleDateString("en-JM", dateFormat);
-
-        // The backend stores the first instant after the final active day.
-        const lastDay = new Date(new Date(campaign.endsAt).getTime() - 1)
-          .toLocaleDateString("en-JM", dateFormat);
-
-        return (
-          <li key={campaign._id}>
-            <strong>{campaign.name}</strong> — {start} to {lastDay}
-          </li>
-        );
-      })}
-  </ul>
-)}
       </div>
     </section>
   );
