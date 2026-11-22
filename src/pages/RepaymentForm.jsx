@@ -102,8 +102,16 @@ export default function RepaymentForm({ number, accounts, close, saved }) {
   return (
     <dialog ref={dialog} aria-labelledby="repayment-title"
       onCancel={event => { event.preventDefault(); if (!busy) close(); }}
-      style={{width:"min(460px, 92vw)", boxSizing:"border-box", padding:24,
-        border:"1px solid #bdcbe0", borderRadius:12, color:"#172b47"}}>
+            style={{
+        width: "min(460px, 92vw)",
+        boxSizing: "border-box",
+        padding: 24,
+        border: "1px solid #bdcbe0",
+        borderRadius: 12,
+        color: "#172b47",
+        backgroundColor: "#FFFFFF",
+        colorScheme: "light",
+      }}>
       <h2 id="repayment-title" style={{color:"#0B3D91", marginTop:0}}>
         Record customer repayment
       </h2>
