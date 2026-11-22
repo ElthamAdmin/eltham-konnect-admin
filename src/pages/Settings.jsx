@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import api from "../api";
 import CustomerPolicyManager from "../components/CustomerPolicyManager";
 import LoginAppearanceManager from "../components/LoginAppearanceManager";
-
+import SeasonalBrandingManager from "../components/SeasonalBrandingManager";
 function Settings() {
   const [settings, setSettings] = useState({
     companyName: "",
@@ -899,6 +899,13 @@ function Settings() {
       </div>
 
       <LoginAppearanceManager />
+
+      <SeasonalBrandingManager
+  campaigns={settings.seasonalCampaigns || []}
+  onScheduled={(seasonalCampaigns) =>
+    setSettings((current) => ({ ...current, seasonalCampaigns }))
+  }
+/>
 
       <div style={cardStyle}>
         <h2>Branches</h2>
