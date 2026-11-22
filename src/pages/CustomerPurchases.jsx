@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import api from "../api";
+import RepaymentForm from "./RepaymentForm";
 
 const ROYAL_BLUE = "#0B3D91";
 const GOLD = "#D4AF37";
@@ -76,6 +77,7 @@ function CustomerPurchases() {
   const [customers, setCustomers] = useState([]);
   const [accounts, setAccounts] = useState([]);
   const [packages, setPackages] = useState([]);
+  const [repaymentNumber, setRepaymentNumber] = useState("");
 
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -731,7 +733,8 @@ function CustomerPurchases() {
   ) => {
     if (
       purchase.status !== "Ready to Invoice" ||
-      purchase.recoveryStatus !== "Not Invoiced"
+      !["Not Invoiced", "Partially Paid"].includes(purchase.recoveryStatus) ||
+      !purchase.invoiceReady || purchase.invoiceNumber || purchase.outstandingAmount <= 0
     ) {
       alert(
         "Prepare the recovery charges before generating the invoice."
@@ -740,8 +743,8 @@ function CustomerPurchases() {
     }
 
     const confirmed = window.confirm(
-      `Generate a recovery invoice for ${purchase.purchaseNumber}?\n\nTotal: ${formatMoney(
-        purchase.totalCustomerCharge
+      `Generate a recovery invoice for ${purchase.purchaseNumber}?\n\nRemaining to invoice: ${formatMoney(
+        purchase.outstandingAmount
       )}`
     );
 
@@ -1324,6 +1327,15 @@ function CustomerPurchases() {
 
   return (
     <div style={{ backgroundColor: LIGHT_BG, minHeight: "100vh" }}>
+      {repaymentNumber && (
+        <RepaymentForm
+          key={repaymentNumber}
+          number={repaymentNumber}
+          accounts={accounts}
+          close={() => setRepaymentNumber("")}
+          saved={refreshPage}
+        />
+      )}
       <div
         style={{
           display: "flex",
@@ -2163,7 +2175,16 @@ function CustomerPurchases() {
                         View
                       </button>
 
-                                            {!purchase.trackingNumber &&
+                      {purchase.journalEntryNumber && purchase.outstandingAmount > 0 &&
+                        !["Cancelled", "Reversed", "Refunded", "Pending Purchase"].includes(purchase.status) &&
+                        !["Paid", "Written Off", "Refunded"].includes(purchase.recoveryStatus) && (
+                          <button type="button" style={buttonStyle("#0B3D91")}
+                            onClick={() => setRepaymentNumber(purchase.purchaseNumber)}>
+                            Record customer repayment
+                          </button>
+                        )}
+
+                      {!purchase.trackingNumber &&
                         purchase.status ===
                           "Purchased" && (
                           <button
@@ -2247,8 +2268,8 @@ function CustomerPurchases() {
                         purchase.status ===
                           "Ready to Invoice" &&
                         purchase.invoiceReady === true &&
-                        purchase.recoveryStatus ===
-                          "Not Invoiced" && (
+                        ["Not Invoiced", "Partially Paid"].includes(purchase.recoveryStatus) &&
+                        purchase.outstandingAmount > 0 && (
                           <button
                             onClick={() =>
                               generateRecoveryInvoice(
